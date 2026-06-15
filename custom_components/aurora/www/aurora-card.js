@@ -75,12 +75,23 @@ const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);
 /** Subscribe to the live alarm collection. Returns the unsubscribe promise. */
 function subscribeAlarms(hass, onChange) {
     const items = new Map();
-    return hass.connection.subscribeMessage((ev) => {
-        if ((ev.type === "added" || ev.type === "updated") && ev.item) {
-            items.set(ev.item.id, ev.item);
+    const apply = (ch) => {
+        if ((ch.change_type === "added" || ch.change_type === "updated") && ch.item) {
+            items.set(ch.item.id, ch.item);
         }
-        else if (ev.type === "removed" && ev.item_id) {
-            items.delete(ev.item_id);
+        else if (ch.change_type === "removed") {
+            const id = ch.alarm_id ?? ch.item?.id;
+            if (id)
+                items.delete(id);
+        }
+    };
+    return hass.connection.subscribeMessage((msg) => {
+        // HA sends an array of changes (and the initial state as added changes).
+        if (Array.isArray(msg)) {
+            msg.forEach(apply);
+        }
+        else {
+            apply(msg);
         }
         onChange([...items.values()].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? "")));
     }, { type: "aurora/alarms/subscribe" });

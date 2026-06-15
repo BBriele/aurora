@@ -1,10 +1,14 @@
 /** Typed wrappers over the Aurora backend WebSocket + service contract. */
 import type { Alarm, AlarmInput, AuroraSettings, HomeAssistant, RoleEntities } from "./types";
 
-interface CollectionEvent {
-  type: "added" | "updated" | "removed";
+/**
+ * One change as emitted by HA's StorageCollectionWebsocket subscribe command:
+ * `{ change_type, <model>_id, item }`. For us the id key is `alarm_id`.
+ */
+interface CollectionChange {
+  change_type: "added" | "updated" | "removed";
+  alarm_id?: string;
   item?: Alarm;
-  item_id?: string;
 }
 
 /** Subscribe to the live alarm collection. Returns the unsubscribe promise. */
@@ -13,12 +17,21 @@ export function subscribeAlarms(
   onChange: (alarms: Alarm[]) => void
 ): Promise<() => void> {
   const items = new Map<string, Alarm>();
-  return hass.connection.subscribeMessage<CollectionEvent>(
-    (ev) => {
-      if ((ev.type === "added" || ev.type === "updated") && ev.item) {
-        items.set(ev.item.id, ev.item);
-      } else if (ev.type === "removed" && ev.item_id) {
-        items.delete(ev.item_id);
+  const apply = (ch: CollectionChange): void => {
+    if ((ch.change_type === "added" || ch.change_type === "updated") && ch.item) {
+      items.set(ch.item.id, ch.item);
+    } else if (ch.change_type === "removed") {
+      const id = ch.alarm_id ?? ch.item?.id;
+      if (id) items.delete(id);
+    }
+  };
+  return hass.connection.subscribeMessage<CollectionChange | CollectionChange[]>(
+    (msg) => {
+      // HA sends an array of changes (and the initial state as added changes).
+      if (Array.isArray(msg)) {
+        msg.forEach(apply);
+      } else {
+        apply(msg);
       }
       onChange(
         [...items.values()].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""))
