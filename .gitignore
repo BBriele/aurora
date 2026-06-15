@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node / card build
+node_modules/
+aurora-card/node_modules/
+aurora-card/dist/
+*.tsbuildinfo
+
+# Editors / OS / local agent config
+.idea/
+.vscode/
+.claude/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local HA test artifacts
+.storage/
+config/

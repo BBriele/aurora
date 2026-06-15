@@ -1,0 +1,22 @@
+{
+  "name": "aurora-card",
+  "version": "0.0.1",
+  "description": "Aurora Lovelace card",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.0",
+    "rollup": "^4.21.0",
+    "tslib": "^2.7.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "title": "Aurora",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configura Aurora",
+        "description": "Aurora è la tua sveglia smart. Collega i dispositivi (altoparlanti, luci, notifiche…) in seguito nelle opzioni — non serve nulla per iniziare.",
+        "data": {
+          "owner": "Proprietario principale"
+        },
+        "data_description": {
+          "owner": "Nome facoltativo della persona a cui appartiene principalmente questa installazione."
+        }
+      },
+      "reconfigure": {
+        "title": "Riconfigura Aurora",
+        "data": {
+          "owner": "Proprietario principale"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Aurora è già configurata. È supportata una sola installazione — aggiungi le sveglie al suo interno.",
+      "reconfigure_successful": "Aurora è stata riconfigurata."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Associazione dei ruoli",
+        "description": "Associa i ruoli astratti ai tuoi dispositivi. Ogni campo è facoltativo — lascia vuoto un ruolo e Aurora salterà semplicemente quella funzione. L'orario esatto della sveglia è sempre garantito.",
+        "data": {
+          "audio_sink": "Altoparlante (suoneria)",
+          "wake_light": "Luce alba / schermo",
+          "display_surface": "Superficie display",
+          "notify_channel": "Canali di notifica",
+          "sleep_signal": "Segnali di sonno",
+          "presence_signal": "Segnali di presenza",
+          "conversation": "Agente vocale",
+          "tts": "Sintesi vocale",
+          "skip_calendars": "Calendari per salto",
+          "holiday_calendars": "Calendari festività",
+          "ring_max_duration": "Durata massima suoneria"
+        },
+        "data_description": {
+          "audio_sink": "Un media player usato per riprodurre la suoneria.",
+          "wake_light": "Una luce dimmerabile, WLED o un number di luminosità schermo per l'alba.",
+          "display_surface": "Un tablet/schermo che può mostrare la schermata di suoneria.",
+          "notify_channel": "Dove vengono inviate le notifiche di suoneria (telefono, orologio, overlay…).",
+          "sleep_signal": "Sensori che indicano se stai dormendo, per il risveglio anticipato.",
+          "presence_signal": "Sensori che indicano se sei presente/sveglio.",
+          "ring_max_duration": "Arresto automatico di sicurezza se una suoneria non viene mai fermata."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "alarm": {
+      "title": "Sveglia",
+      "initiate_flow": {
+        "user": "Aggiungi sveglia"
+      },
+      "step": {
+        "user": {
+          "title": "Aggiungi sveglia",
+          "description": "Crea una nuova sveglia. Potrai modificarla o rimuoverla dalla card di Aurora.",
+          "data": {
+            "time": "Orario",
+            "label": "Etichetta",
+            "repeat_mode": "Ripetizione",
+            "weekdays": "Giorni",
+            "mission": "Missione di spegnimento"
+          },
+          "data_description": {
+            "weekdays": "Usato solo quando la Ripetizione è impostata su Settimanale."
+          }
+        }
+      },
+      "abort": {
+        "alarm_created": "Sveglia creata. Gestiscila dalla card di Aurora."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Stato",
+        "state": {
+          "idle": "Inattiva",
+          "pre_wake": "Pre-risveglio",
+          "ringing": "In suoneria",
+          "snoozed": "Posticipata",
+          "mission": "Missione",
+          "dismissed": "Fermata",
+          "post_wake": "Post-risveglio"
+        }
+      },
+      "next_alarm": {
+        "name": "Prossima sveglia"
+      },
+      "vision_latency": {
+        "name": "Latenza visione"
+      }
+    },
+    "binary_sensor": {
+      "ringing": {
+        "name": "In suoneria"
+      }
+    }
+  },
+  "selector": {
+    "repeat_mode": {
+      "options": {
+        "once": "Una volta",
+        "daily": "Ogni giorno",
+        "weekly": "Settimanale"
+      }
+    },
+    "mission": {
+      "options": {
+        "none": "Nessuna",
+        "tap": "Tocco",
+        "math": "Matematica",
+        "qr": "Codice QR",
+        "shake": "Scuoti",
+        "open_door": "Apri porta",
+        "vision": "Selfie (AI vision)"
+      }
+    }
+  },
+  "services": {
+    "add_alarm": {
+      "name": "Aggiungi sveglia",
+      "description": "Crea una nuova sveglia.",
+      "fields": {
+        "time": { "name": "Orario", "description": "Orario di risveglio (HH:MM)." },
+        "label": { "name": "Etichetta", "description": "Un nome per la sveglia." },
+        "owner": { "name": "Proprietario", "description": "Persona a cui appartiene la sveglia." },
+        "enabled": { "name": "Attiva", "description": "Se la sveglia è attiva." },
+        "schedule": { "name": "Pianificazione", "description": "Oggetto ricorrenza (repeat_mode, weekdays, on_date)." },
+        "features": { "name": "Funzioni", "description": "Oggetto override delle funzioni per sveglia." }
+      }
+    },
+    "update_alarm": {
+      "name": "Aggiorna sveglia",
+      "description": "Aggiorna i campi di una sveglia esistente.",
+      "fields": {
+        "id": { "name": "ID sveglia", "description": "L'id della sveglia da aggiornare." },
+        "time": { "name": "Orario", "description": "Nuovo orario di risveglio (HH:MM)." },
+        "label": { "name": "Etichetta", "description": "Nuova etichetta." },
+        "enabled": { "name": "Attiva", "description": "Attiva o disattiva la sveglia." },
+        "skip_next": { "name": "Salta prossima", "description": "Salta la prossima occorrenza." },
+        "schedule": { "name": "Pianificazione", "description": "Nuovo oggetto ricorrenza." },
+        "features": { "name": "Funzioni", "description": "Nuovo oggetto override funzioni." }
+      }
+    },
+    "remove_alarm": {
+      "name": "Rimuovi sveglia",
+      "description": "Elimina una sveglia.",
+      "fields": {
+        "id": { "name": "ID sveglia", "description": "L'id della sveglia da rimuovere." }
+      }
+    },
+    "skip_next": {
+      "name": "Salta prossima",
+      "description": "Salta la prossima occorrenza di una sveglia.",
+      "fields": {
+        "id": { "name": "ID sveglia", "description": "L'id della sveglia da saltare." }
+      }
+    },
+    "snooze": {
+      "name": "Posticipa",
+      "description": "Posticipa la sveglia attualmente in suoneria."
+    },
+    "dismiss": {
+      "name": "Ferma",
+      "description": "Ferma la sveglia attualmente in suoneria."
+    },
+    "trigger_now": {
+      "name": "Attiva ora",
+      "description": "Avvia subito una suoneria (per test)."
+    },
+    "benchmark_vision": {
+      "name": "Benchmark visione",
+      "description": "Misura la latenza dell'AI vision sul tuo hardware (disponibile dalla Fase 3).",
+      "fields": {
+        "samples": { "name": "Campioni", "description": "Numero di inferenze cronometrate." }
+      }
+    }
+  }
+}

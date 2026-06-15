@@ -1,0 +1,68 @@
+"""Unit tests for the pure scheduling logic (no Home Assistant needed)."""
+
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
+
+from custom_components.aurora.models import AlarmSchedule, AuroraAlarm, RepeatMode
+from custom_components.aurora.scheduler import next_occurrence
+
+TZ = ZoneInfo("Europe/Rome")
+
+
+def _alarm(t: str, **schedule_kwargs) -> AuroraAlarm:
+    return AuroraAlarm(
+        id="a",
+        alarm_time=time.fromisoformat(t),
+        schedule=AlarmSchedule(**schedule_kwargs),
+    )
+
+
+def test_daily_later_today() -> None:
+    now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)
+    nxt = next_occurrence(_alarm("07:00", repeat_mode=RepeatMode.DAILY), now, TZ)
+    assert nxt == datetime(2026, 6, 15, 7, 0, tzinfo=TZ)
+
+
+def test_daily_rolls_to_tomorrow() -> None:
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=TZ)
+    nxt = next_occurrence(_alarm("07:00", repeat_mode=RepeatMode.DAILY), now, TZ)
+    assert nxt == datetime(2026, 6, 16, 7, 0, tzinfo=TZ)
+
+
+def test_weekly_picks_next_matching_weekday() -> None:
+    now = datetime(2026, 6, 15, 8, 0, tzinfo=TZ)  # a Monday
+    alarm = _alarm("07:00", repeat_mode=RepeatMode.WEEKLY, weekdays=frozenset({2}))
+    nxt = next_occurrence(alarm, now, TZ)
+    assert nxt is not None
+    assert nxt.weekday() == 2  # Wednesday
+    assert nxt.time() == time(7, 0)
+    assert nxt > now
+
+
+def test_skip_next_skips_first_occurrence() -> None:
+    now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)
+    alarm = AuroraAlarm(
+        id="a",
+        alarm_time=time(7, 0),
+        skip_next=True,
+        schedule=AlarmSchedule(repeat_mode=RepeatMode.DAILY),
+    )
+    nxt = next_occurrence(alarm, now, TZ)
+    assert nxt == datetime(2026, 6, 16, 7, 0, tzinfo=TZ)
+
+
+def test_once_on_specific_date() -> None:
+    now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)
+    alarm = _alarm(
+        "07:00", repeat_mode=RepeatMode.ONCE, on_date=date(2026, 6, 20)
+    )
+    nxt = next_occurrence(alarm, now, TZ)
+    assert nxt == datetime(2026, 6, 20, 7, 0, tzinfo=TZ)
+
+
+def test_dst_spring_forward_does_not_lose_alarm() -> None:
+    # Europe/Rome springs forward 2026-03-29 (02:00 -> 03:00). 07:00 is unaffected
+    # and must still resolve to a valid instant.
+    now = datetime(2026, 3, 28, 23, 0, tzinfo=TZ)
+    nxt = next_occurrence(_alarm("07:00", repeat_mode=RepeatMode.DAILY), now, TZ)
+    assert nxt == datetime(2026, 3, 29, 7, 0, tzinfo=TZ)

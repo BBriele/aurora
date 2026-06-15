@@ -1,0 +1,191 @@
+{
+  "title": "Aurora",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Aurora",
+        "description": "Aurora is your smart alarm clock. Bind devices (speakers, lights, notifications…) afterwards in the options — nothing is required to start.",
+        "data": {
+          "owner": "Primary owner"
+        },
+        "data_description": {
+          "owner": "Optional name of the person this installation primarily belongs to."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Aurora",
+        "data": {
+          "owner": "Primary owner"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Aurora is already configured. Only one installation is supported — add alarms inside it.",
+      "reconfigure_successful": "Aurora was reconfigured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Role bindings",
+        "description": "Bind abstract roles to your devices. Every field is optional — leave a role empty and Aurora simply skips that feature. The exact alarm time is always kept.",
+        "data": {
+          "audio_sink": "Speaker (ringtone)",
+          "wake_light": "Sunrise light / screen",
+          "display_surface": "Display surface",
+          "notify_channel": "Notification channels",
+          "sleep_signal": "Sleep signals",
+          "presence_signal": "Presence signals",
+          "conversation": "Voice agent",
+          "tts": "Text-to-speech",
+          "skip_calendars": "Skip calendars",
+          "holiday_calendars": "Holiday calendars",
+          "ring_max_duration": "Max ring duration"
+        },
+        "data_description": {
+          "audio_sink": "A media player used to play the ringtone.",
+          "wake_light": "A dimmable light, WLED, or a screen-brightness number for the sunrise.",
+          "display_surface": "A tablet/screen that can show the ring view.",
+          "notify_channel": "Where ring notifications are sent (phone, watch, overlay…).",
+          "sleep_signal": "Sensors that hint whether you are asleep, for early wake-up.",
+          "presence_signal": "Sensors that hint whether you are present/awake.",
+          "ring_max_duration": "Safety auto-stop if a ring is never dismissed."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "alarm": {
+      "title": "Alarm",
+      "initiate_flow": {
+        "user": "Add alarm"
+      },
+      "step": {
+        "user": {
+          "title": "Add alarm",
+          "description": "Create a new alarm. Edit or remove it later from the Aurora card.",
+          "data": {
+            "time": "Time",
+            "label": "Label",
+            "repeat_mode": "Repeat",
+            "weekdays": "Days",
+            "mission": "Dismiss mission"
+          },
+          "data_description": {
+            "weekdays": "Only used when Repeat is set to Weekly."
+          }
+        }
+      },
+      "abort": {
+        "alarm_created": "Alarm created. Manage it from the Aurora card."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "idle": "Idle",
+          "pre_wake": "Pre-wake",
+          "ringing": "Ringing",
+          "snoozed": "Snoozed",
+          "mission": "Mission",
+          "dismissed": "Dismissed",
+          "post_wake": "Post-wake"
+        }
+      },
+      "next_alarm": {
+        "name": "Next alarm"
+      },
+      "vision_latency": {
+        "name": "Vision latency"
+      }
+    },
+    "binary_sensor": {
+      "ringing": {
+        "name": "Ringing"
+      }
+    }
+  },
+  "selector": {
+    "repeat_mode": {
+      "options": {
+        "once": "Once",
+        "daily": "Daily",
+        "weekly": "Weekly"
+      }
+    },
+    "mission": {
+      "options": {
+        "none": "None",
+        "tap": "Tap",
+        "math": "Math",
+        "qr": "QR code",
+        "shake": "Shake",
+        "open_door": "Open door",
+        "vision": "Selfie (AI vision)"
+      }
+    }
+  },
+  "services": {
+    "add_alarm": {
+      "name": "Add alarm",
+      "description": "Create a new alarm.",
+      "fields": {
+        "time": { "name": "Time", "description": "Wake time (HH:MM)." },
+        "label": { "name": "Label", "description": "A name for the alarm." },
+        "owner": { "name": "Owner", "description": "Person this alarm belongs to." },
+        "enabled": { "name": "Enabled", "description": "Whether the alarm is active." },
+        "schedule": { "name": "Schedule", "description": "Recurrence object (repeat_mode, weekdays, on_date)." },
+        "features": { "name": "Features", "description": "Per-alarm feature overrides object." }
+      }
+    },
+    "update_alarm": {
+      "name": "Update alarm",
+      "description": "Update fields of an existing alarm.",
+      "fields": {
+        "id": { "name": "Alarm ID", "description": "The id of the alarm to update." },
+        "time": { "name": "Time", "description": "New wake time (HH:MM)." },
+        "label": { "name": "Label", "description": "New label." },
+        "enabled": { "name": "Enabled", "description": "Enable or disable the alarm." },
+        "skip_next": { "name": "Skip next", "description": "Skip the next occurrence." },
+        "schedule": { "name": "Schedule", "description": "New recurrence object." },
+        "features": { "name": "Features", "description": "New feature overrides object." }
+      }
+    },
+    "remove_alarm": {
+      "name": "Remove alarm",
+      "description": "Delete an alarm.",
+      "fields": {
+        "id": { "name": "Alarm ID", "description": "The id of the alarm to remove." }
+      }
+    },
+    "skip_next": {
+      "name": "Skip next",
+      "description": "Skip the next occurrence of an alarm.",
+      "fields": {
+        "id": { "name": "Alarm ID", "description": "The id of the alarm to skip." }
+      }
+    },
+    "snooze": {
+      "name": "Snooze",
+      "description": "Snooze the currently ringing alarm."
+    },
+    "dismiss": {
+      "name": "Dismiss",
+      "description": "Stop the currently ringing alarm."
+    },
+    "trigger_now": {
+      "name": "Trigger now",
+      "description": "Start a ring immediately (for testing)."
+    },
+    "benchmark_vision": {
+      "name": "Benchmark vision",
+      "description": "Measure AI-vision latency on your hardware (available from Phase 3).",
+      "fields": {
+        "samples": { "name": "Samples", "description": "Number of timed inferences." }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+# Test/lint toolchain (CI installs these on Python 3.14).
+homeassistant>=2026.3.0
+pytest-homeassistant-custom-component
+ruff
+mypy

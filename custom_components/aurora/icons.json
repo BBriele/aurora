@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "sensor": {
+      "state": { "default": "mdi:state-machine" },
+      "next_alarm": { "default": "mdi:alarm" },
+      "vision_latency": { "default": "mdi:timer-outline" }
+    },
+    "binary_sensor": {
+      "ringing": {
+        "default": "mdi:alarm-off",
+        "state": { "on": "mdi:alarm-bell" }
+      }
+    }
+  },
+  "services": {
+    "add_alarm": "mdi:alarm-plus",
+    "update_alarm": "mdi:alarm-check",
+    "remove_alarm": "mdi:alarm-off",
+    "skip_next": "mdi:skip-next",
+    "snooze": "mdi:alarm-snooze",
+    "dismiss": "mdi:alarm-off",
+    "trigger_now": "mdi:alarm-bell",
+    "benchmark_vision": "mdi:speedometer"
+  }
+}

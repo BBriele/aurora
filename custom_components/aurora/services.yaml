@@ -1,0 +1,89 @@
+add_alarm:
+  fields:
+    time:
+      required: true
+      example: "07:30"
+      selector:
+        time: {}
+    label:
+      required: false
+      selector:
+        text: {}
+    owner:
+      required: false
+      selector:
+        text: {}
+    enabled:
+      required: false
+      default: true
+      selector:
+        boolean: {}
+    schedule:
+      required: false
+      selector:
+        object: {}
+    features:
+      required: false
+      selector:
+        object: {}
+
+update_alarm:
+  fields:
+    id:
+      required: true
+      selector:
+        text: {}
+    time:
+      required: false
+      selector:
+        time: {}
+    label:
+      required: false
+      selector:
+        text: {}
+    enabled:
+      required: false
+      selector:
+        boolean: {}
+    skip_next:
+      required: false
+      selector:
+        boolean: {}
+    schedule:
+      required: false
+      selector:
+        object: {}
+    features:
+      required: false
+      selector:
+        object: {}
+
+remove_alarm:
+  fields:
+    id:
+      required: true
+      selector:
+        text: {}
+
+skip_next:
+  fields:
+    id:
+      required: true
+      selector:
+        text: {}
+
+snooze:
+dismiss:
+trigger_now:
+
+benchmark_vision:
+  fields:
+    samples:
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: box
