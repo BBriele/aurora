@@ -51,6 +51,10 @@ ALL_ROLES: Final = (
 # --- Config-entry option keys (role bindings + globals) ---------------------
 CONF_OWNER: Final = "owner"
 CONF_ROLE_BINDINGS: Final = "role_bindings"
+# Per-user profiles live under options["profiles"][ha_user_id] = {name, bindings}.
+CONF_PROFILES: Final = "profiles"
+CONF_PROFILE_BINDINGS: Final = "bindings"
+CONF_PROFILE_NAME: Final = "name"
 CONF_SKIP_CALENDARS: Final = "skip_calendars"
 CONF_HOLIDAY_CALENDARS: Final = "holiday_calendars"
 CONF_RING_MAX_DURATION: Final = "ring_max_duration"

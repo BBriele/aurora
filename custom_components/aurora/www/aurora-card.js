@@ -376,6 +376,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     constructor() {
         super(...arguments);
         this.alarm = null;
+        this.profileId = null;
         this.open = false;
         this._time = "07:00";
         this._label = "";
@@ -421,6 +422,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         const input = {
             time: this._time,
             label: this._label,
+            profile_id: this.alarm?.profile_id ?? this.profileId,
             enabled: this._enabled,
             schedule: { repeat_mode: this._repeat, weekdays: this._days },
             features: {
@@ -706,6 +708,9 @@ __decorate([
     n({ attribute: false })
 ], AuroraAlarmDialog.prototype, "alarm", void 0);
 __decorate([
+    n({ attribute: false })
+], AuroraAlarmDialog.prototype, "profileId", void 0);
+__decorate([
     n({ type: Boolean })
 ], AuroraAlarmDialog.prototype, "open", void 0);
 __decorate([
@@ -766,6 +771,9 @@ function summarize(alarm) {
 let AuroraAlarmList = class AuroraAlarmList extends i {
     constructor() {
         super(...arguments);
+        /** When set, only show (and create) alarms for this profile. */
+        this.profileId = null;
+        this.showAll = false;
         this._alarms = [];
         this._editing = null;
         this._dialogOpen = false;
@@ -796,7 +804,13 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         this._editing = alarm;
         this._dialogOpen = true;
     }
+    get _visible() {
+        if (this.showAll || !this.profileId)
+            return this._alarms;
+        return this._alarms.filter((a) => (a.profile_id ?? null) === this.profileId);
+    }
     render() {
+        const visible = this._visible;
         return b `
       <div class="head">
         <h3>Sveglie</h3>
@@ -804,18 +818,19 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         <button class="btn primary" @click=${this._add}>+ Nuova</button>
       </div>
 
-      ${this._alarms.length === 0
+      ${visible.length === 0
             ? b `<div class="empty">
             <div class="big">🌙</div>
             Nessuna sveglia. Tocca <b>+ Nuova</b> per crearne una.
           </div>`
             : b `<div class="list">
-            ${this._alarms.map((a) => this._row(a))}
+            ${visible.map((a) => this._row(a))}
           </div>`}
 
       <aurora-alarm-dialog
         .hass=${this.hass}
         .alarm=${this._editing}
+        .profileId=${this.profileId}
         .open=${this._dialogOpen}
         @closed=${() => (this._dialogOpen = false)}
       ></aurora-alarm-dialog>
@@ -947,6 +962,12 @@ AuroraAlarmList.styles = [
 __decorate([
     n({ attribute: false })
 ], AuroraAlarmList.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraAlarmList.prototype, "profileId", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraAlarmList.prototype, "showAll", void 0);
 __decorate([
     r()
 ], AuroraAlarmList.prototype, "_alarms", void 0);
@@ -1177,7 +1198,10 @@ let AuroraCard = class AuroraCard extends i {
             : A}
           ${this._hero()}
           <div class="body">
-            <aurora-alarm-list .hass=${this.hass}></aurora-alarm-list>
+            <aurora-alarm-list
+              .hass=${this.hass}
+              .profileId=${this.hass.user?.id ?? null}
+            ></aurora-alarm-list>
             <a class="open" href="/aurora">Apri l'app Aurora →</a>
           </div>
         </div>
@@ -1256,17 +1280,21 @@ AuroraCard = __decorate([
 
 const SINGLE_ROLES = ["audio_sink", "wake_light", "display_surface", "conversation", "tts"];
 const MULTI_ROLES = ["notify_channel", "sleep_signal", "presence_signal"];
+/** Per-user device bindings editor. Edits options.profiles[userId].bindings. */
 let AuroraDevicesView = class AuroraDevicesView extends i {
     constructor() {
         super(...arguments);
-        this._options = {};
+        this.userId = "";
+        this.userName = "";
+        this._bindings = {};
         this._saving = false;
         this._saved = false;
-        this._loaded = false;
+        this._profiles = {};
+        this._loadedFor = "";
     }
     updated() {
-        if (this.hass && !this._loaded) {
-            this._loaded = true;
+        if (this.hass && this.userId && this._loadedFor !== this.userId) {
+            this._loadedFor = this.userId;
             void this._load();
         }
     }
@@ -1276,14 +1304,16 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
             getSettings(this.hass),
         ]);
         this._entities = entities;
-        this._options = { ...settings.options };
+        this._profiles = settings.options.profiles ?? {};
+        this._bindings = { ...(this._profiles[this.userId]?.bindings ?? {}) };
+        this._saved = false;
     }
     _set(key, value) {
-        this._options = { ...this._options, [key]: value };
+        this._bindings = { ...this._bindings, [key]: value };
         this._saved = false;
     }
     _toggleMulti(key, entity) {
-        const cur = new Set(this._options[key] ?? []);
+        const cur = new Set(this._bindings[key] ?? []);
         if (cur.has(entity))
             cur.delete(entity);
         else
@@ -1293,8 +1323,13 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     async _save() {
         this._saving = true;
         try {
-            const res = await setSettings(this.hass, this._options);
-            this._options = { ...res.options };
+            const bindings = Object.fromEntries(Object.entries(this._bindings).filter(([, v]) => v !== "" && v !== null && !(Array.isArray(v) && v.length === 0)));
+            const profiles = {
+                ...this._profiles,
+                [this.userId]: { name: this.userName || this.userId, bindings },
+            };
+            const res = await setSettings(this.hass, { profiles });
+            this._profiles = res.options.profiles ?? profiles;
             this._saved = true;
         }
         finally {
@@ -1305,32 +1340,17 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         if (!this._entities) {
             return b `<div class="intro">Caricamento dispositivi…</div>`;
         }
-        const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
         return b `
       <p class="intro">
-        Collega i ruoli astratti ai tuoi dispositivi. Ogni campo è opzionale —
-        lascia vuoto un ruolo e Aurora salta quella funzione. L'orario esatto è
-        sempre garantito.
+        Dispositivi di <span class="who">${this.userName || "questo profilo"}</span>.
+        Ogni campo è opzionale — lascia vuoto un ruolo e Aurora salta quella
+        funzione. L'orario esatto è sempre garantito.
       </p>
-
       ${SINGLE_ROLES.map((role) => this._single(role))}
       ${MULTI_ROLES.map((role) => this._multi(role))}
-
-      <div class="role">
-        <label class="field">Durata massima suoneria (min)</label>
-        <input
-          type="number"
-          min="1"
-          max="60"
-          style="max-width:140px"
-          .value=${String(ringMin)}
-          @input=${(e) => this._set("ring_max_duration", Number(e.target.value) * 60)}
-        />
-      </div>
-
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? "Salvataggio…" : "Salva"}
+          ${this._saving ? "Salvataggio…" : "Salva i miei dispositivi"}
         </button>
         ${this._saved ? b `<span class="ok">✓ Salvato</span>` : A}
       </div>
@@ -1338,7 +1358,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     }
     _single(role) {
         const opts = this._entities.roles[role] ?? [];
-        const value = this._options[role] ?? "";
+        const value = this._bindings[role] ?? "";
         return b `
       <div class="role">
         <label class="field">${ROLE_LABELS[role] ?? role}</label>
@@ -1356,7 +1376,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     }
     _multi(role) {
         const opts = this._entities.roles[role] ?? [];
-        const value = new Set(this._options[role] ?? []);
+        const value = new Set(this._bindings[role] ?? []);
         return b `
       <div class="role">
         <label class="field">${ROLE_LABELS[role] ?? role}</label>
@@ -1381,6 +1401,10 @@ AuroraDevicesView.styles = [
         color: var(--aurora-dim);
         margin: 0 0 18px;
         line-height: 1.5;
+      }
+      .who {
+        font-weight: 700;
+        color: var(--aurora-text);
       }
       .role {
         padding: 14px 0;
@@ -1422,7 +1446,6 @@ AuroraDevicesView.styles = [
         align-items: center;
         gap: 12px;
         padding-top: 16px;
-        margin-top: 8px;
       }
       .ok {
         color: var(--aurora-accent);
@@ -1434,11 +1457,17 @@ __decorate([
     n({ attribute: false })
 ], AuroraDevicesView.prototype, "hass", void 0);
 __decorate([
+    n({ attribute: false })
+], AuroraDevicesView.prototype, "userId", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraDevicesView.prototype, "userName", void 0);
+__decorate([
     r()
 ], AuroraDevicesView.prototype, "_entities", void 0);
 __decorate([
     r()
-], AuroraDevicesView.prototype, "_options", void 0);
+], AuroraDevicesView.prototype, "_bindings", void 0);
 __decorate([
     r()
 ], AuroraDevicesView.prototype, "_saving", void 0);
@@ -1449,17 +1478,248 @@ AuroraDevicesView = __decorate([
     t("aurora-devices-view")
 ], AuroraDevicesView);
 
+/** Shared, installation-wide settings (not per-user). */
+let AuroraGlobalsView = class AuroraGlobalsView extends i {
+    constructor() {
+        super(...arguments);
+        this._options = {};
+        this._saving = false;
+        this._saved = false;
+        this._loaded = false;
+    }
+    updated() {
+        if (this.hass && !this._loaded) {
+            this._loaded = true;
+            void this._load();
+        }
+    }
+    async _load() {
+        const [entities, settings] = await Promise.all([
+            getRoleEntities(this.hass),
+            getSettings(this.hass),
+        ]);
+        this._entities = entities;
+        this._options = { ...settings.options };
+    }
+    _toggleCal(key, cal) {
+        const cur = new Set(this._options[key] ?? []);
+        if (cur.has(cal))
+            cur.delete(cal);
+        else
+            cur.add(cal);
+        this._options = { ...this._options, [key]: [...cur] };
+        this._saved = false;
+    }
+    async _save() {
+        this._saving = true;
+        try {
+            const res = await setSettings(this.hass, {
+                ring_max_duration: this._options["ring_max_duration"] ?? 600,
+                skip_calendars: this._options["skip_calendars"] ?? [],
+                holiday_calendars: this._options["holiday_calendars"] ?? [],
+            });
+            this._options = { ...res.options };
+            this._saved = true;
+        }
+        finally {
+            this._saving = false;
+        }
+    }
+    render() {
+        if (!this._entities) {
+            return b `<div class="intro">Caricamento…</div>`;
+        }
+        const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
+        return b `
+      <p class="intro">Impostazioni condivise da tutta l'installazione.</p>
+
+      <div class="block">
+        <label class="field">Durata massima suoneria (min)</label>
+        <input
+          type="number"
+          min="1"
+          max="60"
+          style="max-width:140px"
+          .value=${String(ringMin)}
+          @input=${(e) => {
+            this._options = {
+                ...this._options,
+                ring_max_duration: Number(e.target.value) * 60,
+            };
+            this._saved = false;
+        }}
+        />
+      </div>
+
+      ${this._calendars("skip_calendars", "Calendari per salto impegni")}
+      ${this._calendars("holiday_calendars", "Calendari festività (auto-skip)")}
+
+      <div class="savebar">
+        <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
+          ${this._saving ? "Salvataggio…" : "Salva globali"}
+        </button>
+        ${this._saved ? b `<span class="ok">✓ Salvato</span>` : A}
+      </div>
+    `;
+    }
+    _calendars(key, label) {
+        const cals = this._entities.calendars ?? [];
+        const value = new Set(this._options[key] ?? []);
+        return b `
+      <div class="block">
+        <label class="field">${label}</label>
+        ${cals.length === 0
+            ? b `<div class="none">Nessun calendario trovato.</div>`
+            : b `<div class="chips">
+              ${cals.map((c) => b `<button
+                  class="chip ${value.has(c) ? "on" : ""}"
+                  @click=${() => this._toggleCal(key, c)}
+                >
+                  ${c}
+                </button>`)}
+            </div>`}
+      </div>
+    `;
+    }
+};
+AuroraGlobalsView.styles = [
+    auroraStyles,
+    i$3 `
+      .intro {
+        color: var(--aurora-dim);
+        margin: 0 0 18px;
+        line-height: 1.5;
+      }
+      .block {
+        padding: 14px 0;
+        border-top: 1px solid var(--aurora-divider);
+      }
+      .block .field {
+        margin-bottom: 8px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--aurora-dim);
+      }
+      .chip.on {
+        color: #fff;
+        background: var(--aurora-grad);
+        border-color: transparent;
+      }
+      .none {
+        font-size: 0.85rem;
+        color: var(--aurora-dim);
+        font-style: italic;
+      }
+      .savebar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-top: 16px;
+      }
+      .ok {
+        color: var(--aurora-accent);
+        font-weight: 600;
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraGlobalsView.prototype, "hass", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_entities", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_options", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_saving", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_saved", void 0);
+AuroraGlobalsView = __decorate([
+    t("aurora-globals-view")
+], AuroraGlobalsView);
+
+const ALL = "__all__";
 let AuroraPanel = class AuroraPanel extends i {
     constructor() {
         super(...arguments);
         this.narrow = false;
         this._tab = "alarms";
+        this._selected = "";
+        this._profiles = {};
+        this._loaded = false;
+    }
+    updated() {
+        if (this.hass && !this._loaded) {
+            this._loaded = true;
+            this._selected = this.hass.user?.id ?? "";
+            void this._loadProfiles();
+        }
+    }
+    async _loadProfiles() {
+        try {
+            const settings = await getSettings(this.hass);
+            this._profiles = settings.options.profiles ?? {};
+        }
+        catch {
+            this._profiles = {};
+        }
+    }
+    get _isAdmin() {
+        return this.hass.user?.is_admin ?? false;
+    }
+    get _names() {
+        const me = this.hass.user;
+        const names = {};
+        for (const [id, p] of Object.entries(this._profiles))
+            names[id] = p.name || id;
+        if (me)
+            names[me.id] = me.name;
+        return names;
+    }
+    get _selectedName() {
+        if (this._selected === ALL)
+            return "Tutti";
+        return this._names[this._selected] ?? this.hass.user?.name ?? "Profilo";
     }
     render() {
+        if (!this.hass)
+            return b `${A}`;
+        const initial = (this._selectedName[0] ?? "A").toUpperCase();
         return b `
       <div class="bar">
         <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
+        <div class="who">
+          ${this._isAdmin
+            ? b `<select
+                .value=${this._selected}
+                @change=${(e) => (this._selected = e.target.value)}
+              >
+                ${Object.entries(this._names).map(([id, name]) => b `<option value=${id} ?selected=${id === this._selected}>
+                    ${name}
+                  </option>`)}
+                <option value=${ALL} ?selected=${this._selected === ALL}>Tutti</option>
+              </select>`
+            : b `<span>${this._selectedName}</span>`}
+          <div class="avatar">${initial}</div>
+        </div>
       </div>
+
       <div class="tabs">
         <button class="tab ${this._tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
           Sveglie
@@ -1467,16 +1727,37 @@ let AuroraPanel = class AuroraPanel extends i {
         <button class="tab ${this._tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
           Dispositivi
         </button>
+        <button class="tab ${this._tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
+          Globali
+        </button>
       </div>
+
       <div class="content">
-        <div class="panel-card">
-          ${this._tab === "alarms"
-            ? b `<aurora-alarm-list .hass=${this.hass}></aurora-alarm-list>`
-            : b `<aurora-devices-view .hass=${this.hass}></aurora-devices-view>`}
-        </div>
+        <div class="panel-card">${this._tabContent()}</div>
       </div>
       <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
     `;
+    }
+    _tabContent() {
+        if (this._tab === "globals") {
+            return b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`;
+        }
+        if (this._tab === "devices") {
+            if (this._selected === ALL) {
+                return b `<div class="hint">Seleziona un profilo per configurarne i dispositivi.</div>`;
+            }
+            return b `<aurora-devices-view
+        .hass=${this.hass}
+        .userId=${this._selected}
+        .userName=${this._selectedName}
+      ></aurora-devices-view>`;
+        }
+        // alarms
+        return b `<aurora-alarm-list
+      .hass=${this.hass}
+      .profileId=${this._selected === ALL ? null : this._selected}
+      .showAll=${this._selected === ALL}
+    ></aurora-alarm-list>`;
     }
 };
 AuroraPanel.styles = [
@@ -1494,7 +1775,7 @@ AuroraPanel.styles = [
         display: flex;
         align-items: center;
         gap: 14px;
-        padding: 18px 22px 0;
+        padding: 18px 22px 6px;
         background: var(--primary-background-color, #f3f3f7);
       }
       .brand {
@@ -1503,14 +1784,38 @@ AuroraPanel.styles = [
         align-items: center;
         gap: 8px;
       }
+      .who {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--aurora-dim);
+        font-weight: 600;
+      }
+      .who select {
+        width: auto;
+        padding: 6px 10px;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--aurora-grad);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+      }
       .tabs {
         display: flex;
         gap: 6px;
-        padding: 14px 22px 0;
+        padding: 8px 22px 0;
         position: sticky;
-        top: 56px;
+        top: 60px;
         background: var(--primary-background-color, #f3f3f7);
         z-index: 4;
+        flex-wrap: wrap;
       }
       .tab {
         appearance: none;
@@ -1539,6 +1844,10 @@ AuroraPanel.styles = [
         padding: 20px;
         border: 1px solid var(--aurora-divider);
       }
+      .hint {
+        color: var(--aurora-dim);
+        padding: 8px 2px;
+      }
     `,
 ];
 __decorate([
@@ -1550,6 +1859,12 @@ __decorate([
 __decorate([
     r()
 ], AuroraPanel.prototype, "_tab", void 0);
+__decorate([
+    r()
+], AuroraPanel.prototype, "_selected", void 0);
+__decorate([
+    r()
+], AuroraPanel.prototype, "_profiles", void 0);
 AuroraPanel = __decorate([
     t("aurora-panel")
 ], AuroraPanel);

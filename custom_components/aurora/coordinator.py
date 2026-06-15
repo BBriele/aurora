@@ -24,7 +24,13 @@ from homeassistant.helpers.event import async_call_later, async_track_point_in_u
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_RING_MAX_DURATION, DEFAULT_RING_MAX_DURATION, DOMAIN
+from .const import (
+    CONF_PROFILE_BINDINGS,
+    CONF_PROFILES,
+    CONF_RING_MAX_DURATION,
+    DEFAULT_RING_MAX_DURATION,
+    DOMAIN,
+)
 from .models import AuroraAlarm
 from .ring import RingController
 from .scheduler import next_occurrence
@@ -257,13 +263,25 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
     # --- Ring lifecycle / state machine -------------------------------------
 
     @callback
+    def _effective_options(self, alarm: AuroraAlarm) -> dict[str, object]:
+        """Role bindings for ``alarm``: its owner-profile bindings over globals."""
+        options: dict[str, object] = dict(self.config_entry.options)
+        profiles = options.get(CONF_PROFILES) or {}
+        profile = profiles.get(alarm.profile_id or "") if isinstance(profiles, dict) else None
+        if isinstance(profile, dict):
+            bindings = profile.get(CONF_PROFILE_BINDINGS)
+            if isinstance(bindings, dict):
+                options.update(bindings)
+        return options
+
+    @callback
     def _begin_ring(self, alarm: AuroraAlarm) -> None:
         """Enter RINGING for ``alarm``, start its outputs and arm the watchdog."""
         self._cancel_ring_timers()
         self._active_alarm = alarm
         self._active_alarm_id = alarm.id
         self._state = AuroraState.RINGING
-        options = dict(self.config_entry.options)
+        options = self._effective_options(alarm)
         self.config_entry.async_create_task(
             self.hass,
             self._ring.async_start(alarm, options),

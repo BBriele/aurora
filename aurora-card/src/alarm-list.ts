@@ -18,6 +18,9 @@ function summarize(alarm: Alarm): string {
 @customElement("aurora-alarm-list")
 export class AuroraAlarmList extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
+  /** When set, only show (and create) alarms for this profile. */
+  @property({ attribute: false }) profileId: string | null = null;
+  @property({ type: Boolean }) showAll = false;
 
   @state() private _alarms: Alarm[] = [];
   @state() private _editing: Alarm | null = null;
@@ -133,7 +136,13 @@ export class AuroraAlarmList extends LitElement {
     `,
   ];
 
+  private get _visible(): Alarm[] {
+    if (this.showAll || !this.profileId) return this._alarms;
+    return this._alarms.filter((a) => (a.profile_id ?? null) === this.profileId);
+  }
+
   render(): TemplateResult {
+    const visible = this._visible;
     return html`
       <div class="head">
         <h3>Sveglie</h3>
@@ -141,18 +150,19 @@ export class AuroraAlarmList extends LitElement {
         <button class="btn primary" @click=${this._add}>+ Nuova</button>
       </div>
 
-      ${this._alarms.length === 0
+      ${visible.length === 0
         ? html`<div class="empty">
             <div class="big">🌙</div>
             Nessuna sveglia. Tocca <b>+ Nuova</b> per crearne una.
           </div>`
         : html`<div class="list">
-            ${this._alarms.map((a) => this._row(a))}
+            ${visible.map((a) => this._row(a))}
           </div>`}
 
       <aurora-alarm-dialog
         .hass=${this.hass}
         .alarm=${this._editing}
+        .profileId=${this.profileId}
         .open=${this._dialogOpen}
         @closed=${() => (this._dialogOpen = false)}
       ></aurora-alarm-dialog>

@@ -292,6 +292,7 @@ class AuroraAlarm:
     alarm_time: time
     label: str = ""
     owner: str | None = None
+    profile_id: str | None = None  # HA user id this alarm belongs to (per-user)
     enabled: bool = True
     skip_next: bool = False
     schedule: AlarmSchedule = field(default_factory=AlarmSchedule)
@@ -304,6 +305,7 @@ class AuroraAlarm:
             "time": self.alarm_time.isoformat(timespec="minutes"),
             "label": self.label,
             "owner": self.owner,
+            "profile_id": self.profile_id,
             "enabled": self.enabled,
             "skip_next": self.skip_next,
             "schedule": self.schedule.as_dict(),
@@ -326,6 +328,7 @@ class AuroraAlarm:
             alarm_time=alarm_time,
             label=data.get("label", ""),
             owner=data.get("owner"),
+            profile_id=data.get("profile_id"),
             enabled=bool(data.get("enabled", True)),
             skip_next=bool(data.get("skip_next", False)),
             schedule=AlarmSchedule.from_dict(data.get("schedule", {})),

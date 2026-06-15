@@ -131,7 +131,10 @@ export class AuroraCard extends LitElement {
             : nothing}
           ${this._hero()}
           <div class="body">
-            <aurora-alarm-list .hass=${this.hass}></aurora-alarm-list>
+            <aurora-alarm-list
+              .hass=${this.hass}
+              .profileId=${this.hass.user?.id ?? null}
+            ></aurora-alarm-list>
             <a class="open" href="/aurora">Apri l'app Aurora →</a>
           </div>
         </div>

@@ -42,6 +42,7 @@ _EMPTY_SCHEMA = vol.Schema({})
 _ALARM_FIELDS = {
     vol.Optional("label"): str,
     vol.Optional("owner"): vol.Any(None, str),
+    vol.Optional("profile_id"): vol.Any(None, str),
     vol.Optional("enabled"): bool,
     vol.Optional("skip_next"): bool,
     vol.Optional("schedule"): dict,

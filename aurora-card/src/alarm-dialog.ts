@@ -22,6 +22,7 @@ const REPEATS: { value: RepeatMode; label: string }[] = [
 export class AuroraAlarmDialog extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ attribute: false }) alarm: Alarm | null = null;
+  @property({ attribute: false }) profileId: string | null = null;
   @property({ type: Boolean }) open = false;
 
   @state() private _time = "07:00";
@@ -71,6 +72,7 @@ export class AuroraAlarmDialog extends LitElement {
     const input = {
       time: this._time,
       label: this._label,
+      profile_id: this.alarm?.profile_id ?? this.profileId,
       enabled: this._enabled,
       schedule: { repeat_mode: this._repeat, weekdays: this._days },
       features: {

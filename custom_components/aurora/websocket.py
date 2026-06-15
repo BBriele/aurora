@@ -53,7 +53,10 @@ async def ws_settings_set(
             msg["id"], websocket_api.ERR_NOT_FOUND, "Aurora is not set up"
         )
         return
-    options = {k: v for k, v in msg["options"].items() if v not in ("", None, [])}
+    # Shallow-merge over current options so partial updates (e.g. just the
+    # profiles map, or one global key) don't wipe the rest.
+    merged = {**dict(entry.options), **msg["options"]}
+    options = {k: v for k, v in merged.items() if v not in ("", None, [])}
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"options": dict(entry.options)})
 

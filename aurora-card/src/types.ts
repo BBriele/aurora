@@ -12,9 +12,16 @@ export interface HassConnection {
   ): Promise<() => void>;
 }
 
+export interface HassUser {
+  id: string;
+  name: string;
+  is_admin: boolean;
+}
+
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
   connection: HassConnection;
+  user?: HassUser;
   callWS<T>(msg: Record<string, unknown>): Promise<T>;
   callService(
     domain: string,
@@ -22,6 +29,13 @@ export interface HomeAssistant {
     serviceData?: Record<string, unknown>
   ): Promise<unknown>;
 }
+
+/** A per-person profile: a display name + that person's device role bindings. */
+export interface Profile {
+  name: string;
+  bindings: Record<string, unknown>;
+}
+export type Profiles = Record<string, Profile>;
 
 export type RepeatMode = "once" | "daily" | "weekly";
 export type MissionType =
@@ -65,6 +79,7 @@ export interface Alarm {
   time: string;
   label: string;
   owner?: string | null;
+  profile_id?: string | null;
   enabled: boolean;
   skip_next: boolean;
   schedule: AlarmSchedule;
@@ -75,6 +90,7 @@ export interface Alarm {
 export type AlarmInput = {
   time: string;
   label?: string;
+  profile_id?: string | null;
   enabled?: boolean;
   skip_next?: boolean;
   schedule?: Partial<AlarmSchedule>;

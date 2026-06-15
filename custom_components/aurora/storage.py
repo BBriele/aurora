@@ -25,6 +25,7 @@ CREATE_FIELDS: dict[Any, Any] = {
     vol.Required("time"): str,  # "HH:MM"
     vol.Optional("label", default=""): str,
     vol.Optional("owner"): vol.Any(None, str),
+    vol.Optional("profile_id"): vol.Any(None, str),
     vol.Optional("enabled", default=True): bool,
     vol.Optional("skip_next", default=False): bool,
     vol.Optional("schedule"): dict,
@@ -35,6 +36,7 @@ UPDATE_FIELDS: dict[Any, Any] = {
     vol.Optional("time"): str,
     vol.Optional("label"): str,
     vol.Optional("owner"): vol.Any(None, str),
+    vol.Optional("profile_id"): vol.Any(None, str),
     vol.Optional("enabled"): bool,
     vol.Optional("skip_next"): bool,
     vol.Optional("schedule"): dict,
