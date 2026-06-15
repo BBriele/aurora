@@ -75,6 +75,11 @@ skip_next:
 snooze:
 dismiss:
 trigger_now:
+  fields:
+    id:
+      required: false
+      selector:
+        text: {}
 
 benchmark_vision:
   fields:

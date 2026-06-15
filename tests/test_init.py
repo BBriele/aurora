@@ -49,6 +49,25 @@ async def test_add_alarm_service_updates_next_alarm(hass: HomeAssistant) -> None
     assert state.state not in ("unknown", "unavailable")
 
 
+async def test_trigger_ring_and_dismiss(hass: HomeAssistant) -> None:
+    """trigger_now starts a ring; dismiss returns to idle."""
+    await _setup(hass)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_ADD_ALARM, {"time": "07:00", "label": "Test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(DOMAIN, SERVICE_TRIGGER_NOW, {}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.aurora_ringing").state == "on"
+    assert hass.states.get("sensor.aurora_state").state == "ringing"
+
+    await hass.services.async_call(DOMAIN, SERVICE_DISMISS, {}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.aurora_ringing").state == "off"
+    assert hass.states.get("sensor.aurora_state").state == "idle"
+
+
 async def test_unload(hass: HomeAssistant) -> None:
     """The entry unloads cleanly."""
     entry = await _setup(hass)

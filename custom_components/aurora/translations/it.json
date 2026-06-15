@@ -178,7 +178,10 @@
     },
     "trigger_now": {
       "name": "Attiva ora",
-      "description": "Avvia subito una suoneria (per test)."
+      "description": "Avvia subito una suoneria (per test).",
+      "fields": {
+        "id": { "name": "ID sveglia", "description": "Facoltativo: quale sveglia suonare (default: la prossima/prima)." }
+      }
     },
     "benchmark_vision": {
       "name": "Benchmark visione",

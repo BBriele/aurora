@@ -178,7 +178,10 @@
     },
     "trigger_now": {
       "name": "Trigger now",
-      "description": "Start a ring immediately (for testing)."
+      "description": "Start a ring immediately (for testing).",
+      "fields": {
+        "id": { "name": "Alarm ID", "description": "Optional: which alarm to ring (defaults to the next/first)." }
+      }
     },
     "benchmark_vision": {
       "name": "Benchmark vision",

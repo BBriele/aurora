@@ -101,13 +101,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(f"Unknown alarm: {call.data['id']}") from err
 
     async def snooze(call: ServiceCall) -> None:
-        _coordinator(hass).async_snooze()
+        await _coordinator(hass).async_snooze()
 
     async def dismiss(call: ServiceCall) -> None:
-        _coordinator(hass).async_dismiss()
+        await _coordinator(hass).async_dismiss()
 
     async def trigger_now(call: ServiceCall) -> None:
-        _coordinator(hass).async_trigger_now()
+        await _coordinator(hass).async_trigger_now(call.data.get("id"))
 
     async def benchmark_vision(call: ServiceCall) -> ServiceResponse:
         # Vision (and its benchmark) is implemented in Phase 3; surface a clear
@@ -129,7 +129,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, SERVICE_SNOOZE, snooze, schema=_EMPTY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_DISMISS, dismiss, schema=_EMPTY_SCHEMA)
     hass.services.async_register(
-        DOMAIN, SERVICE_TRIGGER_NOW, trigger_now, schema=_EMPTY_SCHEMA
+        DOMAIN,
+        SERVICE_TRIGGER_NOW,
+        trigger_now,
+        schema=vol.Schema({vol.Optional("id"): str}),
     )
     hass.services.async_register(
         DOMAIN,
