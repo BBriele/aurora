@@ -25,3 +25,6 @@ Thumbs.db
 # Local HA test artifacts
 .storage/
 config/
+
+# Local-only: personal smart-home fixture (PII). Kept on disk, never published.
+AURORA_DEV_PROMPT.md
