@@ -199,7 +199,7 @@ export class AuroraCard extends LitElement {
   name: "Aurora",
   description: "Smart modular alarm clock",
   preview: true,
-  documentationURL: "https://github.com/gabriel-antico/aurora",
+  documentationURL: "https://github.com/BBriele/aurora",
 });
 
 declare global {
