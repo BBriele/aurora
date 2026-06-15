@@ -9,7 +9,7 @@ the scheduler/state-machine coordinator and the read-model entities.
 import logging
 from pathlib import Path
 
-from homeassistant.components import frontend
+from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -20,13 +20,14 @@ from .const import CARD_FILENAME, CARD_URL, CARD_URL_BASE, DOMAIN
 from .coordinator import AuroraConfigEntry, AuroraCoordinator, AuroraRuntimeData
 from .services import async_setup_services
 from .storage import async_create_alarm_collection
+from .websocket import async_setup_websocket
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # manifest.json version, appended to the card URL for cache-busting.
-_CARD_VERSION = "0.0.1"
+_CARD_VERSION = "0.1.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -35,7 +36,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DOMAIN] = alarms
 
     async_setup_services(hass)
-    await _async_register_card(hass)
+    async_setup_websocket(hass)
+    await _async_register_frontend(hass)
     return True
 
 
@@ -69,16 +71,35 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_register_card(hass: HomeAssistant) -> None:
-    """Serve and register the bundled Lovelace card with no manual user action."""
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Serve the bundled JS and register both the Lovelace card and sidebar panel.
+
+    Done once at domain setup so there is zero manual Lovelace-resource step: the
+    card appears in the picker and an "Aurora" app shows up in the sidebar.
+    """
     card_dir = Path(__file__).parent / "www"
     card_file = card_dir / CARD_FILENAME
     if not await hass.async_add_executor_job(card_file.is_file):
-        _LOGGER.debug("Aurora card bundle not present yet (%s); skipping", card_file)
+        _LOGGER.debug("Aurora frontend bundle not present yet (%s); skipping", card_file)
         return
 
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL_BASE, str(card_dir), False)]
-    )
-    frontend.add_extra_js_url(hass, f"{CARD_URL}?v={_CARD_VERSION}")
-    _LOGGER.debug("Registered Aurora card at %s", CARD_URL)
+    module_url = f"{CARD_URL}?v={_CARD_VERSION}"
+    try:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL_BASE, str(card_dir), False)]
+        )
+        frontend.add_extra_js_url(hass, module_url)
+        if "aurora" not in hass.data.get("frontend_panels", {}):
+            await panel_custom.async_register_panel(
+                hass,
+                frontend_url_path="aurora",
+                webcomponent_name="aurora-panel",
+                module_url=module_url,
+                sidebar_title="Aurora",
+                sidebar_icon="mdi:weather-sunset-up",
+                require_admin=False,
+                embed_iframe=False,
+            )
+        _LOGGER.debug("Registered Aurora card + panel at %s", CARD_URL)
+    except Exception:  # noqa: BLE001 - frontend reg must never block core setup
+        _LOGGER.warning("Aurora frontend (card/panel) registration failed", exc_info=True)

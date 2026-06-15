@@ -9,7 +9,7 @@
 
 </div>
 
-> ⚠️ **Status: in active development.** This repository is being built in incremental, end-to-end testable phases (see [Roadmap](#roadmap)). It is not yet installable via HACS.
+> 🚧 **Status: in active development (v0.1.0).** Installable via HACS as a custom repository. A working MVP: alarms ring (audio fade-in / sunrise / notification), snooze & dismiss, plus a **custom Aurora app** — a full-page panel in the sidebar *and* a dashboard card — to manage alarms and devices entirely from a custom UI (no YAML, no HA config screens). Built in incremental, end-to-end testable phases (see [Roadmap](#roadmap)).
 
 ---
 

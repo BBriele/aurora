@@ -2,7 +2,7 @@ import resolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 
 export default {
-  input: "src/aurora-card.ts",
+  input: "src/index.ts",
   output: {
     file: "../custom_components/aurora/www/aurora-card.js",
     format: "es",

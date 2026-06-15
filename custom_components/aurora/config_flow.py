@@ -115,17 +115,8 @@ class AuroraConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Create the Aurora installation entry (one per HA instance)."""
-        if user_input is not None:
-            return self.async_create_entry(
-                title="Aurora", data=_strip_empty(user_input)
-            )
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {vol.Optional(CONF_OWNER): selector.TextSelector()}
-            ),
-        )
+        """One-click install. All configuration happens in the Aurora app."""
+        return self.async_create_entry(title="Aurora", data={})
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None

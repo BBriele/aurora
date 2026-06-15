@@ -9,7 +9,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "custom-card-helpers": "^1.9.0",
     "lit": "^3.2.0"
   },
   "devDependencies": {

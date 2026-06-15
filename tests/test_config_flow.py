@@ -9,13 +9,10 @@ from custom_components.aurora.const import DOMAIN
 
 
 async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
-    """A bare user flow creates the single Aurora installation."""
+    """The one-click user flow immediately creates the single installation."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
-    assert result["type"] is FlowResultType.FORM
-
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Aurora"
 
