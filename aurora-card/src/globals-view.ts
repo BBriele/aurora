@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import { getRoleEntities, getSettings, setSettings } from "./api";
+import "./entity-picker";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, RoleEntities } from "./types";
 
@@ -32,11 +33,8 @@ export class AuroraGlobalsView extends LitElement {
     this._options = { ...settings.options };
   }
 
-  private _toggleCal(key: string, cal: string): void {
-    const cur = new Set((this._options[key] as string[]) ?? []);
-    if (cur.has(cal)) cur.delete(cal);
-    else cur.add(cal);
-    this._options = { ...this._options, [key]: [...cur] };
+  private _setOption(key: string, value: unknown): void {
+    this._options = { ...this._options, [key]: value };
     this._saved = false;
   }
 
@@ -149,22 +147,16 @@ export class AuroraGlobalsView extends LitElement {
 
   private _calendars(key: string, label: string): TemplateResult {
     const cals = this._entities!.calendars ?? [];
-    const value = new Set((this._options[key] as string[]) ?? []);
     return html`
       <div class="block">
         <label class="field">${label}</label>
-        ${cals.length === 0
-          ? html`<div class="none">Nessun calendario trovato.</div>`
-          : html`<div class="chips">
-              ${cals.map(
-                (c) => html`<button
-                  class="chip ${value.has(c) ? "on" : ""}"
-                  @click=${() => this._toggleCal(key, c)}
-                >
-                  ${c}
-                </button>`
-              )}
-            </div>`}
+        <aurora-entity-picker
+          .hass=${this.hass}
+          .options=${cals}
+          .value=${(this._options[key] as string[]) ?? []}
+          .multiple=${true}
+          @change=${(e: CustomEvent<string[]>) => this._setOption(key, e.detail)}
+        ></aurora-entity-picker>
       </div>
     `;
   }

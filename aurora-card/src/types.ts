@@ -121,7 +121,7 @@ export const WEEKDAY_NAMES = [
 ];
 
 export const ROLE_LABELS: Record<string, string> = {
-  audio_sink: "Altoparlante (suoneria)",
+  audio_sink: "Altoparlante",
   wake_light: "Luce / schermo (alba)",
   display_surface: "Superficie display",
   notify_channel: "Notifiche",
@@ -129,6 +129,28 @@ export const ROLE_LABELS: Record<string, string> = {
   presence_signal: "Segnali di presenza",
   conversation: "Agente vocale",
   tts: "Sintesi vocale",
+};
+
+export const ROLE_DESC: Record<string, string> = {
+  audio_sink: "Dove suona la sveglia",
+  wake_light: "Luce o schermo per la rampa alba",
+  display_surface: "Schermo che mostra la schermata sveglia",
+  notify_channel: "Dove arrivano le notifiche (telefono, watch, overlay…)",
+  sleep_signal: "Sensori che capiscono se stai dormendo (watch, materasso…)",
+  presence_signal: "Sensori che capiscono se sei presente / sveglio",
+  conversation: "Assistente vocale per i comandi",
+  tts: "Voce per briefing e annunci",
+};
+
+export const ROLE_ICONS: Record<string, string> = {
+  audio_sink: "🔊",
+  wake_light: "🌅",
+  display_surface: "🖥️",
+  notify_channel: "🔔",
+  sleep_signal: "😴",
+  presence_signal: "🚶",
+  conversation: "🗣️",
+  tts: "📣",
 };
 
 export const MISSION_LABELS: Record<MissionType, string> = {

@@ -278,7 +278,7 @@ const auroraStyles = i$3 `
 
 const WEEKDAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
 const ROLE_LABELS = {
-    audio_sink: "Altoparlante (suoneria)",
+    audio_sink: "Altoparlante",
     wake_light: "Luce / schermo (alba)",
     display_surface: "Superficie display",
     notify_channel: "Notifiche",
@@ -286,6 +286,26 @@ const ROLE_LABELS = {
     presence_signal: "Segnali di presenza",
     conversation: "Agente vocale",
     tts: "Sintesi vocale",
+};
+const ROLE_DESC = {
+    audio_sink: "Dove suona la sveglia",
+    wake_light: "Luce o schermo per la rampa alba",
+    display_surface: "Schermo che mostra la schermata sveglia",
+    notify_channel: "Dove arrivano le notifiche (telefono, watch, overlay…)",
+    sleep_signal: "Sensori che capiscono se stai dormendo (watch, materasso…)",
+    presence_signal: "Sensori che capiscono se sei presente / sveglio",
+    conversation: "Assistente vocale per i comandi",
+    tts: "Voce per briefing e annunci",
+};
+const ROLE_ICONS = {
+    audio_sink: "🔊",
+    wake_light: "🌅",
+    display_surface: "🖥️",
+    notify_channel: "🔔",
+    sleep_signal: "😴",
+    presence_signal: "🚶",
+    conversation: "🗣️",
+    tts: "📣",
 };
 const MISSION_LABELS = {
     none: "Nessuna",
@@ -1278,8 +1298,162 @@ AuroraCard = __decorate([
     t("aurora-card")
 ], AuroraCard);
 
-const SINGLE_ROLES = ["audio_sink", "wake_light", "display_surface", "conversation", "tts"];
-const MULTI_ROLES = ["notify_channel", "sleep_signal", "presence_signal"];
+/**
+ * Friendly entity picker used for role bindings.
+ * - single: a dropdown of friendly names (+ "Nessuno").
+ * - multiple: chosen entities as removable pills + a searchable "Aggiungi…"
+ *   dropdown of the remaining candidates (so long lists never overwhelm).
+ * Emits a `change` event with the new value (string or string[]).
+ */
+let AuroraEntityPicker = class AuroraEntityPicker extends i {
+    constructor() {
+        super(...arguments);
+        this.options = [];
+        this.value = "";
+        this.multiple = false;
+    }
+    _name(id) {
+        return this.hass?.states[id]?.attributes.friendly_name || id;
+    }
+    _sorted(ids) {
+        return [...ids].sort((a, b) => this._name(a).localeCompare(this._name(b)));
+    }
+    _emit(value) {
+        this.dispatchEvent(new CustomEvent("change", { detail: value }));
+    }
+    render() {
+        if (!this.options.length) {
+            return b `<div class="none">Nessuna entità compatibile trovata.</div>`;
+        }
+        return this.multiple ? this._renderMulti() : this._renderSingle();
+    }
+    _renderSingle() {
+        const value = this.value || "";
+        return b `
+      <select
+        .value=${value}
+        @change=${(e) => this._emit(e.target.value)}
+      >
+        <option value="" ?selected=${value === ""}>— Nessuno —</option>
+        ${this._sorted(this.options).map((id) => b `<option value=${id} ?selected=${id === value} title=${id}>
+            ${this._name(id)}
+          </option>`)}
+      </select>
+    `;
+    }
+    _renderMulti() {
+        const value = this.value ?? [];
+        const remaining = this._sorted(this.options.filter((id) => !value.includes(id)));
+        return b `
+      ${value.length
+            ? b `<div class="pills">
+            ${value.map((id) => b `<div class="pill" title=${id}>
+                <span>${this._name(id)}</span>
+                <button @click=${() => this._emit(value.filter((x) => x !== id))}>✕</button>
+              </div>`)}
+          </div>`
+            : A}
+      ${remaining.length
+            ? b `<div class="add">
+            <select
+              @change=${(e) => {
+                const sel = e.target;
+                if (sel.value) {
+                    this._emit([...value, sel.value]);
+                    sel.value = "";
+                }
+            }}
+            >
+              <option value="">＋ Aggiungi…</option>
+              ${remaining.map((id) => b `<option value=${id} title=${id}>${this._name(id)}</option>`)}
+            </select>
+          </div>`
+            : A}
+    `;
+    }
+};
+AuroraEntityPicker.styles = [
+    auroraStyles,
+    i$3 `
+      select {
+        width: 100%;
+      }
+      .none {
+        font-size: 0.85rem;
+        color: var(--aurora-dim);
+        font-style: italic;
+      }
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px 7px 13px;
+        border-radius: 999px;
+        color: #fff;
+        background: var(--aurora-grad);
+        font-size: 0.85rem;
+        font-weight: 600;
+        max-width: 100%;
+      }
+      .pill span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pill button {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.25);
+        color: #fff;
+        font-size: 13px;
+        line-height: 1;
+        flex: none;
+      }
+      .add {
+        position: relative;
+      }
+      .add select {
+        color: var(--aurora-accent);
+        font-weight: 600;
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraEntityPicker.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraEntityPicker.prototype, "options", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraEntityPicker.prototype, "value", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraEntityPicker.prototype, "multiple", void 0);
+AuroraEntityPicker = __decorate([
+    t("aurora-entity-picker")
+], AuroraEntityPicker);
+
+const ROLES = [
+    { key: "audio_sink", multiple: false },
+    { key: "wake_light", multiple: false },
+    { key: "display_surface", multiple: false },
+    { key: "notify_channel", multiple: true },
+    { key: "sleep_signal", multiple: true },
+    { key: "presence_signal", multiple: true },
+    { key: "conversation", multiple: false },
+    { key: "tts", multiple: false },
+];
 /** Per-user device bindings editor. Edits options.profiles[userId].bindings. */
 let AuroraDevicesView = class AuroraDevicesView extends i {
     constructor() {
@@ -1312,14 +1486,6 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         this._bindings = { ...this._bindings, [key]: value };
         this._saved = false;
     }
-    _toggleMulti(key, entity) {
-        const cur = new Set(this._bindings[key] ?? []);
-        if (cur.has(entity))
-            cur.delete(entity);
-        else
-            cur.add(entity);
-        this._set(key, [...cur]);
-    }
     async _save() {
         this._saving = true;
         try {
@@ -1342,12 +1508,11 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         }
         return b `
       <p class="intro">
-        Dispositivi di <span class="who">${this.userName || "questo profilo"}</span>.
-        Ogni campo è opzionale — lascia vuoto un ruolo e Aurora salta quella
-        funzione. L'orario esatto è sempre garantito.
+        Dispositivi di <span class="who">${this.userName || "questo profilo"}</span> —
+        tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è
+        sempre garantito.
       </p>
-      ${SINGLE_ROLES.map((role) => this._single(role))}
-      ${MULTI_ROLES.map((role) => this._multi(role))}
+      ${ROLES.map((role) => this._role(role.key, role.multiple))}
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? "Salvataggio…" : "Salva i miei dispositivi"}
@@ -1356,40 +1521,27 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
       </div>
     `;
     }
-    _single(role) {
-        const opts = this._entities.roles[role] ?? [];
-        const value = this._bindings[role] ?? "";
+    _role(key, multiple) {
+        const options = this._entities.roles[key] ?? [];
+        const value = multiple
+            ? (this._bindings[key] ?? [])
+            : (this._bindings[key] ?? "");
         return b `
       <div class="role">
-        <label class="field">${ROLE_LABELS[role] ?? role}</label>
-        ${opts.length === 0
-            ? b `<div class="none">Nessuna entità compatibile trovata.</div>`
-            : b `<select
-              .value=${value}
-              @change=${(e) => this._set(role, e.target.value)}
-            >
-              <option value="" ?selected=${value === ""}>— Nessuno —</option>
-              ${opts.map((e) => b `<option value=${e} ?selected=${e === value}>${e}</option>`)}
-            </select>`}
-      </div>
-    `;
-    }
-    _multi(role) {
-        const opts = this._entities.roles[role] ?? [];
-        const value = new Set(this._bindings[role] ?? []);
-        return b `
-      <div class="role">
-        <label class="field">${ROLE_LABELS[role] ?? role}</label>
-        ${opts.length === 0
-            ? b `<div class="none">Nessuna entità compatibile trovata.</div>`
-            : b `<div class="chips">
-              ${opts.map((e) => b `<button
-                  class="chip ${value.has(e) ? "on" : ""}"
-                  @click=${() => this._toggleMulti(role, e)}
-                >
-                  ${e}
-                </button>`)}
-            </div>`}
+        <div class="rolehead">
+          <div class="ic">${ROLE_ICONS[key] ?? "•"}</div>
+          <div>
+            <div class="name">${ROLE_LABELS[key] ?? key}</div>
+            <div class="desc">${ROLE_DESC[key] ?? ""}</div>
+          </div>
+        </div>
+        <aurora-entity-picker
+          .hass=${this.hass}
+          .options=${options}
+          .value=${value}
+          .multiple=${multiple}
+          @change=${(e) => this._set(key, e.detail)}
+        ></aurora-entity-picker>
       </div>
     `;
     }
@@ -1399,7 +1551,7 @@ AuroraDevicesView.styles = [
     i$3 `
       .intro {
         color: var(--aurora-dim);
-        margin: 0 0 18px;
+        margin: 0 0 6px;
         line-height: 1.5;
       }
       .who {
@@ -1407,37 +1559,31 @@ AuroraDevicesView.styles = [
         color: var(--aurora-text);
       }
       .role {
-        padding: 14px 0;
+        padding: 16px 0;
         border-top: 1px solid var(--aurora-divider);
       }
-      .role .field {
-        margin-bottom: 8px;
-      }
-      .chips {
+      .rolehead {
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
       }
-      .chip {
-        appearance: none;
-        border: 1px solid var(--aurora-divider);
-        cursor: pointer;
-        font: inherit;
-        font-size: 0.85rem;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: transparent;
+      .ic {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 19px;
+        background: var(--aurora-grad-soft);
+        flex: none;
+      }
+      .rolehead .name {
+        font-weight: 700;
+      }
+      .rolehead .desc {
+        font-size: 0.82rem;
         color: var(--aurora-dim);
-      }
-      .chip.on {
-        color: #fff;
-        background: var(--aurora-grad);
-        border-color: transparent;
-      }
-      .none {
-        font-size: 0.85rem;
-        color: var(--aurora-dim);
-        font-style: italic;
       }
       .savebar {
         position: sticky;
@@ -1445,7 +1591,9 @@ AuroraDevicesView.styles = [
         display: flex;
         align-items: center;
         gap: 12px;
-        padding-top: 16px;
+        padding-top: 18px;
+        margin-top: 8px;
+        background: linear-gradient(transparent, var(--aurora-surface) 40%);
       }
       .ok {
         color: var(--aurora-accent);
@@ -1501,13 +1649,8 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         this._entities = entities;
         this._options = { ...settings.options };
     }
-    _toggleCal(key, cal) {
-        const cur = new Set(this._options[key] ?? []);
-        if (cur.has(cal))
-            cur.delete(cal);
-        else
-            cur.add(cal);
-        this._options = { ...this._options, [key]: [...cur] };
+    _setOption(key, value) {
+        this._options = { ...this._options, [key]: value };
         this._saved = false;
     }
     async _save() {
@@ -1564,20 +1707,16 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     }
     _calendars(key, label) {
         const cals = this._entities.calendars ?? [];
-        const value = new Set(this._options[key] ?? []);
         return b `
       <div class="block">
         <label class="field">${label}</label>
-        ${cals.length === 0
-            ? b `<div class="none">Nessun calendario trovato.</div>`
-            : b `<div class="chips">
-              ${cals.map((c) => b `<button
-                  class="chip ${value.has(c) ? "on" : ""}"
-                  @click=${() => this._toggleCal(key, c)}
-                >
-                  ${c}
-                </button>`)}
-            </div>`}
+        <aurora-entity-picker
+          .hass=${this.hass}
+          .options=${cals}
+          .value=${this._options[key] ?? []}
+          .multiple=${true}
+          @change=${(e) => this._setOption(key, e.detail)}
+        ></aurora-entity-picker>
       </div>
     `;
     }
