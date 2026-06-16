@@ -276,6 +276,14 @@ const auroraStyles = i$3 `
   }
 `;
 
+/** Wake-up briefing block keys and their Italian labels. */
+const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"];
+const BRIEFING_BLOCK_LABELS = {
+    time: "Ora e saluto",
+    weather: "Meteo",
+    calendar: "Calendario",
+    todo: "Cose da fare",
+};
 const WEEKDAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
 const ROLE_LABELS = {
     audio_sink: "Altoparlante",
@@ -411,6 +419,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._lightMin = 30;
         this._smart = false;
         this._smartMin = 30;
+        this._briefing = false;
+        this._briefingBlocks = [...BRIEFING_BLOCKS];
         this._enabled = true;
         this._saving = false;
     }
@@ -434,6 +444,10 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._lightMin = a?.features.light.duration_min ?? 30;
         this._smart = a?.features.smart_window.enabled ?? false;
         this._smartMin = a?.features.smart_window.minutes ?? 30;
+        this._briefing = a?.features.briefing.enabled ?? false;
+        this._briefingBlocks = a?.features.briefing.blocks?.length
+            ? [...a.features.briefing.blocks]
+            : [...BRIEFING_BLOCKS];
         this._enabled = a?.enabled ?? true;
         this._saving = false;
     }
@@ -441,25 +455,43 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this.open = false;
         this.dispatchEvent(new CustomEvent("closed"));
     }
+    _toggleBlock(block) {
+        this._briefingBlocks = this._briefingBlocks.includes(block)
+            ? this._briefingBlocks.filter((b) => b !== block)
+            : [...this._briefingBlocks, block];
+    }
     async _save() {
         this._saving = true;
+        // The backend replaces the whole `features` dict on update, so we spread the
+        // existing alarm's features (and each sub-object) to preserve fields this
+        // dialog does not edit — per-alarm target overrides, mission params/vision
+        // prompt, smart-window signals, the briefing template, etc.
+        const prev = this.alarm?.features;
         const input = {
             time: this._time,
             label: this._label,
             profile_id: this.alarm?.profile_id ?? this.profileId,
             enabled: this._enabled,
-            schedule: { repeat_mode: this._repeat, weekdays: this._days },
+            schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
             features: {
-                mission: { type: this._mission },
-                snooze: { max: this._snoozeMax, duration: this._snoozeMin * 60 },
+                ...prev,
+                mission: { ...prev?.mission, type: this._mission },
+                snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
                 audio: {
+                    ...prev?.audio,
                     enabled: this._audioSource !== "",
                     source: this._audioSource || null,
                     volume_profile: this._audioFade ? "fade_in" : "fixed",
-                    volume_max: 0.7,
                 },
-                light: { enabled: this._light, duration_min: this._lightMin, post_stop: "off" },
-                smart_window: { enabled: this._smart, minutes: this._smartMin },
+                light: { ...prev?.light, enabled: this._light, duration_min: this._lightMin },
+                smart_window: { ...prev?.smart_window, enabled: this._smart, minutes: this._smartMin },
+                briefing: {
+                    ...prev?.briefing,
+                    enabled: this._briefing,
+                    blocks: this._briefing
+                        ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
+                        : [],
+                },
             },
         };
         try {
@@ -621,6 +653,28 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 />`
             : A}
           </div>
+          <div class="togglerow">
+            <div
+              class="switch"
+              role="switch"
+              aria-checked=${this._briefing ? "true" : "false"}
+              @click=${() => (this._briefing = !this._briefing)}
+            ></div>
+            <div class="spacer">
+              Briefing al risveglio
+              <div class="sub">Pronuncia ora, meteo e impegni quando fermi la sveglia</div>
+            </div>
+          </div>
+          ${this._briefing
+            ? b `<div class="chips">
+                ${BRIEFING_BLOCKS.map((b$1) => b `<button
+                    class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
+                    @click=${() => this._toggleBlock(b$1)}
+                  >
+                    ${BRIEFING_BLOCK_LABELS[b$1]}
+                  </button>`)}
+              </div>`
+            : A}
 
           <div class="actions">
             <button class="btn ghost" @click=${this._close}>Annulla</button>
@@ -719,6 +773,29 @@ AuroraAlarmDialog.styles = [
       .block {
         margin-top: 18px;
       }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .chips button {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 7px 14px;
+        border-radius: 999px;
+        color: var(--aurora-dim);
+        background: transparent;
+      }
+      .chips button.on {
+        color: #fff;
+        border-color: transparent;
+        background: var(--aurora-grad);
+      }
       .togglerow {
         display: flex;
         align-items: center;
@@ -804,6 +881,12 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_smartMin", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_briefing", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_briefingBlocks", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_enabled", void 0);
@@ -1380,7 +1463,7 @@ let AuroraEntityPicker = class AuroraEntityPicker extends i {
     `;
     }
     _renderMulti() {
-        const value = this.value ?? [];
+        const value = Array.isArray(this.value) ? this.value : [];
         const remaining = this._sorted(this.options.filter((id) => !value.includes(id)));
         return b `
       ${value.length
@@ -1698,9 +1781,16 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
                 ring_max_duration: this._options["ring_max_duration"] ?? 600,
                 skip_calendars: this._options["skip_calendars"] ?? [],
                 holiday_calendars: this._options["holiday_calendars"] ?? [],
+                weather: this._options["weather"] ?? "",
+                briefing_calendars: this._options["briefing_calendars"] ?? [],
+                todo_lists: this._options["todo_lists"] ?? [],
             });
             this._options = { ...res.options };
             this._saved = true;
+        }
+        catch (err) {
+            this._saved = false;
+            throw err;
         }
         finally {
             this._saving = false;
@@ -1735,6 +1825,14 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
       ${this._calendars("skip_calendars", "Calendari per salto impegni")}
       ${this._calendars("holiday_calendars", "Calendari festività (auto-skip)")}
 
+      <p class="intro" style="margin-top:22px">
+        <strong>Briefing del risveglio</strong> — sorgenti lette quando la sveglia
+        ha il briefing attivo. Vuoto = rilevamento automatico.
+      </p>
+      ${this._picker("weather", "Meteo (entità weather)", this._entities.weather ?? [], false)}
+      ${this._picker("briefing_calendars", "Calendari del briefing", this._entities.calendars ?? [], true)}
+      ${this._picker("todo_lists", "Liste di cose da fare", this._entities.todo ?? [], true)}
+
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? "Salvataggio…" : "Salva globali"}
@@ -1744,15 +1842,19 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     `;
     }
     _calendars(key, label) {
-        const cals = this._entities.calendars ?? [];
+        return this._picker(key, label, this._entities.calendars ?? [], true);
+    }
+    _picker(key, label, options, multiple) {
         return b `
       <div class="block">
         <label class="field">${label}</label>
         <aurora-entity-picker
           .hass=${this.hass}
-          .options=${cals}
-          .value=${this._options[key] ?? []}
-          .multiple=${true}
+          .options=${options}
+          .value=${multiple
+            ? (this._options[key] ?? [])
+            : (this._options[key] ?? "")}
+          .multiple=${multiple}
           @change=${(e) => this._setOption(key, e.detail)}
         ></aurora-entity-picker>
       </div>

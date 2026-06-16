@@ -58,6 +58,10 @@ CONF_PROFILE_NAME: Final = "name"
 CONF_SKIP_CALENDARS: Final = "skip_calendars"
 CONF_HOLIDAY_CALENDARS: Final = "holiday_calendars"
 CONF_RING_MAX_DURATION: Final = "ring_max_duration"
+# Briefing data sources (globals; the briefing speaks via the TTS role).
+CONF_WEATHER: Final = "weather"
+CONF_BRIEFING_CALENDARS: Final = "briefing_calendars"
+CONF_TODO_LISTS: Final = "todo_lists"
 
 # --- Service names ----------------------------------------------------------
 SERVICE_ADD_ALARM: Final = "add_alarm"
@@ -67,6 +71,7 @@ SERVICE_SKIP_NEXT: Final = "skip_next"
 SERVICE_SNOOZE: Final = "snooze"
 SERVICE_DISMISS: Final = "dismiss"
 SERVICE_TRIGGER_NOW: Final = "trigger_now"
+SERVICE_SPEAK_BRIEFING: Final = "speak_briefing"
 SERVICE_BENCHMARK_VISION: Final = "benchmark_vision"
 
 # --- Defaults ---------------------------------------------------------------

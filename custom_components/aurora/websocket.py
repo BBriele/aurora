@@ -69,13 +69,21 @@ def ws_options_entities(
     """Return, per role, the entities that currently satisfy it (for selectors)."""
     roles = {role: suggest_entities(hass, role) for role in ALL_ROLES}
     calendars = sorted(state.entity_id for state in hass.states.async_all("calendar"))
+    weather = sorted(state.entity_id for state in hass.states.async_all("weather"))
+    todo = sorted(state.entity_id for state in hass.states.async_all("todo"))
     providers = [
         {"id": entry_id, "title": title}
         for entry_id, title in get_llm_vision_providers(hass)
     ]
     connection.send_result(
         msg["id"],
-        {"roles": roles, "calendars": calendars, "vision_providers": providers},
+        {
+            "roles": roles,
+            "calendars": calendars,
+            "weather": weather,
+            "todo": todo,
+            "vision_providers": providers,
+        },
     )
 
 

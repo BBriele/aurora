@@ -11,35 +11,50 @@ transitions. Output roles (audio/light/notify) are wired in Phase 1; here the
 fire handler only advances the state machine and logs.
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
     async_track_time_change,
     async_track_time_interval,
 )
+from homeassistant.helpers.template import Template
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
+from .briefing import (
+    DEFAULT_BLOCKS,
+    BriefingContext,
+    WeatherFact,
+    compose_briefing,
+)
 from .const import (
+    CONF_BRIEFING_CALENDARS,
     CONF_HOLIDAY_CALENDARS,
     CONF_PROFILE_BINDINGS,
+    CONF_PROFILE_NAME,
     CONF_PROFILES,
     CONF_RING_MAX_DURATION,
     CONF_SKIP_CALENDARS,
+    CONF_TODO_LISTS,
+    CONF_WEATHER,
     DEFAULT_RING_MAX_DURATION,
     DEFAULT_SMART_WINDOW_MIN,
     DOMAIN,
+    ROLE_AUDIO_SINK,
     ROLE_PRESENCE_SIGNAL,
     ROLE_SLEEP_SIGNAL,
+    ROLE_TTS,
 )
 from .models import AuroraAlarm
 from .ring import RingController
@@ -92,6 +107,25 @@ def _event_dates(event: dict[str, object]) -> set[date]:
             break
         cur += timedelta(days=1)
     return days
+
+
+def _first_entity(value: object) -> str | None:
+    """Coerce a role binding (str | list | None) to a single entity_id."""
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, list) and value:
+        first = value[0]
+        return str(first) if first else None
+    return None
+
+
+def _as_entity_list(value: object) -> list[str]:
+    """Coerce a binding (str | list | None) to a list of entity_ids."""
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, list):
+        return [str(v) for v in value if v]
+    return []
 
 
 class AuroraState(StrEnum):
@@ -180,6 +214,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._skip_dates: set[date] = set()
         self._unsub_listeners: list[CALLBACK_TYPE] = []
         self._ring = RingController(hass)
+        self._briefing_lock = asyncio.Lock()
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -502,7 +537,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
     def _on_watchdog(self, _now: datetime) -> None:
         """Safety auto-stop if a ring runs past its maximum duration."""
         self._unsub_watchdog = None
-        self.hass.async_create_task(self.async_dismiss())
+        self.config_entry.async_create_task(
+            self.hass, self.async_dismiss(), "aurora_watchdog_dismiss"
+        )
 
     @callback
     def _on_snooze_end(self, _now: datetime) -> None:
@@ -524,14 +561,39 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         return None
 
     async def async_dismiss(self) -> None:
-        """Stop the current ring and return to idle."""
+        """Stop the current ring; speak the wake-up briefing if enabled, then idle."""
+        # Once we're in the post-wake (briefing) phase nothing is ringing, so a
+        # repeat dismiss is a no-op — and it must not clobber the running task.
+        if self._state is AuroraState.POST_WAKE:
+            return
         self._cancel_ring_timers()
         await self._ring.async_stop()
+        alarm = self._active_alarm
         self._active_alarm = None
         self._active_alarm_id = None
         self._snooze_count = 0
+        if alarm is not None and alarm.features.briefing.enabled:
+            self._state = AuroraState.POST_WAKE
+            self._publish()
+            self.config_entry.async_create_task(
+                self.hass, self._async_post_wake(alarm), "aurora_post_wake"
+            )
+            return
         self._state = AuroraState.IDLE
         self._publish()
+
+    async def _async_post_wake(self, alarm: AuroraAlarm) -> None:
+        """Run the post-wake routine (briefing), then return to idle."""
+        try:
+            await self._async_run_briefing(alarm)
+        except Exception:  # noqa: BLE001 - a briefing failure must not strand state
+            _LOGGER.exception("Aurora: wake-up briefing failed")
+        finally:
+            # Only fall back to idle if nothing newer took over (e.g. a fresh
+            # ring started during the briefing); never overwrite a live state.
+            if self._state is AuroraState.POST_WAKE:
+                self._state = AuroraState.IDLE
+                self._publish()
 
     async def async_snooze(self) -> None:
         """Snooze the current ring and schedule a re-ring (respects the max)."""
@@ -565,3 +627,195 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             raise HomeAssistantError("No alarm available to trigger")
         self._snooze_count = 0
         self._begin_ring(alarm)
+
+    # --- Wake-up briefing ---------------------------------------------------
+
+    async def async_speak_briefing(self, alarm_id: str | None = None) -> None:
+        """Compose and speak the briefing for the given / active / first alarm.
+
+        Exposed for the ``trigger_now``-style service so a briefing can be
+        previewed without a full ring cycle.
+        """
+        alarm: AuroraAlarm | None = None
+        if alarm_id is not None:
+            alarm = self._get_alarm(alarm_id)
+        elif self._active_alarm is not None:
+            alarm = self._active_alarm
+        elif self._next is not None:
+            alarm = self._get_alarm(self._next.alarm_id)
+        if alarm is None:
+            alarm = self._first_enabled_alarm()
+        if alarm is None:
+            raise HomeAssistantError("No alarm available for a briefing")
+        await self._async_run_briefing(alarm)
+
+    async def _async_run_briefing(self, alarm: AuroraAlarm) -> None:
+        """Resolve the briefing text and speak it (or notify on degradation).
+
+        Serialised with a lock so a manual ``speak_briefing`` preview can never
+        talk over a post-wake briefing already in flight.
+        """
+        async with self._briefing_lock:
+            options = self._effective_options(alarm)
+            text = await self._async_briefing_text(alarm, options)
+            if not text:
+                _LOGGER.debug("Aurora briefing: nothing to say for '%s'", alarm.id)
+                return
+            await self._async_speak(text, alarm, options)
+
+    async def _async_briefing_text(
+        self, alarm: AuroraAlarm, options: dict[str, object]
+    ) -> str:
+        """Render a custom template, else compose the selected blocks."""
+        briefing = alarm.features.briefing
+        if briefing.template:
+            try:
+                rendered = Template(briefing.template, self.hass).async_render(
+                    parse_result=False
+                )
+            except (TemplateError, ValueError):
+                _LOGGER.warning(
+                    "Aurora briefing: template render failed", exc_info=True
+                )
+            else:
+                if rendered not in (None, ""):
+                    return str(rendered)
+        blocks = briefing.blocks or list(DEFAULT_BLOCKS)
+        ctx = BriefingContext(
+            now=dt_util.now(),
+            name=self._profile_name(alarm),
+            weather=self._gather_weather(options) if "weather" in blocks else None,
+            events=await self._gather_events(options) if "calendar" in blocks else [],
+            todos=await self._gather_todos(options) if "todo" in blocks else [],
+        )
+        return compose_briefing(ctx, blocks)
+
+    @callback
+    def _profile_name(self, alarm: AuroraAlarm) -> str:
+        """Owner profile display name for the greeting (empty if none)."""
+        profiles = self.config_entry.options.get(CONF_PROFILES) or {}
+        if isinstance(profiles, dict):
+            profile = profiles.get(alarm.profile_id or "")
+            if isinstance(profile, dict):
+                return str(profile.get(CONF_PROFILE_NAME) or "")
+        return ""
+
+    @callback
+    def _gather_weather(self, options: dict[str, object]) -> WeatherFact | None:
+        """Read the bound (or first available) weather entity into a WeatherFact."""
+        entity_id = _first_entity(options.get(CONF_WEATHER))
+        if entity_id is None:
+            states = self.hass.states.async_all("weather")
+            entity_id = states[0].entity_id if states else None
+        if entity_id is None:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unavailable", "unknown"):
+            return None
+        raw_temp = state.attributes.get("temperature")
+        try:
+            temperature = float(raw_temp) if raw_temp is not None else None
+        except (TypeError, ValueError):
+            temperature = None
+        unit = str(state.attributes.get("temperature_unit") or "°")
+        return WeatherFact(
+            condition=state.state or None, temperature=temperature, unit=unit
+        )
+
+    async def _gather_events(self, options: dict[str, object]) -> list[str]:
+        """Today's remaining calendar events (summaries), ordered by start."""
+        calendars = _as_entity_list(options.get(CONF_BRIEFING_CALENDARS))
+        if not calendars:
+            calendars = [s.entity_id for s in self.hass.states.async_all("calendar")]
+        if not calendars:
+            return []
+        now = dt_util.now()
+        end = now.replace(hour=23, minute=59, second=59, microsecond=0)
+        try:
+            response = await self.hass.services.async_call(
+                "calendar",
+                "get_events",
+                {
+                    "entity_id": calendars,
+                    "start_date_time": now.isoformat(),
+                    "end_date_time": end.isoformat(),
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception:  # noqa: BLE001 - calendars are best-effort
+            _LOGGER.warning("Aurora briefing: could not read calendars", exc_info=True)
+            return []
+        rows: list[tuple[str, str]] = []
+        for cal in (response or {}).values():
+            if not isinstance(cal, dict):
+                continue
+            for event in cal.get("events", []):
+                summary = event.get("summary") or event.get("message") or "Evento"
+                start_key = _coerce_event_value(event.get("start")) or ""
+                rows.append((start_key, str(summary)))
+        rows.sort(key=lambda row: row[0])
+        return [summary for _, summary in rows]
+
+    async def _gather_todos(self, options: dict[str, object]) -> list[str]:
+        """Open (needs-action) to-do item summaries across the bound lists."""
+        lists = _as_entity_list(options.get(CONF_TODO_LISTS))
+        if not lists:
+            lists = [s.entity_id for s in self.hass.states.async_all("todo")]
+        if not lists:
+            return []
+        try:
+            response = await self.hass.services.async_call(
+                "todo",
+                "get_items",
+                {"entity_id": lists, "status": ["needs_action"]},
+                blocking=True,
+                return_response=True,
+            )
+        except Exception:  # noqa: BLE001 - to-do lists are best-effort
+            _LOGGER.warning("Aurora briefing: could not read to-do lists", exc_info=True)
+            return []
+        todos: list[str] = []
+        for data in (response or {}).values():
+            if not isinstance(data, dict):
+                continue
+            for item in data.get("items", []):
+                summary = item.get("summary")
+                if summary:
+                    todos.append(str(summary))
+        return todos
+
+    async def _async_speak(
+        self, text: str, alarm: AuroraAlarm, options: dict[str, object]
+    ) -> None:
+        """Speak ``text`` via the TTS role onto the audio sink; notify if degraded."""
+        tts_entity = _first_entity(options.get(ROLE_TTS))
+        media_target = alarm.features.audio.target or _first_entity(
+            options.get(ROLE_AUDIO_SINK)
+        )
+        if tts_entity and media_target:
+            try:
+                # blocking=True so a runtime TTS failure (bad media player, engine
+                # error) actually raises here and we can fall back to a notification.
+                # We're already inside a fire-and-forget task, so this never stalls
+                # an event-loop callback. The TTS entity goes in the target.
+                await self.hass.services.async_call(
+                    "tts",
+                    "speak",
+                    {
+                        "media_player_entity_id": media_target,
+                        "message": text,
+                        "cache": False,
+                    },
+                    blocking=True,
+                    target={"entity_id": tts_entity},
+                )
+                return
+            except Exception:  # noqa: BLE001 - degrade to a visible notification
+                _LOGGER.warning("Aurora briefing: tts.speak failed", exc_info=True)
+        persistent_notification.async_create(
+            self.hass,
+            text,
+            title="Aurora — Briefing",
+            notification_id=f"aurora_briefing_{alarm.id}",
+        )

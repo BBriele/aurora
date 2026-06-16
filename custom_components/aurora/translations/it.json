@@ -183,6 +183,13 @@
         "id": { "name": "ID sveglia", "description": "Facoltativo: quale sveglia suonare (default: la prossima/prima)." }
       }
     },
+    "speak_briefing": {
+      "name": "Leggi briefing",
+      "description": "Componi e pronuncia subito il briefing del risveglio (ora, meteo, calendario, cose da fare).",
+      "fields": {
+        "id": { "name": "ID sveglia", "description": "Facoltativo: di quale sveglia leggere il briefing (default: attiva/prossima/prima)." }
+      }
+    },
     "benchmark_vision": {
       "name": "Benchmark visione",
       "description": "Misura la latenza dell'AI vision sul tuo hardware (disponibile dalla Fase 3).",

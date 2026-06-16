@@ -45,9 +45,15 @@ export class AuroraGlobalsView extends LitElement {
         ring_max_duration: this._options["ring_max_duration"] ?? 600,
         skip_calendars: this._options["skip_calendars"] ?? [],
         holiday_calendars: this._options["holiday_calendars"] ?? [],
+        weather: this._options["weather"] ?? "",
+        briefing_calendars: this._options["briefing_calendars"] ?? [],
+        todo_lists: this._options["todo_lists"] ?? [],
       });
       this._options = { ...res.options };
       this._saved = true;
+    } catch (err) {
+      this._saved = false;
+      throw err;
     } finally {
       this._saving = false;
     }
@@ -136,6 +142,24 @@ export class AuroraGlobalsView extends LitElement {
       ${this._calendars("skip_calendars", "Calendari per salto impegni")}
       ${this._calendars("holiday_calendars", "Calendari festività (auto-skip)")}
 
+      <p class="intro" style="margin-top:22px">
+        <strong>Briefing del risveglio</strong> — sorgenti lette quando la sveglia
+        ha il briefing attivo. Vuoto = rilevamento automatico.
+      </p>
+      ${this._picker(
+        "weather",
+        "Meteo (entità weather)",
+        this._entities.weather ?? [],
+        false
+      )}
+      ${this._picker(
+        "briefing_calendars",
+        "Calendari del briefing",
+        this._entities.calendars ?? [],
+        true
+      )}
+      ${this._picker("todo_lists", "Liste di cose da fare", this._entities.todo ?? [], true)}
+
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? "Salvataggio…" : "Salva globali"}
@@ -146,16 +170,27 @@ export class AuroraGlobalsView extends LitElement {
   }
 
   private _calendars(key: string, label: string): TemplateResult {
-    const cals = this._entities!.calendars ?? [];
+    return this._picker(key, label, this._entities!.calendars ?? [], true);
+  }
+
+  private _picker(
+    key: string,
+    label: string,
+    options: string[],
+    multiple: boolean
+  ): TemplateResult {
     return html`
       <div class="block">
         <label class="field">${label}</label>
         <aurora-entity-picker
           .hass=${this.hass}
-          .options=${cals}
-          .value=${(this._options[key] as string[]) ?? []}
-          .multiple=${true}
-          @change=${(e: CustomEvent<string[]>) => this._setOption(key, e.detail)}
+          .options=${options}
+          .value=${multiple
+            ? ((this._options[key] as string[]) ?? [])
+            : ((this._options[key] as string) ?? "")}
+          .multiple=${multiple}
+          @change=${(e: CustomEvent<string | string[]>) =>
+            this._setOption(key, e.detail)}
         ></aurora-entity-picker>
       </div>
     `;

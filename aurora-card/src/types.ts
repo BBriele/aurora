@@ -106,8 +106,20 @@ export interface AuroraSettings {
 export interface RoleEntities {
   roles: Record<string, string[]>;
   calendars: string[];
+  weather: string[];
+  todo: string[];
   vision_providers: { id: string; title: string }[];
 }
+
+/** Wake-up briefing block keys and their Italian labels. */
+export const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"] as const;
+export type BriefingBlock = (typeof BRIEFING_BLOCKS)[number];
+export const BRIEFING_BLOCK_LABELS: Record<BriefingBlock, string> = {
+  time: "Ora e saluto",
+  weather: "Meteo",
+  calendar: "Calendario",
+  todo: "Cose da fare",
+};
 
 export const WEEKDAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
 export const WEEKDAY_NAMES = [

@@ -5,8 +5,11 @@ import { createAlarm, updateAlarm } from "./api";
 import { auroraStyles } from "./theme";
 import "./weekday-chips";
 import {
+  BRIEFING_BLOCKS,
+  BRIEFING_BLOCK_LABELS,
   MISSION_LABELS,
   type Alarm,
+  type BriefingBlock,
   type HomeAssistant,
   type MissionType,
   type RepeatMode,
@@ -38,6 +41,8 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _lightMin = 30;
   @state() private _smart = false;
   @state() private _smartMin = 30;
+  @state() private _briefing = false;
+  @state() private _briefingBlocks: string[] = [...BRIEFING_BLOCKS];
   @state() private _enabled = true;
   @state() private _saving = false;
 
@@ -62,6 +67,10 @@ export class AuroraAlarmDialog extends LitElement {
     this._lightMin = a?.features.light.duration_min ?? 30;
     this._smart = a?.features.smart_window.enabled ?? false;
     this._smartMin = a?.features.smart_window.minutes ?? 30;
+    this._briefing = a?.features.briefing.enabled ?? false;
+    this._briefingBlocks = a?.features.briefing.blocks?.length
+      ? [...a.features.briefing.blocks]
+      : [...BRIEFING_BLOCKS];
     this._enabled = a?.enabled ?? true;
     this._saving = false;
   }
@@ -71,25 +80,44 @@ export class AuroraAlarmDialog extends LitElement {
     this.dispatchEvent(new CustomEvent("closed"));
   }
 
+  private _toggleBlock(block: BriefingBlock): void {
+    this._briefingBlocks = this._briefingBlocks.includes(block)
+      ? this._briefingBlocks.filter((b) => b !== block)
+      : [...this._briefingBlocks, block];
+  }
+
   private async _save(): Promise<void> {
     this._saving = true;
+    // The backend replaces the whole `features` dict on update, so we spread the
+    // existing alarm's features (and each sub-object) to preserve fields this
+    // dialog does not edit — per-alarm target overrides, mission params/vision
+    // prompt, smart-window signals, the briefing template, etc.
+    const prev = this.alarm?.features;
     const input = {
       time: this._time,
       label: this._label,
       profile_id: this.alarm?.profile_id ?? this.profileId,
       enabled: this._enabled,
-      schedule: { repeat_mode: this._repeat, weekdays: this._days },
+      schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
       features: {
-        mission: { type: this._mission },
-        snooze: { max: this._snoozeMax, duration: this._snoozeMin * 60 },
+        ...prev,
+        mission: { ...prev?.mission, type: this._mission },
+        snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
         audio: {
+          ...prev?.audio,
           enabled: this._audioSource !== "",
           source: this._audioSource || null,
           volume_profile: this._audioFade ? "fade_in" : "fixed",
-          volume_max: 0.7,
         },
-        light: { enabled: this._light, duration_min: this._lightMin, post_stop: "off" },
-        smart_window: { enabled: this._smart, minutes: this._smartMin },
+        light: { ...prev?.light, enabled: this._light, duration_min: this._lightMin },
+        smart_window: { ...prev?.smart_window, enabled: this._smart, minutes: this._smartMin },
+        briefing: {
+          ...prev?.briefing,
+          enabled: this._briefing,
+          blocks: this._briefing
+            ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
+            : [],
+        },
       },
     };
     try {
@@ -193,6 +221,29 @@ export class AuroraAlarmDialog extends LitElement {
       }
       .block {
         margin-top: 18px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .chips button {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 7px 14px;
+        border-radius: 999px;
+        color: var(--aurora-dim);
+        background: transparent;
+      }
+      .chips button.on {
+        color: #fff;
+        border-color: transparent;
+        background: var(--aurora-grad);
       }
       .togglerow {
         display: flex;
@@ -383,6 +434,30 @@ export class AuroraAlarmDialog extends LitElement {
                 />`
               : nothing}
           </div>
+          <div class="togglerow">
+            <div
+              class="switch"
+              role="switch"
+              aria-checked=${this._briefing ? "true" : "false"}
+              @click=${() => (this._briefing = !this._briefing)}
+            ></div>
+            <div class="spacer">
+              Briefing al risveglio
+              <div class="sub">Pronuncia ora, meteo e impegni quando fermi la sveglia</div>
+            </div>
+          </div>
+          ${this._briefing
+            ? html`<div class="chips">
+                ${BRIEFING_BLOCKS.map(
+                  (b) => html`<button
+                    class=${this._briefingBlocks.includes(b) ? "on" : ""}
+                    @click=${() => this._toggleBlock(b)}
+                  >
+                    ${BRIEFING_BLOCK_LABELS[b]}
+                  </button>`
+                )}
+              </div>`
+            : nothing}
 
           <div class="actions">
             <button class="btn ghost" @click=${this._close}>Annulla</button>

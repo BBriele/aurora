@@ -81,6 +81,13 @@ trigger_now:
       selector:
         text: {}
 
+speak_briefing:
+  fields:
+    id:
+      required: false
+      selector:
+        text: {}
+
 benchmark_vision:
   fields:
     samples:

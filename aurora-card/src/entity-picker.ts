@@ -112,7 +112,7 @@ export class AuroraEntityPicker extends LitElement {
   }
 
   private _renderMulti(): TemplateResult {
-    const value = (this.value as string[]) ?? [];
+    const value: string[] = Array.isArray(this.value) ? this.value : [];
     const remaining = this._sorted(this.options.filter((id) => !value.includes(id)));
     return html`
       ${value.length

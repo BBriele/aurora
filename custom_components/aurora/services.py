@@ -29,6 +29,7 @@ from .const import (
     SERVICE_REMOVE_ALARM,
     SERVICE_SKIP_NEXT,
     SERVICE_SNOOZE,
+    SERVICE_SPEAK_BRIEFING,
     SERVICE_TRIGGER_NOW,
     SERVICE_UPDATE_ALARM,
 )
@@ -110,6 +111,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def trigger_now(call: ServiceCall) -> None:
         await _coordinator(hass).async_trigger_now(call.data.get("id"))
 
+    async def speak_briefing(call: ServiceCall) -> None:
+        await _coordinator(hass).async_speak_briefing(call.data.get("id"))
+
     async def benchmark_vision(call: ServiceCall) -> ServiceResponse:
         # Vision (and its benchmark) is implemented in Phase 3; surface a clear
         # placeholder so the service contract exists from day one.
@@ -133,6 +137,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_TRIGGER_NOW,
         trigger_now,
+        schema=vol.Schema({vol.Optional("id"): str}),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SPEAK_BRIEFING,
+        speak_briefing,
         schema=vol.Schema({vol.Optional("id"): str}),
     )
     hass.services.async_register(
