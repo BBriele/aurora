@@ -409,6 +409,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._audioFade = true;
         this._light = false;
         this._lightMin = 30;
+        this._smart = false;
+        this._smartMin = 30;
         this._enabled = true;
         this._saving = false;
     }
@@ -430,6 +432,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
         this._light = a?.features.light.enabled ?? false;
         this._lightMin = a?.features.light.duration_min ?? 30;
+        this._smart = a?.features.smart_window.enabled ?? false;
+        this._smartMin = a?.features.smart_window.minutes ?? 30;
         this._enabled = a?.enabled ?? true;
         this._saving = false;
     }
@@ -455,6 +459,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                     volume_max: 0.7,
                 },
                 light: { enabled: this._light, duration_min: this._lightMin, post_stop: "off" },
+                smart_window: { enabled: this._smart, minutes: this._smartMin },
             },
         };
         try {
@@ -594,6 +599,28 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 />`
             : A}
           </div>
+          <div class="togglerow">
+            <div
+              class="switch"
+              role="switch"
+              aria-checked=${this._smart ? "true" : "false"}
+              @click=${() => (this._smart = !this._smart)}
+            ></div>
+            <div class="spacer">
+              Risveglio intelligente
+              <div class="sub">Suona prima se ti rilevo già sveglio (segnali del tuo profilo)</div>
+            </div>
+            ${this._smart
+            ? b `<input
+                  style="width:90px"
+                  type="number"
+                  min="5"
+                  max="60"
+                  .value=${String(this._smartMin)}
+                  @input=${(e) => (this._smartMin = Number(e.target.value))}
+                />`
+            : A}
+          </div>
 
           <div class="actions">
             <button class="btn ghost" @click=${this._close}>Annulla</button>
@@ -699,6 +726,11 @@ AuroraAlarmDialog.styles = [
         padding: 12px 0;
         border-top: 1px solid var(--aurora-divider);
       }
+      .togglerow .sub {
+        font-size: 0.78rem;
+        color: var(--aurora-dim);
+        margin-top: 2px;
+      }
       .actions {
         display: flex;
         gap: 12px;
@@ -766,6 +798,12 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_lightMin", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_smart", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_smartMin", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_enabled", void 0);

@@ -27,13 +27,17 @@ def day_matches(alarm: AuroraAlarm, day: date) -> bool:
 
 
 def next_occurrence(
-    alarm: AuroraAlarm, now_local: datetime, tz: tzinfo
+    alarm: AuroraAlarm,
+    now_local: datetime,
+    tz: tzinfo,
+    skip_dates: frozenset[date] | set[date] | None = None,
 ) -> datetime | None:
     """Return the next local wall-clock datetime for ``alarm`` strictly after now.
 
-    Honours ``skip_next`` (skips the first otherwise-matching occurrence). The
-    returned datetime is timezone-aware in ``tz``; the caller converts to UTC
-    once. Returns None if no occurrence falls within the search horizon.
+    Honours ``skip_next`` (skips the first otherwise-matching occurrence) and any
+    ``skip_dates`` (e.g. holidays / busy days from calendars). The returned
+    datetime is timezone-aware in ``tz``; the caller converts to UTC once.
+    Returns None if no occurrence falls within the search horizon.
     """
     target = alarm.alarm_time
     skip = alarm.skip_next
@@ -47,6 +51,8 @@ def next_occurrence(
             day.year, day.month, day.day, target.hour, target.minute, tzinfo=tz
         )
         if candidate <= now_local:
+            continue
+        if skip_dates and day in skip_dates:
             continue
         if skip:
             skip = False

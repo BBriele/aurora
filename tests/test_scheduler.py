@@ -60,6 +60,14 @@ def test_once_on_specific_date() -> None:
     assert nxt == datetime(2026, 6, 20, 7, 0, tzinfo=TZ)
 
 
+def test_skip_dates_are_skipped() -> None:
+    now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)
+    alarm = _alarm("07:00", repeat_mode=RepeatMode.DAILY)
+    # skip today -> next is tomorrow
+    nxt = next_occurrence(alarm, now, TZ, skip_dates={date(2026, 6, 15)})
+    assert nxt == datetime(2026, 6, 16, 7, 0, tzinfo=TZ)
+
+
 def test_dst_spring_forward_does_not_lose_alarm() -> None:
     # Europe/Rome springs forward 2026-03-29 (02:00 -> 03:00). 07:00 is unaffected
     # and must still resolve to a valid instant.

@@ -36,6 +36,8 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _audioFade = true;
   @state() private _light = false;
   @state() private _lightMin = 30;
+  @state() private _smart = false;
+  @state() private _smartMin = 30;
   @state() private _enabled = true;
   @state() private _saving = false;
 
@@ -58,6 +60,8 @@ export class AuroraAlarmDialog extends LitElement {
     this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
     this._light = a?.features.light.enabled ?? false;
     this._lightMin = a?.features.light.duration_min ?? 30;
+    this._smart = a?.features.smart_window.enabled ?? false;
+    this._smartMin = a?.features.smart_window.minutes ?? 30;
     this._enabled = a?.enabled ?? true;
     this._saving = false;
   }
@@ -85,6 +89,7 @@ export class AuroraAlarmDialog extends LitElement {
           volume_max: 0.7,
         },
         light: { enabled: this._light, duration_min: this._lightMin, post_stop: "off" },
+        smart_window: { enabled: this._smart, minutes: this._smartMin },
       },
     };
     try {
@@ -195,6 +200,11 @@ export class AuroraAlarmDialog extends LitElement {
         gap: 12px;
         padding: 12px 0;
         border-top: 1px solid var(--aurora-divider);
+      }
+      .togglerow .sub {
+        font-size: 0.78rem;
+        color: var(--aurora-dim);
+        margin-top: 2px;
       }
       .actions {
         display: flex;
@@ -347,6 +357,29 @@ export class AuroraAlarmDialog extends LitElement {
                   .value=${String(this._lightMin)}
                   @input=${(e: Event) =>
                     (this._lightMin = Number((e.target as HTMLInputElement).value))}
+                />`
+              : nothing}
+          </div>
+          <div class="togglerow">
+            <div
+              class="switch"
+              role="switch"
+              aria-checked=${this._smart ? "true" : "false"}
+              @click=${() => (this._smart = !this._smart)}
+            ></div>
+            <div class="spacer">
+              Risveglio intelligente
+              <div class="sub">Suona prima se ti rilevo già sveglio (segnali del tuo profilo)</div>
+            </div>
+            ${this._smart
+              ? html`<input
+                  style="width:90px"
+                  type="number"
+                  min="5"
+                  max="60"
+                  .value=${String(this._smartMin)}
+                  @input=${(e: Event) =>
+                    (this._smartMin = Number((e.target as HTMLInputElement).value))}
                 />`
               : nothing}
           </div>
