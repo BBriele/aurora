@@ -197,5 +197,17 @@
         "samples": { "name": "Samples", "description": "Number of timed inferences." }
       }
     }
+  },
+  "exceptions": {
+    "not_setup": { "message": "Aurora is not set up yet." },
+    "unknown_alarm": { "message": "Unknown alarm: {alarm_id}." },
+    "no_alarm_to_trigger": { "message": "No alarm is available to trigger." },
+    "no_alarm_for_briefing": { "message": "No alarm is available for a briefing." }
+  },
+  "issues": {
+    "no_audio_sink": {
+      "title": "Aurora has no speaker configured",
+      "description": "One or more alarms are enabled, but no speaker (AudioSink role) is bound — alarms will only show a notification and won't play a sound. Open the Aurora app → Devices and bind a media player to play the ringtone."
+    }
   }
 }

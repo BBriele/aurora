@@ -2,11 +2,12 @@ import { LitElement, css, html, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import { auroraStyles } from "./theme";
-import { WEEKDAY_LETTERS } from "./types";
+import { weekdayLetters } from "./localize";
 
 @customElement("aurora-weekday-chips")
 export class AuroraWeekdayChips extends LitElement {
   @property({ attribute: false }) value: number[] = [];
+  @property({ attribute: false }) language?: string;
 
   static styles = [
     auroraStyles,
@@ -54,7 +55,7 @@ export class AuroraWeekdayChips extends LitElement {
   render(): TemplateResult {
     return html`
       <div class="chips">
-        ${WEEKDAY_LETTERS.map(
+        ${weekdayLetters(this.language).map(
           (letter, i) => html`
             <button
               type="button"

@@ -3,16 +3,20 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { deleteAlarm, subscribeAlarms, updateAlarm } from "./api";
 import "./alarm-dialog";
+import { localize, weekdayLetters } from "./localize";
 import { auroraStyles } from "./theme";
-import { WEEKDAY_LETTERS, type Alarm, type HomeAssistant } from "./types";
+import { type Alarm, type HomeAssistant } from "./types";
 
-function summarize(alarm: Alarm): string {
+function summarize(alarm: Alarm, language: string | undefined): string {
   const s = alarm.schedule;
-  if (s.repeat_mode === "daily") return "Ogni giorno";
-  if (s.repeat_mode === "once") return s.on_date ? `Il ${s.on_date}` : "Una volta";
-  if (!s.weekdays?.length) return "Mai";
-  if (s.weekdays.length === 7) return "Ogni giorno";
-  return s.weekdays.map((d) => WEEKDAY_LETTERS[d]).join(" ");
+  if (s.repeat_mode === "daily") return localize(language, "summary.daily");
+  if (s.repeat_mode === "once")
+    return s.on_date
+      ? localize(language, "summary.on_date", { date: s.on_date })
+      : localize(language, "summary.once");
+  if (!s.weekdays?.length) return localize(language, "summary.never");
+  if (s.weekdays.length === 7) return localize(language, "summary.daily");
+  return s.weekdays.map((d) => weekdayLetters(language)[d]).join(" ");
 }
 
 @customElement("aurora-alarm-list")
@@ -23,6 +27,7 @@ export class AuroraAlarmList extends LitElement {
   @property({ type: Boolean }) showAll = false;
 
   @state() private _alarms: Alarm[] = [];
+  @state() private _loaded = false;
   @state() private _editing: Alarm | null = null;
   @state() private _dialogOpen = false;
 
@@ -45,7 +50,10 @@ export class AuroraAlarmList extends LitElement {
 
   private _subscribe(): void {
     if (!this.hass || this._unsub) return;
-    this._unsub = subscribeAlarms(this.hass, (alarms) => (this._alarms = alarms));
+    this._unsub = subscribeAlarms(this.hass, (alarms) => {
+      this._alarms = alarms;
+      this._loaded = true;
+    });
   }
 
   private _add(): void {
@@ -145,19 +153,21 @@ export class AuroraAlarmList extends LitElement {
     const visible = this._visible;
     return html`
       <div class="head">
-        <h3>Sveglie</h3>
+        <h3>${localize(this.hass?.language, "alarms.title")}</h3>
         <span class="spacer"></span>
-        <button class="btn primary" @click=${this._add}>+ Nuova</button>
+        <button class="btn primary" @click=${this._add}>${localize(this.hass?.language, "alarms.new")}</button>
       </div>
 
-      ${visible.length === 0
-        ? html`<div class="empty">
-            <div class="big">🌙</div>
-            Nessuna sveglia. Tocca <b>+ Nuova</b> per crearne una.
-          </div>`
-        : html`<div class="list">
-            ${visible.map((a) => this._row(a))}
-          </div>`}
+      ${!this._loaded
+        ? html`<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
+        : visible.length === 0
+          ? html`<div class="empty">
+              <div class="big">🌙</div>
+              ${localize(this.hass?.language, "alarms.empty")}
+            </div>`
+          : html`<div class="list">
+              ${visible.map((a) => this._row(a))}
+            </div>`}
 
       <aurora-alarm-dialog
         .hass=${this.hass}
@@ -175,16 +185,16 @@ export class AuroraAlarmList extends LitElement {
         <div class="time clock">${a.time}</div>
         <div class="meta">
           <div class="name">
-            ${a.label || "Sveglia"}${a.skip_next
-              ? html`<span class="badge">salta 1</span>`
+            ${a.label || localize(this.hass?.language, "alarms.default_label")}${a.skip_next
+              ? html`<span class="badge">${localize(this.hass?.language, "alarms.skip_badge")}</span>`
               : nothing}
           </div>
-          <div class="when">${summarize(a)}</div>
+          <div class="when">${summarize(a, this.hass?.language)}</div>
         </div>
         <span class="spacer"></span>
         <button
           class="icon-btn"
-          title="Salta la prossima"
+          title=${localize(this.hass?.language, "alarms.skip_title")}
           @click=${(e: Event) => {
             e.stopPropagation();
             updateAlarm(this.hass, a.id, { skip_next: !a.skip_next });
@@ -194,7 +204,7 @@ export class AuroraAlarmList extends LitElement {
         </button>
         <button
           class="icon-btn"
-          title="Elimina"
+          title=${localize(this.hass?.language, "common.delete")}
           @click=${(e: Event) => {
             e.stopPropagation();
             deleteAlarm(this.hass, a.id);

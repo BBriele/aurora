@@ -3,11 +3,10 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { getRoleEntities, getSettings, setSettings } from "./api";
 import "./entity-picker";
+import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import {
-  ROLE_DESC,
   ROLE_ICONS,
-  ROLE_LABELS,
   type HomeAssistant,
   type Profiles,
   type RoleEntities,
@@ -139,20 +138,18 @@ export class AuroraDevicesView extends LitElement {
 
   render(): TemplateResult {
     if (!this._entities) {
-      return html`<div class="intro">Caricamento dispositivi…</div>`;
+      return html`<div class="intro">${localize(this.hass?.language, "devices.loading")}</div>`;
     }
     return html`
       <p class="intro">
-        Dispositivi di <span class="who">${this.userName || "questo profilo"}</span> —
-        tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è
-        sempre garantito.
+        ${localize(this.hass?.language, "devices.intro", { name: this.userName || localize(this.hass?.language, "devices.this_profile") })}
       </p>
       ${ROLES.map((role) => this._role(role.key, role.multiple))}
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? "Salvataggio…" : "Salva i miei dispositivi"}
+          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "devices.save")}
         </button>
-        ${this._saved ? html`<span class="ok">✓ Salvato</span>` : nothing}
+        ${this._saved ? html`<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : nothing}
       </div>
     `;
   }
@@ -167,8 +164,8 @@ export class AuroraDevicesView extends LitElement {
         <div class="rolehead">
           <div class="ic">${ROLE_ICONS[key] ?? "•"}</div>
           <div>
-            <div class="name">${ROLE_LABELS[key] ?? key}</div>
-            <div class="desc">${ROLE_DESC[key] ?? ""}</div>
+            <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
+            <div class="desc">${localize(this.hass?.language, "role." + key + ".desc")}</div>
           </div>
         </div>
         <aurora-entity-picker

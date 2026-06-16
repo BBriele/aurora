@@ -66,7 +66,7 @@ def _coordinator(hass: HomeAssistant) -> AuroraCoordinator:
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.state is ConfigEntryState.LOADED:
             return entry.runtime_data.coordinator
-    raise HomeAssistantError("Aurora is not set up yet")
+    raise HomeAssistantError(translation_domain=DOMAIN, translation_key="not_setup")
 
 
 @callback
@@ -86,7 +86,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
         try:
             await _alarms(hass).async_update_item(call.data["id"], updates)
         except ItemNotFound as err:
-            raise ServiceValidationError(f"Unknown alarm: {call.data['id']}") from err
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_alarm",
+                translation_placeholders={"alarm_id": call.data["id"]},
+            ) from err
         except vol.Invalid as err:
             raise ServiceValidationError(str(err)) from err
 
@@ -94,13 +98,21 @@ def async_setup_services(hass: HomeAssistant) -> None:
         try:
             await _alarms(hass).async_delete_item(call.data["id"])
         except ItemNotFound as err:
-            raise ServiceValidationError(f"Unknown alarm: {call.data['id']}") from err
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_alarm",
+                translation_placeholders={"alarm_id": call.data["id"]},
+            ) from err
 
     async def skip_next(call: ServiceCall) -> None:
         try:
             await _alarms(hass).async_update_item(call.data["id"], {"skip_next": True})
         except ItemNotFound as err:
-            raise ServiceValidationError(f"Unknown alarm: {call.data['id']}") from err
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_alarm",
+                translation_placeholders={"alarm_id": call.data["id"]},
+            ) from err
 
     async def snooze(call: ServiceCall) -> None:
         await _coordinator(hass).async_snooze()

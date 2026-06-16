@@ -197,5 +197,17 @@
         "samples": { "name": "Campioni", "description": "Numero di inferenze cronometrate." }
       }
     }
+  },
+  "exceptions": {
+    "not_setup": { "message": "Aurora non è ancora configurata." },
+    "unknown_alarm": { "message": "Sveglia sconosciuta: {alarm_id}." },
+    "no_alarm_to_trigger": { "message": "Nessuna sveglia disponibile da attivare." },
+    "no_alarm_for_briefing": { "message": "Nessuna sveglia disponibile per il briefing." }
+  },
+  "issues": {
+    "no_audio_sink": {
+      "title": "Aurora non ha un altoparlante configurato",
+      "description": "Una o più sveglie sono attive, ma nessun altoparlante (ruolo AudioSink) è collegato — le sveglie mostreranno solo una notifica senza suonare. Apri l'app Aurora → Dispositivi e collega un media player per riprodurre la suoneria."
+    }
   }
 }

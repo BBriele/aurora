@@ -2,12 +2,12 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import { createAlarm, updateAlarm } from "./api";
+import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import "./weekday-chips";
 import {
   BRIEFING_BLOCKS,
-  BRIEFING_BLOCK_LABELS,
-  MISSION_LABELS,
+  MISSION_TYPES,
   type Alarm,
   type BriefingBlock,
   type HomeAssistant,
@@ -15,11 +15,7 @@ import {
   type RepeatMode,
 } from "./types";
 
-const REPEATS: { value: RepeatMode; label: string }[] = [
-  { value: "once", label: "Una volta" },
-  { value: "daily", label: "Ogni giorno" },
-  { value: "weekly", label: "Settimanale" },
-];
+const REPEATS: RepeatMode[] = ["once", "daily", "weekly"];
 
 @customElement("aurora-alarm-dialog")
 export class AuroraAlarmDialog extends LitElement {
@@ -288,7 +284,7 @@ export class AuroraAlarmDialog extends LitElement {
       <div class="backdrop" @click=${(e: Event) => e.target === e.currentTarget && this._close()}>
         <div class="sheet">
           <div class="grip"></div>
-          <h2>${this.alarm ? "Modifica sveglia" : "Nuova sveglia"}</h2>
+          <h2>${this.alarm ? localize(this.hass?.language, "dialog.edit_title") : localize(this.hass?.language, "dialog.new_title")}</h2>
           <input
             class="big-time clock"
             type="time"
@@ -296,24 +292,24 @@ export class AuroraAlarmDialog extends LitElement {
             @input=${(e: Event) => (this._time = (e.target as HTMLInputElement).value)}
           />
 
-          <label class="field">Etichetta</label>
+          <label class="field">${localize(this.hass?.language, "dialog.label")}</label>
           <input
             type="text"
-            placeholder="Es. Sveglia lavoro"
+            placeholder=${localize(this.hass?.language, "dialog.label_placeholder")}
             .value=${this._label}
             @input=${(e: Event) => (this._label = (e.target as HTMLInputElement).value)}
           />
 
           <div class="block">
-            <label class="field">Ripetizione</label>
+            <label class="field">${localize(this.hass?.language, "dialog.repeat")}</label>
             <div class="seg">
               ${REPEATS.map(
                 (r) => html`
                   <button
-                    class=${this._repeat === r.value ? "on" : ""}
-                    @click=${() => (this._repeat = r.value)}
+                    class=${this._repeat === r ? "on" : ""}
+                    @click=${() => (this._repeat = r)}
                   >
-                    ${r.label}
+                    ${localize(this.hass?.language, "repeat." + r)}
                   </button>
                 `
               )}
@@ -322,9 +318,10 @@ export class AuroraAlarmDialog extends LitElement {
 
           ${this._repeat === "weekly"
             ? html`<div class="block">
-                <label class="field">Giorni</label>
+                <label class="field">${localize(this.hass?.language, "dialog.days")}</label>
                 <aurora-weekday-chips
                   .value=${this._days}
+                  .language=${this.hass?.language}
                   @change=${(e: CustomEvent<number[]>) => (this._days = e.detail)}
                 ></aurora-weekday-chips>
               </div>`
@@ -332,24 +329,24 @@ export class AuroraAlarmDialog extends LitElement {
 
           <div class="block grid2">
             <div>
-              <label class="field">Missione anti-snooze</label>
+              <label class="field">${localize(this.hass?.language, "dialog.mission")}</label>
               <select
                 .value=${this._mission}
                 @change=${(e: Event) =>
                   (this._mission = (e.target as HTMLSelectElement).value as MissionType)}
               >
-                ${(Object.keys(MISSION_LABELS) as MissionType[]).map(
+                ${MISSION_TYPES.map(
                   (m) => html`<option value=${m} ?selected=${m === this._mission}>
-                    ${MISSION_LABELS[m]}
+                    ${localize(this.hass?.language, "mission." + m)}
                   </option>`
                 )}
               </select>
             </div>
             <div>
-              <label class="field">Suono (URI/playlist)</label>
+              <label class="field">${localize(this.hass?.language, "dialog.sound")}</label>
               <input
                 type="text"
-                placeholder="opzionale"
+                placeholder=${localize(this.hass?.language, "common.optional")}
                 .value=${this._audioSource}
                 @input=${(e: Event) =>
                   (this._audioSource = (e.target as HTMLInputElement).value)}
@@ -359,7 +356,7 @@ export class AuroraAlarmDialog extends LitElement {
 
           <div class="block grid2">
             <div>
-              <label class="field">Max snooze</label>
+              <label class="field">${localize(this.hass?.language, "dialog.snooze_max")}</label>
               <input
                 type="number"
                 min="0"
@@ -370,7 +367,7 @@ export class AuroraAlarmDialog extends LitElement {
               />
             </div>
             <div>
-              <label class="field">Durata snooze (min)</label>
+              <label class="field">${localize(this.hass?.language, "dialog.snooze_duration")}</label>
               <input
                 type="number"
                 min="1"
@@ -389,7 +386,7 @@ export class AuroraAlarmDialog extends LitElement {
               aria-checked=${this._audioFade ? "true" : "false"}
               @click=${() => (this._audioFade = !this._audioFade)}
             ></div>
-            <div>Volume crescente (fade-in)</div>
+            <div>${localize(this.hass?.language, "dialog.fade_in")}</div>
           </div>
           <div class="togglerow">
             <div
@@ -398,7 +395,7 @@ export class AuroraAlarmDialog extends LitElement {
               aria-checked=${this._light ? "true" : "false"}
               @click=${() => (this._light = !this._light)}
             ></div>
-            <div class="spacer">Alba (rampa luce/schermo)</div>
+            <div class="spacer">${localize(this.hass?.language, "dialog.sunrise")}</div>
             ${this._light
               ? html`<input
                   style="width:90px"
@@ -419,8 +416,8 @@ export class AuroraAlarmDialog extends LitElement {
               @click=${() => (this._smart = !this._smart)}
             ></div>
             <div class="spacer">
-              Risveglio intelligente
-              <div class="sub">Suona prima se ti rilevo già sveglio (segnali del tuo profilo)</div>
+              ${localize(this.hass?.language, "dialog.smart")}
+              <div class="sub">${localize(this.hass?.language, "dialog.smart_desc")}</div>
             </div>
             ${this._smart
               ? html`<input
@@ -442,8 +439,8 @@ export class AuroraAlarmDialog extends LitElement {
               @click=${() => (this._briefing = !this._briefing)}
             ></div>
             <div class="spacer">
-              Briefing al risveglio
-              <div class="sub">Pronuncia ora, meteo e impegni quando fermi la sveglia</div>
+              ${localize(this.hass?.language, "dialog.briefing")}
+              <div class="sub">${localize(this.hass?.language, "dialog.briefing_desc")}</div>
             </div>
           </div>
           ${this._briefing
@@ -453,16 +450,16 @@ export class AuroraAlarmDialog extends LitElement {
                     class=${this._briefingBlocks.includes(b) ? "on" : ""}
                     @click=${() => this._toggleBlock(b)}
                   >
-                    ${BRIEFING_BLOCK_LABELS[b]}
+                    ${localize(this.hass?.language, "briefing.block." + b)}
                   </button>`
                 )}
               </div>`
             : nothing}
 
           <div class="actions">
-            <button class="btn ghost" @click=${this._close}>Annulla</button>
+            <button class="btn ghost" @click=${this._close}>${localize(this.hass?.language, "common.cancel")}</button>
             <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-              ${this._saving ? "Salvataggio…" : "Salva"}
+              ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "common.save")}
             </button>
           </div>
         </div>

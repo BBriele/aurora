@@ -22,6 +22,8 @@ export interface HomeAssistant {
   states: Record<string, HassEntity>;
   connection: HassConnection;
   user?: HassUser;
+  /** Active UI language (e.g. "en", "it"), used to localize the card. */
+  language: string;
   callWS<T>(msg: Record<string, unknown>): Promise<T>;
   callService(
     domain: string,
@@ -111,49 +113,12 @@ export interface RoleEntities {
   vision_providers: { id: string; title: string }[];
 }
 
-/** Wake-up briefing block keys and their Italian labels. */
+/** Wake-up briefing block keys (labels localized via "briefing.block.<key>"). */
 export const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"] as const;
 export type BriefingBlock = (typeof BRIEFING_BLOCKS)[number];
-export const BRIEFING_BLOCK_LABELS: Record<BriefingBlock, string> = {
-  time: "Ora e saluto",
-  weather: "Meteo",
-  calendar: "Calendario",
-  todo: "Cose da fare",
-};
 
-export const WEEKDAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
-export const WEEKDAY_NAMES = [
-  "Lunedì",
-  "Martedì",
-  "Mercoledì",
-  "Giovedì",
-  "Venerdì",
-  "Sabato",
-  "Domenica",
-];
-
-export const ROLE_LABELS: Record<string, string> = {
-  audio_sink: "Altoparlante",
-  wake_light: "Luce / schermo (alba)",
-  display_surface: "Superficie display",
-  notify_channel: "Notifiche",
-  sleep_signal: "Segnali di sonno",
-  presence_signal: "Segnali di presenza",
-  conversation: "Agente vocale",
-  tts: "Sintesi vocale",
-};
-
-export const ROLE_DESC: Record<string, string> = {
-  audio_sink: "Dove suona la sveglia",
-  wake_light: "Luce o schermo per la rampa alba",
-  display_surface: "Schermo che mostra la schermata sveglia",
-  notify_channel: "Dove arrivano le notifiche (telefono, watch, overlay…)",
-  sleep_signal: "Sensori che capiscono se stai dormendo (watch, materasso…)",
-  presence_signal: "Sensori che capiscono se sei presente / sveglio",
-  conversation: "Assistente vocale per i comandi",
-  tts: "Voce per briefing e annunci",
-};
-
+// Role icons are emoji (not language-dependent). Labels/descriptions are
+// localized via the "role.<key>.label/.desc" keys in translations.ts.
 export const ROLE_ICONS: Record<string, string> = {
   audio_sink: "🔊",
   wake_light: "🌅",
@@ -165,12 +130,13 @@ export const ROLE_ICONS: Record<string, string> = {
   tts: "📣",
 };
 
-export const MISSION_LABELS: Record<MissionType, string> = {
-  none: "Nessuna",
-  tap: "Tocco",
-  math: "Matematica",
-  qr: "Codice QR",
-  shake: "Scuoti",
-  open_door: "Apri porta",
-  vision: "Selfie (AI)",
-};
+// Mission types in display order. Labels are localized via "mission.<type>".
+export const MISSION_TYPES: MissionType[] = [
+  "none",
+  "tap",
+  "math",
+  "qr",
+  "shake",
+  "open_door",
+  "vision",
+];

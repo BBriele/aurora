@@ -116,6 +116,259 @@ function getRoleEntities(hass) {
 }
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
 
+const STRINGS = {
+    en: {
+        // common
+        "common.cancel": "Cancel",
+        "common.save": "Save",
+        "common.saving": "Saving…",
+        "common.saved": "✓ Saved",
+        "common.loading": "Loading…",
+        "common.optional": "optional",
+        "common.delete": "Delete",
+        "common.none": "—",
+        // weekdays (Mon-first); letters split by "," names by "|"
+        "weekday.letters": "M,T,W,T,F,S,S",
+        "weekday.names": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
+        // roles
+        "role.audio_sink.label": "Speaker",
+        "role.audio_sink.desc": "Where the alarm rings",
+        "role.wake_light.label": "Light / screen (sunrise)",
+        "role.wake_light.desc": "A light or screen for the sunrise ramp",
+        "role.display_surface.label": "Display surface",
+        "role.display_surface.desc": "A screen that shows the ring view",
+        "role.notify_channel.label": "Notifications",
+        "role.notify_channel.desc": "Where notifications arrive (phone, watch, overlay…)",
+        "role.sleep_signal.label": "Sleep signals",
+        "role.sleep_signal.desc": "Sensors that tell whether you are asleep (watch, mattress…)",
+        "role.presence_signal.label": "Presence signals",
+        "role.presence_signal.desc": "Sensors that tell whether you are present / awake",
+        "role.conversation.label": "Voice agent",
+        "role.conversation.desc": "Voice assistant for commands",
+        "role.tts.label": "Text-to-speech",
+        "role.tts.desc": "Voice for the briefing and announcements",
+        // missions
+        "mission.none": "None",
+        "mission.tap": "Tap",
+        "mission.math": "Math",
+        "mission.qr": "QR code",
+        "mission.shake": "Shake",
+        "mission.open_door": "Open door",
+        "mission.vision": "Selfie (AI)",
+        // repeat modes
+        "repeat.once": "Once",
+        "repeat.daily": "Every day",
+        "repeat.weekly": "Weekly",
+        // schedule summary
+        "summary.daily": "Every day",
+        "summary.once": "Once",
+        "summary.on_date": "On {date}",
+        "summary.never": "Never",
+        // alarm dialog
+        "dialog.new_title": "New alarm",
+        "dialog.edit_title": "Edit alarm",
+        "dialog.label": "Label",
+        "dialog.label_placeholder": "e.g. Work alarm",
+        "dialog.repeat": "Repeat",
+        "dialog.days": "Days",
+        "dialog.mission": "Anti-snooze mission",
+        "dialog.sound": "Sound (URI/playlist)",
+        "dialog.snooze_max": "Max snooze",
+        "dialog.snooze_duration": "Snooze length (min)",
+        "dialog.fade_in": "Rising volume (fade-in)",
+        "dialog.sunrise": "Sunrise (light/screen ramp)",
+        "dialog.smart": "Smart wake",
+        "dialog.smart_desc": "Ring earlier if I detect you already awake (your profile's signals)",
+        "dialog.briefing": "Wake-up briefing",
+        "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
+        // briefing blocks
+        "briefing.block.time": "Time & greeting",
+        "briefing.block.weather": "Weather",
+        "briefing.block.calendar": "Calendar",
+        "briefing.block.todo": "To-dos",
+        // alarm list
+        "alarms.title": "Alarms",
+        "alarms.new": "+ New",
+        "alarms.empty": "No alarms yet — tap “+ New” to create one.",
+        "alarms.default_label": "Alarm",
+        "alarms.skip_badge": "skip 1",
+        "alarms.skip_title": "Skip the next one",
+        // dashboard card
+        "card.next_alarm": "Next alarm",
+        "card.no_alarm": "No alarm scheduled",
+        "card.open_app": "Open the Aurora app →",
+        "rel.now": "now",
+        "rel.in_min": "in {n} min",
+        "rel.in_hm": "in {h}h {m}m",
+        "rel.in_h": "in {h}h",
+        "rel.in_day": "in 1 day",
+        "rel.in_days": "in {n} days",
+        // panel
+        "panel.all": "Everyone",
+        "panel.profile": "Profile",
+        "panel.tab_alarms": "Alarms",
+        "panel.tab_devices": "Devices",
+        "panel.tab_globals": "Shared",
+        "panel.select_profile": "Select a profile to configure its devices.",
+        // devices view
+        "devices.loading": "Loading devices…",
+        "devices.intro": "{name}'s devices — all optional. Search and add only what you need; the exact alarm time is always guaranteed.",
+        "devices.this_profile": "this profile",
+        "devices.save": "Save my devices",
+        // globals view
+        "globals.intro": "Settings shared across the whole installation.",
+        "globals.ring_max": "Max ring duration (min)",
+        "globals.skip_calendars": "Skip-day calendars",
+        "globals.holiday_calendars": "Holiday calendars (auto-skip)",
+        "globals.briefing_intro": "Wake-up briefing — sources read when an alarm has the briefing on. Empty = auto-detect.",
+        "globals.weather": "Weather (weather entity)",
+        "globals.briefing_calendars": "Briefing calendars",
+        "globals.todo_lists": "To-do lists",
+        "globals.save": "Save shared settings",
+        // entity picker
+        "picker.none": "No compatible entity found.",
+        "picker.empty_option": "— None —",
+        "picker.add": "＋ Add…",
+        // ring overlay
+        "ring.label": "Time to get up",
+        "ring.snooze": "Snooze",
+        "ring.stop": "Stop",
+    },
+    it: {
+        "common.cancel": "Annulla",
+        "common.save": "Salva",
+        "common.saving": "Salvataggio…",
+        "common.saved": "✓ Salvato",
+        "common.loading": "Caricamento…",
+        "common.optional": "opzionale",
+        "common.delete": "Elimina",
+        "common.none": "—",
+        "weekday.letters": "L,M,M,G,V,S,D",
+        "weekday.names": "Lunedì|Martedì|Mercoledì|Giovedì|Venerdì|Sabato|Domenica",
+        "role.audio_sink.label": "Altoparlante",
+        "role.audio_sink.desc": "Dove suona la sveglia",
+        "role.wake_light.label": "Luce / schermo (alba)",
+        "role.wake_light.desc": "Luce o schermo per la rampa alba",
+        "role.display_surface.label": "Superficie display",
+        "role.display_surface.desc": "Schermo che mostra la schermata sveglia",
+        "role.notify_channel.label": "Notifiche",
+        "role.notify_channel.desc": "Dove arrivano le notifiche (telefono, watch, overlay…)",
+        "role.sleep_signal.label": "Segnali di sonno",
+        "role.sleep_signal.desc": "Sensori che capiscono se stai dormendo (watch, materasso…)",
+        "role.presence_signal.label": "Segnali di presenza",
+        "role.presence_signal.desc": "Sensori che capiscono se sei presente / sveglio",
+        "role.conversation.label": "Agente vocale",
+        "role.conversation.desc": "Assistente vocale per i comandi",
+        "role.tts.label": "Sintesi vocale",
+        "role.tts.desc": "Voce per briefing e annunci",
+        "mission.none": "Nessuna",
+        "mission.tap": "Tocco",
+        "mission.math": "Matematica",
+        "mission.qr": "Codice QR",
+        "mission.shake": "Scuoti",
+        "mission.open_door": "Apri porta",
+        "mission.vision": "Selfie (AI)",
+        "repeat.once": "Una volta",
+        "repeat.daily": "Ogni giorno",
+        "repeat.weekly": "Settimanale",
+        "summary.daily": "Ogni giorno",
+        "summary.once": "Una volta",
+        "summary.on_date": "Il {date}",
+        "summary.never": "Mai",
+        "dialog.new_title": "Nuova sveglia",
+        "dialog.edit_title": "Modifica sveglia",
+        "dialog.label": "Etichetta",
+        "dialog.label_placeholder": "Es. Sveglia lavoro",
+        "dialog.repeat": "Ripetizione",
+        "dialog.days": "Giorni",
+        "dialog.mission": "Missione anti-snooze",
+        "dialog.sound": "Suono (URI/playlist)",
+        "dialog.snooze_max": "Max snooze",
+        "dialog.snooze_duration": "Durata snooze (min)",
+        "dialog.fade_in": "Volume crescente (fade-in)",
+        "dialog.sunrise": "Alba (rampa luce/schermo)",
+        "dialog.smart": "Risveglio intelligente",
+        "dialog.smart_desc": "Suona prima se ti rilevo già sveglio (segnali del tuo profilo)",
+        "dialog.briefing": "Briefing al risveglio",
+        "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
+        "briefing.block.time": "Ora e saluto",
+        "briefing.block.weather": "Meteo",
+        "briefing.block.calendar": "Calendario",
+        "briefing.block.todo": "Cose da fare",
+        "alarms.title": "Sveglie",
+        "alarms.new": "+ Nuova",
+        "alarms.empty": "Nessuna sveglia — tocca “+ Nuova” per crearne una.",
+        "alarms.default_label": "Sveglia",
+        "alarms.skip_badge": "salta 1",
+        "alarms.skip_title": "Salta la prossima",
+        "card.next_alarm": "Prossima sveglia",
+        "card.no_alarm": "Nessuna sveglia programmata",
+        "card.open_app": "Apri l'app Aurora →",
+        "rel.now": "ora",
+        "rel.in_min": "tra {n} min",
+        "rel.in_hm": "tra {h}h {m}m",
+        "rel.in_h": "tra {h}h",
+        "rel.in_day": "tra 1 giorno",
+        "rel.in_days": "tra {n} giorni",
+        "panel.all": "Tutti",
+        "panel.profile": "Profilo",
+        "panel.tab_alarms": "Sveglie",
+        "panel.tab_devices": "Dispositivi",
+        "panel.tab_globals": "Globali",
+        "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
+        "devices.loading": "Caricamento dispositivi…",
+        "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
+        "devices.this_profile": "questo profilo",
+        "devices.save": "Salva i miei dispositivi",
+        "globals.intro": "Impostazioni condivise da tutta l'installazione.",
+        "globals.ring_max": "Durata massima suoneria (min)",
+        "globals.skip_calendars": "Calendari per salto impegni",
+        "globals.holiday_calendars": "Calendari festività (auto-skip)",
+        "globals.briefing_intro": "Briefing del risveglio — sorgenti lette quando la sveglia ha il briefing attivo. Vuoto = rilevamento automatico.",
+        "globals.weather": "Meteo (entità weather)",
+        "globals.briefing_calendars": "Calendari del briefing",
+        "globals.todo_lists": "Liste di cose da fare",
+        "globals.save": "Salva globali",
+        "picker.none": "Nessuna entità compatibile trovata.",
+        "picker.empty_option": "— Nessuno —",
+        "picker.add": "＋ Aggiungi…",
+        "ring.label": "È ora di alzarsi",
+        "ring.snooze": "Posponi",
+        "ring.stop": "Stop",
+    },
+};
+
+/**
+ * Tiny runtime localizer for the Aurora card. English is the default; any
+ * language with a bucket in translations.ts is used when it matches
+ * `hass.language` (exact, e.g. "it", or base of "it-IT"), otherwise English.
+ * Missing keys fall back to English, then to the raw key.
+ */
+function pickLang(language) {
+    if (!language)
+        return "en";
+    const lower = language.toLowerCase();
+    if (lower in STRINGS)
+        return lower;
+    const base = lower.split("-")[0];
+    return (base in STRINGS ? base : "en");
+}
+/** Translate `key` for the user's language, interpolating `{var}` placeholders. */
+function localize(language, key, vars) {
+    const lang = pickLang(language);
+    let out = STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
+    if (vars) {
+        for (const [name, value] of Object.entries(vars)) {
+            out = out.replaceAll(`{${name}}`, String(value));
+        }
+    }
+    return out;
+}
+/** Localized weekday initials (Mon-first), e.g. ["M","T","W","T","F","S","S"]. */
+function weekdayLetters(language) {
+    return localize(language, "weekday.letters").split(",");
+}
+
 /**
  * Shared "Dawn" design tokens + primitives. Base colours come from the user's
  * Home Assistant theme (CSS variables) so Aurora always feels native in light or
@@ -287,55 +540,6 @@ const auroraStyles = i$3 `
   }
 `;
 
-/** Wake-up briefing block keys and their Italian labels. */
-const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"];
-const BRIEFING_BLOCK_LABELS = {
-    time: "Ora e saluto",
-    weather: "Meteo",
-    calendar: "Calendario",
-    todo: "Cose da fare",
-};
-const WEEKDAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
-const ROLE_LABELS = {
-    audio_sink: "Altoparlante",
-    wake_light: "Luce / schermo (alba)",
-    display_surface: "Superficie display",
-    notify_channel: "Notifiche",
-    sleep_signal: "Segnali di sonno",
-    presence_signal: "Segnali di presenza",
-    conversation: "Agente vocale",
-    tts: "Sintesi vocale",
-};
-const ROLE_DESC = {
-    audio_sink: "Dove suona la sveglia",
-    wake_light: "Luce o schermo per la rampa alba",
-    display_surface: "Schermo che mostra la schermata sveglia",
-    notify_channel: "Dove arrivano le notifiche (telefono, watch, overlay…)",
-    sleep_signal: "Sensori che capiscono se stai dormendo (watch, materasso…)",
-    presence_signal: "Sensori che capiscono se sei presente / sveglio",
-    conversation: "Assistente vocale per i comandi",
-    tts: "Voce per briefing e annunci",
-};
-const ROLE_ICONS = {
-    audio_sink: "🔊",
-    wake_light: "🌅",
-    display_surface: "🖥️",
-    notify_channel: "🔔",
-    sleep_signal: "😴",
-    presence_signal: "🚶",
-    conversation: "🗣️",
-    tts: "📣",
-};
-const MISSION_LABELS = {
-    none: "Nessuna",
-    tap: "Tocco",
-    math: "Matematica",
-    qr: "Codice QR",
-    shake: "Scuoti",
-    open_door: "Apri porta",
-    vision: "Selfie (AI)",
-};
-
 let AuroraWeekdayChips = class AuroraWeekdayChips extends i {
     constructor() {
         super(...arguments);
@@ -355,7 +559,7 @@ let AuroraWeekdayChips = class AuroraWeekdayChips extends i {
     render() {
         return b `
       <div class="chips">
-        ${WEEKDAY_LETTERS.map((letter, i) => b `
+        ${weekdayLetters(this.language).map((letter, i) => b `
             <button
               type="button"
               class="chip ${this.value.includes(i) ? "on" : ""}"
@@ -402,15 +606,39 @@ AuroraWeekdayChips.styles = [
 __decorate([
     n({ attribute: false })
 ], AuroraWeekdayChips.prototype, "value", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraWeekdayChips.prototype, "language", void 0);
 AuroraWeekdayChips = __decorate([
     t("aurora-weekday-chips")
 ], AuroraWeekdayChips);
 
-const REPEATS = [
-    { value: "once", label: "Una volta" },
-    { value: "daily", label: "Ogni giorno" },
-    { value: "weekly", label: "Settimanale" },
+/** Wake-up briefing block keys (labels localized via "briefing.block.<key>"). */
+const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"];
+// Role icons are emoji (not language-dependent). Labels/descriptions are
+// localized via the "role.<key>.label/.desc" keys in translations.ts.
+const ROLE_ICONS = {
+    audio_sink: "🔊",
+    wake_light: "🌅",
+    display_surface: "🖥️",
+    notify_channel: "🔔",
+    sleep_signal: "😴",
+    presence_signal: "🚶",
+    conversation: "🗣️",
+    tts: "📣",
+};
+// Mission types in display order. Labels are localized via "mission.<type>".
+const MISSION_TYPES = [
+    "none",
+    "tap",
+    "math",
+    "qr",
+    "shake",
+    "open_door",
+    "vision",
 ];
+
+const REPEATS = ["once", "daily", "weekly"];
 let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     constructor() {
         super(...arguments);
@@ -528,7 +756,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
       <div class="backdrop" @click=${(e) => e.target === e.currentTarget && this._close()}>
         <div class="sheet">
           <div class="grip"></div>
-          <h2>${this.alarm ? "Modifica sveglia" : "Nuova sveglia"}</h2>
+          <h2>${this.alarm ? localize(this.hass?.language, "dialog.edit_title") : localize(this.hass?.language, "dialog.new_title")}</h2>
           <input
             class="big-time clock"
             type="time"
@@ -536,23 +764,23 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             @input=${(e) => (this._time = e.target.value)}
           />
 
-          <label class="field">Etichetta</label>
+          <label class="field">${localize(this.hass?.language, "dialog.label")}</label>
           <input
             type="text"
-            placeholder="Es. Sveglia lavoro"
+            placeholder=${localize(this.hass?.language, "dialog.label_placeholder")}
             .value=${this._label}
             @input=${(e) => (this._label = e.target.value)}
           />
 
           <div class="block">
-            <label class="field">Ripetizione</label>
+            <label class="field">${localize(this.hass?.language, "dialog.repeat")}</label>
             <div class="seg">
               ${REPEATS.map((r) => b `
                   <button
-                    class=${this._repeat === r.value ? "on" : ""}
-                    @click=${() => (this._repeat = r.value)}
+                    class=${this._repeat === r ? "on" : ""}
+                    @click=${() => (this._repeat = r)}
                   >
-                    ${r.label}
+                    ${localize(this.hass?.language, "repeat." + r)}
                   </button>
                 `)}
             </div>
@@ -560,9 +788,10 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
 
           ${this._repeat === "weekly"
             ? b `<div class="block">
-                <label class="field">Giorni</label>
+                <label class="field">${localize(this.hass?.language, "dialog.days")}</label>
                 <aurora-weekday-chips
                   .value=${this._days}
+                  .language=${this.hass?.language}
                   @change=${(e) => (this._days = e.detail)}
                 ></aurora-weekday-chips>
               </div>`
@@ -570,21 +799,21 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
 
           <div class="block grid2">
             <div>
-              <label class="field">Missione anti-snooze</label>
+              <label class="field">${localize(this.hass?.language, "dialog.mission")}</label>
               <select
                 .value=${this._mission}
                 @change=${(e) => (this._mission = e.target.value)}
               >
-                ${Object.keys(MISSION_LABELS).map((m) => b `<option value=${m} ?selected=${m === this._mission}>
-                    ${MISSION_LABELS[m]}
+                ${MISSION_TYPES.map((m) => b `<option value=${m} ?selected=${m === this._mission}>
+                    ${localize(this.hass?.language, "mission." + m)}
                   </option>`)}
               </select>
             </div>
             <div>
-              <label class="field">Suono (URI/playlist)</label>
+              <label class="field">${localize(this.hass?.language, "dialog.sound")}</label>
               <input
                 type="text"
-                placeholder="opzionale"
+                placeholder=${localize(this.hass?.language, "common.optional")}
                 .value=${this._audioSource}
                 @input=${(e) => (this._audioSource = e.target.value)}
               />
@@ -593,7 +822,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
 
           <div class="block grid2">
             <div>
-              <label class="field">Max snooze</label>
+              <label class="field">${localize(this.hass?.language, "dialog.snooze_max")}</label>
               <input
                 type="number"
                 min="0"
@@ -603,7 +832,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               />
             </div>
             <div>
-              <label class="field">Durata snooze (min)</label>
+              <label class="field">${localize(this.hass?.language, "dialog.snooze_duration")}</label>
               <input
                 type="number"
                 min="1"
@@ -621,7 +850,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               aria-checked=${this._audioFade ? "true" : "false"}
               @click=${() => (this._audioFade = !this._audioFade)}
             ></div>
-            <div>Volume crescente (fade-in)</div>
+            <div>${localize(this.hass?.language, "dialog.fade_in")}</div>
           </div>
           <div class="togglerow">
             <div
@@ -630,7 +859,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               aria-checked=${this._light ? "true" : "false"}
               @click=${() => (this._light = !this._light)}
             ></div>
-            <div class="spacer">Alba (rampa luce/schermo)</div>
+            <div class="spacer">${localize(this.hass?.language, "dialog.sunrise")}</div>
             ${this._light
             ? b `<input
                   style="width:90px"
@@ -650,8 +879,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               @click=${() => (this._smart = !this._smart)}
             ></div>
             <div class="spacer">
-              Risveglio intelligente
-              <div class="sub">Suona prima se ti rilevo già sveglio (segnali del tuo profilo)</div>
+              ${localize(this.hass?.language, "dialog.smart")}
+              <div class="sub">${localize(this.hass?.language, "dialog.smart_desc")}</div>
             </div>
             ${this._smart
             ? b `<input
@@ -672,8 +901,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               @click=${() => (this._briefing = !this._briefing)}
             ></div>
             <div class="spacer">
-              Briefing al risveglio
-              <div class="sub">Pronuncia ora, meteo e impegni quando fermi la sveglia</div>
+              ${localize(this.hass?.language, "dialog.briefing")}
+              <div class="sub">${localize(this.hass?.language, "dialog.briefing_desc")}</div>
             </div>
           </div>
           ${this._briefing
@@ -682,15 +911,15 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                     class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
                     @click=${() => this._toggleBlock(b$1)}
                   >
-                    ${BRIEFING_BLOCK_LABELS[b$1]}
+                    ${localize(this.hass?.language, "briefing.block." + b$1)}
                   </button>`)}
               </div>`
             : A}
 
           <div class="actions">
-            <button class="btn ghost" @click=${this._close}>Annulla</button>
+            <button class="btn ghost" @click=${this._close}>${localize(this.hass?.language, "common.cancel")}</button>
             <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-              ${this._saving ? "Salvataggio…" : "Salva"}
+              ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "common.save")}
             </button>
           </div>
         </div>
@@ -908,17 +1137,19 @@ AuroraAlarmDialog = __decorate([
     t("aurora-alarm-dialog")
 ], AuroraAlarmDialog);
 
-function summarize(alarm) {
+function summarize(alarm, language) {
     const s = alarm.schedule;
     if (s.repeat_mode === "daily")
-        return "Ogni giorno";
+        return localize(language, "summary.daily");
     if (s.repeat_mode === "once")
-        return s.on_date ? `Il ${s.on_date}` : "Una volta";
+        return s.on_date
+            ? localize(language, "summary.on_date", { date: s.on_date })
+            : localize(language, "summary.once");
     if (!s.weekdays?.length)
-        return "Mai";
+        return localize(language, "summary.never");
     if (s.weekdays.length === 7)
-        return "Ogni giorno";
-    return s.weekdays.map((d) => WEEKDAY_LETTERS[d]).join(" ");
+        return localize(language, "summary.daily");
+    return s.weekdays.map((d) => weekdayLetters(language)[d]).join(" ");
 }
 let AuroraAlarmList = class AuroraAlarmList extends i {
     constructor() {
@@ -927,6 +1158,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         this.profileId = null;
         this.showAll = false;
         this._alarms = [];
+        this._loaded = false;
         this._editing = null;
         this._dialogOpen = false;
     }
@@ -946,7 +1178,10 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
     _subscribe() {
         if (!this.hass || this._unsub)
             return;
-        this._unsub = subscribeAlarms(this.hass, (alarms) => (this._alarms = alarms));
+        this._unsub = subscribeAlarms(this.hass, (alarms) => {
+            this._alarms = alarms;
+            this._loaded = true;
+        });
     }
     _add() {
         this._editing = null;
@@ -965,19 +1200,21 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         const visible = this._visible;
         return b `
       <div class="head">
-        <h3>Sveglie</h3>
+        <h3>${localize(this.hass?.language, "alarms.title")}</h3>
         <span class="spacer"></span>
-        <button class="btn primary" @click=${this._add}>+ Nuova</button>
+        <button class="btn primary" @click=${this._add}>${localize(this.hass?.language, "alarms.new")}</button>
       </div>
 
-      ${visible.length === 0
-            ? b `<div class="empty">
-            <div class="big">🌙</div>
-            Nessuna sveglia. Tocca <b>+ Nuova</b> per crearne una.
-          </div>`
-            : b `<div class="list">
-            ${visible.map((a) => this._row(a))}
-          </div>`}
+      ${!this._loaded
+            ? b `<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
+            : visible.length === 0
+                ? b `<div class="empty">
+              <div class="big">🌙</div>
+              ${localize(this.hass?.language, "alarms.empty")}
+            </div>`
+                : b `<div class="list">
+              ${visible.map((a) => this._row(a))}
+            </div>`}
 
       <aurora-alarm-dialog
         .hass=${this.hass}
@@ -994,16 +1231,16 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         <div class="time clock">${a.time}</div>
         <div class="meta">
           <div class="name">
-            ${a.label || "Sveglia"}${a.skip_next
-            ? b `<span class="badge">salta 1</span>`
+            ${a.label || localize(this.hass?.language, "alarms.default_label")}${a.skip_next
+            ? b `<span class="badge">${localize(this.hass?.language, "alarms.skip_badge")}</span>`
             : A}
           </div>
-          <div class="when">${summarize(a)}</div>
+          <div class="when">${summarize(a, this.hass?.language)}</div>
         </div>
         <span class="spacer"></span>
         <button
           class="icon-btn"
-          title="Salta la prossima"
+          title=${localize(this.hass?.language, "alarms.skip_title")}
           @click=${(e) => {
             e.stopPropagation();
             updateAlarm(this.hass, a.id, { skip_next: !a.skip_next });
@@ -1013,7 +1250,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         </button>
         <button
           class="icon-btn"
-          title="Elimina"
+          title=${localize(this.hass?.language, "common.delete")}
           @click=${(e) => {
             e.stopPropagation();
             deleteAlarm(this.hass, a.id);
@@ -1125,6 +1362,9 @@ __decorate([
 ], AuroraAlarmList.prototype, "_alarms", void 0);
 __decorate([
     r()
+], AuroraAlarmList.prototype, "_loaded", void 0);
+__decorate([
+    r()
 ], AuroraAlarmList.prototype, "_editing", void 0);
 __decorate([
     r()
@@ -1148,7 +1388,8 @@ let AuroraRingOverlay = class AuroraRingOverlay extends i {
             window.clearInterval(this._timer);
     }
     get _ringing() {
-        return this.hass?.states["binary_sensor.aurora_ringing"]?.state === "on";
+        const s = Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
+        return s?.state === "on";
     }
     render() {
         if (!this._ringing)
@@ -1161,13 +1402,13 @@ let AuroraRingOverlay = class AuroraRingOverlay extends i {
         <div class="sun"></div>
         <div class="content">
           <div class="big clock">${hh}:${mm}</div>
-          <div class="label">È ora di alzarsi</div>
+          <div class="label">${localize(this.hass?.language, "ring.label")}</div>
           <div class="actions">
             <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
-              Posponi
+              ${localize(this.hass?.language, "ring.snooze")}
             </button>
             <button class="big-btn stop" @click=${() => ringAction(this.hass, "dismiss")}>
-              Stop
+              ${localize(this.hass?.language, "ring.stop")}
             </button>
           </div>
         </div>
@@ -1318,7 +1559,7 @@ let AuroraCard = class AuroraCard extends i {
         const next = this._nextAlarmState();
         const valid = next && next.state && !["unknown", "unavailable"].includes(next.state);
         let time = "—";
-        let sub = "Nessuna sveglia programmata";
+        let sub = localize(this.hass?.language, "card.no_alarm");
         if (valid) {
             const dt = new Date(next.state);
             time = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -1329,25 +1570,30 @@ let AuroraCard = class AuroraCard extends i {
         }
         return b `
       <div class="hero">
-        <div class="hero-k">Prossima sveglia</div>
+        <div class="hero-k">${localize(this.hass?.language, "card.next_alarm")}</div>
         <div class="hero-time clock">${time}</div>
         <div class="hero-sub">${sub}</div>
       </div>
     `;
     }
     _relative(dt) {
+        const lang = this.hass?.language;
         const diff = dt.getTime() - Date.now();
         if (diff <= 0)
-            return "ora";
+            return localize(lang, "rel.now");
         const mins = Math.round(diff / 60000);
         if (mins < 60)
-            return `tra ${mins} min`;
+            return localize(lang, "rel.in_min", { n: mins });
         const hrs = Math.floor(mins / 60);
         const rem = mins % 60;
         if (hrs < 24)
-            return `tra ${hrs}h${rem ? ` ${rem}m` : ""}`;
+            return rem
+                ? localize(lang, "rel.in_hm", { h: hrs, m: rem })
+                : localize(lang, "rel.in_h", { h: hrs });
         const days = Math.round(hrs / 24);
-        return `tra ${days} ${days === 1 ? "giorno" : "giorni"}`;
+        return days === 1
+            ? localize(lang, "rel.in_day")
+            : localize(lang, "rel.in_days", { n: days });
     }
     render() {
         if (!this.hass)
@@ -1364,7 +1610,7 @@ let AuroraCard = class AuroraCard extends i {
               .hass=${this.hass}
               .profileId=${this.hass.user?.id ?? null}
             ></aurora-alarm-list>
-            <a class="open" href="/aurora">Apri l'app Aurora →</a>
+            <a class="open" href="/aurora">${localize(this.hass?.language, "card.open_app")}</a>
           </div>
         </div>
       </ha-card>
@@ -1446,8 +1692,8 @@ AuroraCard = __decorate([
 
 /**
  * Friendly entity picker used for role bindings.
- * - single: a dropdown of friendly names (+ "Nessuno").
- * - multiple: chosen entities as removable pills + a searchable "Aggiungi…"
+ * - single: a dropdown of friendly names (+ a "none" option).
+ * - multiple: chosen entities as removable pills + a searchable "add…"
  *   dropdown of the remaining candidates (so long lists never overwhelm).
  * Emits a `change` event with the new value (string or string[]).
  */
@@ -1469,7 +1715,7 @@ let AuroraEntityPicker = class AuroraEntityPicker extends i {
     }
     render() {
         if (!this.options.length) {
-            return b `<div class="none">Nessuna entità compatibile trovata.</div>`;
+            return b `<div class="none">${localize(this.hass?.language, "picker.none")}</div>`;
         }
         return this.multiple ? this._renderMulti() : this._renderSingle();
     }
@@ -1480,7 +1726,7 @@ let AuroraEntityPicker = class AuroraEntityPicker extends i {
         .value=${value}
         @change=${(e) => this._emit(e.target.value)}
       >
-        <option value="" ?selected=${value === ""}>— Nessuno —</option>
+        <option value="" ?selected=${value === ""}>${localize(this.hass?.language, "picker.empty_option")}</option>
         ${this._sorted(this.options).map((id) => b `<option value=${id} ?selected=${id === value} title=${id}>
             ${this._name(id)}
           </option>`)}
@@ -1510,7 +1756,7 @@ let AuroraEntityPicker = class AuroraEntityPicker extends i {
                 }
             }}
             >
-              <option value="">＋ Aggiungi…</option>
+              <option value="">${localize(this.hass?.language, "picker.add")}</option>
               ${remaining.map((id) => b `<option value=${id} title=${id}>${this._name(id)}</option>`)}
             </select>
           </div>`
@@ -1650,20 +1896,18 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     }
     render() {
         if (!this._entities) {
-            return b `<div class="intro">Caricamento dispositivi…</div>`;
+            return b `<div class="intro">${localize(this.hass?.language, "devices.loading")}</div>`;
         }
         return b `
       <p class="intro">
-        Dispositivi di <span class="who">${this.userName || "questo profilo"}</span> —
-        tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è
-        sempre garantito.
+        ${localize(this.hass?.language, "devices.intro", { name: this.userName || localize(this.hass?.language, "devices.this_profile") })}
       </p>
       ${ROLES.map((role) => this._role(role.key, role.multiple))}
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? "Salvataggio…" : "Salva i miei dispositivi"}
+          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "devices.save")}
         </button>
-        ${this._saved ? b `<span class="ok">✓ Salvato</span>` : A}
+        ${this._saved ? b `<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : A}
       </div>
     `;
     }
@@ -1677,8 +1921,8 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         <div class="rolehead">
           <div class="ic">${ROLE_ICONS[key] ?? "•"}</div>
           <div>
-            <div class="name">${ROLE_LABELS[key] ?? key}</div>
-            <div class="desc">${ROLE_DESC[key] ?? ""}</div>
+            <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
+            <div class="desc">${localize(this.hass?.language, "role." + key + ".desc")}</div>
           </div>
         </div>
         <aurora-entity-picker
@@ -1823,14 +2067,14 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     }
     render() {
         if (!this._entities) {
-            return b `<div class="intro">Caricamento…</div>`;
+            return b `<div class="intro">${localize(this.hass?.language, "common.loading")}</div>`;
         }
         const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
         return b `
-      <p class="intro">Impostazioni condivise da tutta l'installazione.</p>
+      <p class="intro">${localize(this.hass?.language, "globals.intro")}</p>
 
       <div class="block">
-        <label class="field">Durata massima suoneria (min)</label>
+        <label class="field">${localize(this.hass?.language, "globals.ring_max")}</label>
         <input
           type="number"
           min="1"
@@ -1847,22 +2091,21 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         />
       </div>
 
-      ${this._calendars("skip_calendars", "Calendari per salto impegni")}
-      ${this._calendars("holiday_calendars", "Calendari festività (auto-skip)")}
+      ${this._calendars("skip_calendars", localize(this.hass?.language, "globals.skip_calendars"))}
+      ${this._calendars("holiday_calendars", localize(this.hass?.language, "globals.holiday_calendars"))}
 
       <p class="intro" style="margin-top:22px">
-        <strong>Briefing del risveglio</strong> — sorgenti lette quando la sveglia
-        ha il briefing attivo. Vuoto = rilevamento automatico.
+        ${localize(this.hass?.language, "globals.briefing_intro")}
       </p>
-      ${this._picker("weather", "Meteo (entità weather)", this._entities.weather ?? [], false)}
-      ${this._picker("briefing_calendars", "Calendari del briefing", this._entities.calendars ?? [], true)}
-      ${this._picker("todo_lists", "Liste di cose da fare", this._entities.todo ?? [], true)}
+      ${this._picker("weather", localize(this.hass?.language, "globals.weather"), this._entities.weather ?? [], false)}
+      ${this._picker("briefing_calendars", localize(this.hass?.language, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
+      ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
 
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? "Salvataggio…" : "Salva globali"}
+          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
         </button>
-        ${this._saved ? b `<span class="ok">✓ Salvato</span>` : A}
+        ${this._saved ? b `<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : A}
       </div>
     `;
     }
@@ -1998,8 +2241,8 @@ let AuroraPanel = class AuroraPanel extends i {
     }
     get _selectedName() {
         if (this._selected === ALL)
-            return "Tutti";
-        return this._names[this._selected] ?? this.hass.user?.name ?? "Profilo";
+            return localize(this.hass?.language, "panel.all");
+        return this._names[this._selected] ?? this.hass.user?.name ?? localize(this.hass?.language, "panel.profile");
     }
     render() {
         if (!this.hass)
@@ -2017,7 +2260,7 @@ let AuroraPanel = class AuroraPanel extends i {
                 ${Object.entries(this._names).map(([id, name]) => b `<option value=${id} ?selected=${id === this._selected}>
                     ${name}
                   </option>`)}
-                <option value=${ALL} ?selected=${this._selected === ALL}>Tutti</option>
+                <option value=${ALL} ?selected=${this._selected === ALL}>${localize(this.hass?.language, "panel.all")}</option>
               </select>`
             : b `<span>${this._selectedName}</span>`}
           <div class="avatar">${initial}</div>
@@ -2026,13 +2269,13 @@ let AuroraPanel = class AuroraPanel extends i {
 
       <div class="tabs">
         <button class="tab ${this._tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
-          Sveglie
+          ${localize(this.hass?.language, "panel.tab_alarms")}
         </button>
         <button class="tab ${this._tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
-          Dispositivi
+          ${localize(this.hass?.language, "panel.tab_devices")}
         </button>
         <button class="tab ${this._tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-          Globali
+          ${localize(this.hass?.language, "panel.tab_globals")}
         </button>
       </div>
 
@@ -2048,7 +2291,7 @@ let AuroraPanel = class AuroraPanel extends i {
         }
         if (this._tab === "devices") {
             if (this._selected === ALL) {
-                return b `<div class="hint">Seleziona un profilo per configurarne i dispositivi.</div>`;
+                return b `<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
             }
             return b `<aurora-devices-view
         .hass=${this.hass}

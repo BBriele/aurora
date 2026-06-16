@@ -22,6 +22,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, TemplateError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
@@ -239,6 +240,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self.config_entry.async_on_unload(self.async_shutdown_timer)
         # Initial skip-date load also performs the first arm.
         await self._async_refresh_skip_dates()
+        self._async_check_issues()
 
     @callback
     def _handle_daily_refresh(self, _now: datetime) -> None:
@@ -335,8 +337,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
     # --- Event handlers -----------------------------------------------------
 
     async def _handle_collection_change(self, change_set: object) -> None:
-        """Alarm definitions changed → recompute the next timer."""
+        """Alarm definitions changed → recompute the next timer + repair issues."""
         self._rearm()
+        self._async_check_issues()
 
     @callback
     def _handle_core_config_update(self, event: Event) -> None:
@@ -420,6 +423,58 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             if isinstance(bindings, dict):
                 options.update(bindings)
         return options
+
+    # --- Repair issues ------------------------------------------------------
+
+    @callback
+    def _has_audio_sink(self) -> bool:
+        """Whether any AudioSink is bound (global, per-profile, or per-alarm)."""
+        options = self.config_entry.options
+        if _first_entity(options.get(ROLE_AUDIO_SINK)):
+            return True
+        profiles = options.get(CONF_PROFILES) or {}
+        if isinstance(profiles, dict):
+            for profile in profiles.values():
+                if isinstance(profile, dict):
+                    bindings = profile.get(CONF_PROFILE_BINDINGS)
+                    if isinstance(bindings, dict) and _first_entity(
+                        bindings.get(ROLE_AUDIO_SINK)
+                    ):
+                        return True
+        for raw in self.alarms.async_items():
+            try:
+                if AuroraAlarm.from_dict(raw).features.audio.target:
+                    return True
+            except ValueError:
+                continue
+        return False
+
+    @callback
+    def _async_check_issues(self) -> None:
+        """Raise/clear a repair issue: enabled alarms but no speaker bound.
+
+        Without an AudioSink a ring is silent except the persistent notification,
+        which is easy to miss — nudge the user to bind a speaker.
+        """
+        has_enabled = False
+        for raw in self.alarms.async_items():
+            try:
+                if AuroraAlarm.from_dict(raw).enabled:
+                    has_enabled = True
+                    break
+            except ValueError:
+                continue
+        if has_enabled and not self._has_audio_sink():
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                "no_audio_sink",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="no_audio_sink",
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, "no_audio_sink")
 
     # --- Sleep-aware pre-wake -----------------------------------------------
 
@@ -624,7 +679,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         if alarm is None:
             alarm = self._first_enabled_alarm()
         if alarm is None:
-            raise HomeAssistantError("No alarm available to trigger")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="no_alarm_to_trigger"
+            )
         self._snooze_count = 0
         self._begin_ring(alarm)
 
@@ -646,7 +703,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         if alarm is None:
             alarm = self._first_enabled_alarm()
         if alarm is None:
-            raise HomeAssistantError("No alarm available for a briefing")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="no_alarm_for_briefing"
+            )
         await self._async_run_briefing(alarm)
 
     async def _async_run_briefing(self, alarm: AuroraAlarm) -> None:
@@ -688,7 +747,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             events=await self._gather_events(options) if "calendar" in blocks else [],
             todos=await self._gather_todos(options) if "todo" in blocks else [],
         )
-        return compose_briefing(ctx, blocks)
+        return compose_briefing(ctx, blocks, self.hass.config.language)
 
     @callback
     def _profile_name(self, alarm: AuroraAlarm) -> str:

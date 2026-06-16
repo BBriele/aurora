@@ -2,12 +2,13 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import { auroraStyles } from "./theme";
+import { localize } from "./localize";
 import type { HomeAssistant } from "./types";
 
 /**
  * Friendly entity picker used for role bindings.
- * - single: a dropdown of friendly names (+ "Nessuno").
- * - multiple: chosen entities as removable pills + a searchable "Aggiungi…"
+ * - single: a dropdown of friendly names (+ a "none" option).
+ * - multiple: chosen entities as removable pills + a searchable "add…"
  *   dropdown of the remaining candidates (so long lists never overwhelm).
  * Emits a `change` event with the new value (string or string[]).
  */
@@ -89,7 +90,7 @@ export class AuroraEntityPicker extends LitElement {
 
   render(): TemplateResult {
     if (!this.options.length) {
-      return html`<div class="none">Nessuna entità compatibile trovata.</div>`;
+      return html`<div class="none">${localize(this.hass?.language, "picker.none")}</div>`;
     }
     return this.multiple ? this._renderMulti() : this._renderSingle();
   }
@@ -101,7 +102,7 @@ export class AuroraEntityPicker extends LitElement {
         .value=${value}
         @change=${(e: Event) => this._emit((e.target as HTMLSelectElement).value)}
       >
-        <option value="" ?selected=${value === ""}>— Nessuno —</option>
+        <option value="" ?selected=${value === ""}>${localize(this.hass?.language, "picker.empty_option")}</option>
         ${this._sorted(this.options).map(
           (id) => html`<option value=${id} ?selected=${id === value} title=${id}>
             ${this._name(id)}
@@ -136,7 +137,7 @@ export class AuroraEntityPicker extends LitElement {
                 }
               }}
             >
-              <option value="">＋ Aggiungi…</option>
+              <option value="">${localize(this.hass?.language, "picker.add")}</option>
               ${remaining.map(
                 (id) => html`<option value=${id} title=${id}>${this._name(id)}</option>`
               )}

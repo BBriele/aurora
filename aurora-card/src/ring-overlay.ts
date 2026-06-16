@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import { ringAction } from "./api";
+import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant } from "./types";
 
@@ -22,7 +23,8 @@ export class AuroraRingOverlay extends LitElement {
   }
 
   private get _ringing(): boolean {
-    return this.hass?.states["binary_sensor.aurora_ringing"]?.state === "on";
+    const s = Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
+    return s?.state === "on";
   }
 
   static styles = [
@@ -141,13 +143,13 @@ export class AuroraRingOverlay extends LitElement {
         <div class="sun"></div>
         <div class="content">
           <div class="big clock">${hh}:${mm}</div>
-          <div class="label">È ora di alzarsi</div>
+          <div class="label">${localize(this.hass?.language, "ring.label")}</div>
           <div class="actions">
             <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
-              Posponi
+              ${localize(this.hass?.language, "ring.snooze")}
             </button>
             <button class="big-btn stop" @click=${() => ringAction(this.hass, "dismiss")}>
-              Stop
+              ${localize(this.hass?.language, "ring.stop")}
             </button>
           </div>
         </div>

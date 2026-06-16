@@ -80,6 +80,8 @@ class AuroraVisionLatencySensor(AuroraEntity, SensorEntity):
     _attr_native_unit_of_measurement = "ms"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_suggested_display_precision = 0
+    # No data until the AI-vision mission lands (Phase 3); keep it out of the way.
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: AuroraCoordinator) -> None:
         """Set a stable unique id."""

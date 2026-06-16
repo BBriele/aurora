@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { getRoleEntities, getSettings, setSettings } from "./api";
 import "./entity-picker";
+import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, RoleEntities } from "./types";
 
@@ -115,14 +116,14 @@ export class AuroraGlobalsView extends LitElement {
 
   render(): TemplateResult {
     if (!this._entities) {
-      return html`<div class="intro">Caricamento…</div>`;
+      return html`<div class="intro">${localize(this.hass?.language, "common.loading")}</div>`;
     }
     const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
     return html`
-      <p class="intro">Impostazioni condivise da tutta l'installazione.</p>
+      <p class="intro">${localize(this.hass?.language, "globals.intro")}</p>
 
       <div class="block">
-        <label class="field">Durata massima suoneria (min)</label>
+        <label class="field">${localize(this.hass?.language, "globals.ring_max")}</label>
         <input
           type="number"
           min="1"
@@ -139,32 +140,31 @@ export class AuroraGlobalsView extends LitElement {
         />
       </div>
 
-      ${this._calendars("skip_calendars", "Calendari per salto impegni")}
-      ${this._calendars("holiday_calendars", "Calendari festività (auto-skip)")}
+      ${this._calendars("skip_calendars", localize(this.hass?.language, "globals.skip_calendars"))}
+      ${this._calendars("holiday_calendars", localize(this.hass?.language, "globals.holiday_calendars"))}
 
       <p class="intro" style="margin-top:22px">
-        <strong>Briefing del risveglio</strong> — sorgenti lette quando la sveglia
-        ha il briefing attivo. Vuoto = rilevamento automatico.
+        ${localize(this.hass?.language, "globals.briefing_intro")}
       </p>
       ${this._picker(
         "weather",
-        "Meteo (entità weather)",
+        localize(this.hass?.language, "globals.weather"),
         this._entities.weather ?? [],
         false
       )}
       ${this._picker(
         "briefing_calendars",
-        "Calendari del briefing",
+        localize(this.hass?.language, "globals.briefing_calendars"),
         this._entities.calendars ?? [],
         true
       )}
-      ${this._picker("todo_lists", "Liste di cose da fare", this._entities.todo ?? [], true)}
+      ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
 
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? "Salvataggio…" : "Salva globali"}
+          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
         </button>
-        ${this._saved ? html`<span class="ok">✓ Salvato</span>` : nothing}
+        ${this._saved ? html`<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : nothing}
       </div>
     `;
   }

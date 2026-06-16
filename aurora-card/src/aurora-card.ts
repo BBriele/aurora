@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./alarm-list";
 import "./ring-overlay";
+import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HassEntity, HomeAssistant } from "./types";
 
@@ -47,7 +48,7 @@ export class AuroraCard extends LitElement {
     const next = this._nextAlarmState();
     const valid = next && next.state && !["unknown", "unavailable"].includes(next.state);
     let time = "—";
-    let sub = "Nessuna sveglia programmata";
+    let sub = localize(this.hass?.language, "card.no_alarm");
     if (valid) {
       const dt = new Date(next.state);
       time = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -57,7 +58,7 @@ export class AuroraCard extends LitElement {
     }
     return html`
       <div class="hero">
-        <div class="hero-k">Prossima sveglia</div>
+        <div class="hero-k">${localize(this.hass?.language, "card.next_alarm")}</div>
         <div class="hero-time clock">${time}</div>
         <div class="hero-sub">${sub}</div>
       </div>
@@ -65,15 +66,20 @@ export class AuroraCard extends LitElement {
   }
 
   private _relative(dt: Date): string {
+    const lang = this.hass?.language;
     const diff = dt.getTime() - Date.now();
-    if (diff <= 0) return "ora";
+    if (diff <= 0) return localize(lang, "rel.now");
     const mins = Math.round(diff / 60000);
-    if (mins < 60) return `tra ${mins} min`;
+    if (mins < 60) return localize(lang, "rel.in_min", { n: mins });
     const hrs = Math.floor(mins / 60);
     const rem = mins % 60;
-    if (hrs < 24) return `tra ${hrs}h${rem ? ` ${rem}m` : ""}`;
+    if (hrs < 24) return rem
+      ? localize(lang, "rel.in_hm", { h: hrs, m: rem })
+      : localize(lang, "rel.in_h", { h: hrs });
     const days = Math.round(hrs / 24);
-    return `tra ${days} ${days === 1 ? "giorno" : "giorni"}`;
+    return days === 1
+      ? localize(lang, "rel.in_day")
+      : localize(lang, "rel.in_days", { n: days });
   }
 
   static styles = [
@@ -153,7 +159,7 @@ export class AuroraCard extends LitElement {
               .hass=${this.hass}
               .profileId=${this.hass.user?.id ?? null}
             ></aurora-alarm-list>
-            <a class="open" href="/aurora">Apri l'app Aurora →</a>
+            <a class="open" href="/aurora">${localize(this.hass?.language, "card.open_app")}</a>
           </div>
         </div>
       </ha-card>

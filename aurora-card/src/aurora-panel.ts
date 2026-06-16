@@ -7,6 +7,7 @@ import "./globals-view";
 import "./ring-overlay";
 import { getSettings } from "./api";
 import { auroraStyles } from "./theme";
+import { localize } from "./localize";
 import type { HomeAssistant, Profiles } from "./types";
 
 type Tab = "alarms" | "devices" | "globals";
@@ -52,8 +53,8 @@ export class AuroraPanel extends LitElement {
   }
 
   private get _selectedName(): string {
-    if (this._selected === ALL) return "Tutti";
-    return this._names[this._selected] ?? this.hass.user?.name ?? "Profilo";
+    if (this._selected === ALL) return localize(this.hass?.language, "panel.all");
+    return this._names[this._selected] ?? this.hass.user?.name ?? localize(this.hass?.language, "panel.profile");
   }
 
   static styles = [
@@ -165,7 +166,7 @@ export class AuroraPanel extends LitElement {
                     ${name}
                   </option>`
                 )}
-                <option value=${ALL} ?selected=${this._selected === ALL}>Tutti</option>
+                <option value=${ALL} ?selected=${this._selected === ALL}>${localize(this.hass?.language, "panel.all")}</option>
               </select>`
             : html`<span>${this._selectedName}</span>`}
           <div class="avatar">${initial}</div>
@@ -174,13 +175,13 @@ export class AuroraPanel extends LitElement {
 
       <div class="tabs">
         <button class="tab ${this._tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
-          Sveglie
+          ${localize(this.hass?.language, "panel.tab_alarms")}
         </button>
         <button class="tab ${this._tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
-          Dispositivi
+          ${localize(this.hass?.language, "panel.tab_devices")}
         </button>
         <button class="tab ${this._tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-          Globali
+          ${localize(this.hass?.language, "panel.tab_globals")}
         </button>
       </div>
 
@@ -197,7 +198,7 @@ export class AuroraPanel extends LitElement {
     }
     if (this._tab === "devices") {
       if (this._selected === ALL) {
-        return html`<div class="hint">Seleziona un profilo per configurarne i dispositivi.</div>`;
+        return html`<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
       }
       return html`<aurora-devices-view
         .hass=${this.hass}
