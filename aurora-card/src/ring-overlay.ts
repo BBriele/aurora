@@ -3,13 +3,16 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { ringAction } from "./api";
 import { localize } from "./localize";
+import "./mission-overlay";
+import { needsChallenge } from "./missions";
 import { auroraStyles } from "./theme";
-import type { HomeAssistant } from "./types";
+import type { HassEntity, HomeAssistant, MissionType } from "./types";
 
 @customElement("aurora-ring-overlay")
 export class AuroraRingOverlay extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _now = new Date();
+  @state() private _showMission = false;
   private _timer?: number;
 
   connectedCallback(): void {
@@ -22,9 +25,25 @@ export class AuroraRingOverlay extends LitElement {
     if (this._timer) window.clearInterval(this._timer);
   }
 
+  private get _sensor(): HassEntity | undefined {
+    return Object.values(this.hass?.states ?? {}).find((e) =>
+      e.entity_id.startsWith("binary_sensor.aurora")
+    );
+  }
+
   private get _ringing(): boolean {
-    const s = Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
-    return s?.state === "on";
+    return this._sensor?.state === "on";
+  }
+
+  private get _mission(): {
+    type: MissionType;
+    params?: Record<string, unknown>;
+    vision_prompt?: string | null;
+  } {
+    const m = this._sensor?.attributes?.mission as
+      | { type: MissionType; params?: Record<string, unknown>; vision_prompt?: string | null }
+      | undefined;
+    return m ?? { type: "tap" };
   }
 
   static styles = [
@@ -133,25 +152,62 @@ export class AuroraRingOverlay extends LitElement {
     `,
   ];
 
+  private _dismiss(): void {
+    this._showMission = false;
+    ringAction(this.hass, "dismiss");
+  }
+
+  private _onStop(): void {
+    // A real mission must be solved first; tap/none dismiss immediately.
+    if (needsChallenge(this._mission.type)) {
+      this._showMission = true;
+    } else {
+      this._dismiss();
+    }
+  }
+
+  updated(): void {
+    // Close the mission overlay once the ring is gone (don't mutate in render()).
+    if (!this._ringing && this._showMission) this._showMission = false;
+  }
+
   render(): TemplateResult | typeof nothing {
     if (!this._ringing) return nothing;
     const hh = String(this._now.getHours()).padStart(2, "0");
     const mm = String(this._now.getMinutes()).padStart(2, "0");
+    const challenge = needsChallenge(this._mission.type);
     return html`
       <div class="overlay">
         <div class="sky"></div>
         <div class="sun"></div>
         <div class="content">
-          <div class="big clock">${hh}:${mm}</div>
-          <div class="label">${localize(this.hass?.language, "ring.label")}</div>
-          <div class="actions">
-            <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
-              ${localize(this.hass?.language, "ring.snooze")}
-            </button>
-            <button class="big-btn stop" @click=${() => ringAction(this.hass, "dismiss")}>
-              ${localize(this.hass?.language, "ring.stop")}
-            </button>
-          </div>
+          ${this._showMission
+            ? html`<aurora-mission-overlay
+                .hass=${this.hass}
+                .mission=${this._mission}
+                @solved=${this._dismiss}
+              ></aurora-mission-overlay>`
+            : html`
+                <div class="big clock">${hh}:${mm}</div>
+                <div class="label">${localize(this.hass?.language, "ring.label")}</div>
+                <div class="actions">
+                  <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
+                    ${localize(this.hass?.language, "ring.snooze")}
+                  </button>
+                  <button class="big-btn stop" @click=${this._onStop}>
+                    ${challenge
+                      ? localize(this.hass?.language, "ring.start_mission")
+                      : localize(this.hass?.language, "ring.stop")}
+                  </button>
+                </div>
+              `}
+          ${this._showMission
+            ? html`<div class="actions">
+                <button class="big-btn snooze" @click=${() => (this._showMission = false)}>
+                  ${localize(this.hass?.language, "missionui.back")}
+                </button>
+              </div>`
+            : nothing}
         </div>
       </div>
     `;

@@ -181,6 +181,13 @@ const STRINGS = {
         "dialog.smart_desc": "Ring earlier if I detect you already awake (your profile's signals)",
         "dialog.briefing": "Wake-up briefing",
         "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
+        "mparam.difficulty": "Difficulty",
+        "mparam.easy": "Easy",
+        "mparam.medium": "Medium",
+        "mparam.hard": "Hard",
+        "mparam.shake_count": "Shakes needed",
+        "mparam.qr_value": "Expected QR text (optional)",
+        "mparam.door_entity": "Door sensor (binary_sensor.…)",
         // briefing blocks
         "briefing.block.time": "Time & greeting",
         "briefing.block.weather": "Weather",
@@ -233,6 +240,24 @@ const STRINGS = {
         "ring.label": "Time to get up",
         "ring.snooze": "Snooze",
         "ring.stop": "Stop",
+        "ring.start_mission": "I'm awake",
+        // mission overlay
+        "missionui.math_prompt": "Solve to dismiss",
+        "missionui.answer": "Answer",
+        "missionui.check": "Check",
+        "missionui.wrong": "Wrong — try again",
+        "missionui.shake_prompt": "Shake to dismiss",
+        "missionui.shake_enable": "Enable motion",
+        "missionui.qr_prompt": "Scan the QR code to dismiss",
+        "missionui.nocam": "Camera unavailable — switching challenge",
+        "missionui.opendoor_prompt": "Open {name} to dismiss",
+        "missionui.door": "the door",
+        "missionui.vision_prompt": "Take a selfie to prove you're up",
+        "missionui.capture": "Capture",
+        "missionui.checking": "Checking…",
+        "missionui.vision_failed": "Couldn't verify — try again",
+        "missionui.degraded": "Switched to a simpler challenge",
+        "missionui.back": "Back",
     },
     it: {
         "common.cancel": "Annulla",
@@ -291,6 +316,13 @@ const STRINGS = {
         "dialog.smart_desc": "Suona prima se ti rilevo già sveglio (segnali del tuo profilo)",
         "dialog.briefing": "Briefing al risveglio",
         "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
+        "mparam.difficulty": "Difficoltà",
+        "mparam.easy": "Facile",
+        "mparam.medium": "Media",
+        "mparam.hard": "Difficile",
+        "mparam.shake_count": "Scuotimenti richiesti",
+        "mparam.qr_value": "Testo QR atteso (opzionale)",
+        "mparam.door_entity": "Sensore porta (binary_sensor.…)",
         "briefing.block.time": "Ora e saluto",
         "briefing.block.weather": "Meteo",
         "briefing.block.calendar": "Calendario",
@@ -335,6 +367,23 @@ const STRINGS = {
         "ring.label": "È ora di alzarsi",
         "ring.snooze": "Posponi",
         "ring.stop": "Stop",
+        "ring.start_mission": "Sono sveglio",
+        "missionui.math_prompt": "Risolvi per spegnere",
+        "missionui.answer": "Risposta",
+        "missionui.check": "Verifica",
+        "missionui.wrong": "Sbagliato — riprova",
+        "missionui.shake_prompt": "Scuoti per spegnere",
+        "missionui.shake_enable": "Abilita movimento",
+        "missionui.qr_prompt": "Inquadra il QR per spegnere",
+        "missionui.nocam": "Fotocamera non disponibile — cambio sfida",
+        "missionui.opendoor_prompt": "Apri {name} per spegnere",
+        "missionui.door": "la porta",
+        "missionui.vision_prompt": "Scatta un selfie per dimostrare che sei sveglio",
+        "missionui.capture": "Scatta",
+        "missionui.checking": "Verifica…",
+        "missionui.vision_failed": "Non verificato — riprova",
+        "missionui.degraded": "Passato a una sfida più semplice",
+        "missionui.back": "Indietro",
     },
 };
 
@@ -650,6 +699,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._repeat = "daily";
         this._days = [0, 1, 2, 3, 4];
         this._mission = "tap";
+        this._missionParams = {};
         this._snoozeMax = 3;
         this._snoozeMin = 9;
         this._audioSource = "";
@@ -675,6 +725,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._repeat = a?.schedule.repeat_mode ?? "daily";
         this._days = a?.schedule.weekdays?.length ? [...a.schedule.weekdays] : [0, 1, 2, 3, 4];
         this._mission = a?.features.mission.type ?? "tap";
+        this._missionParams = { ...(a?.features.mission.params ?? {}) };
         this._snoozeMax = a?.features.snooze.max ?? 3;
         this._snoozeMin = a ? Math.round((a.features.snooze.duration ?? 540) / 60) : 9;
         this._audioSource = a?.features.audio.source ?? "";
@@ -699,6 +750,62 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             ? this._briefingBlocks.filter((b) => b !== block)
             : [...this._briefingBlocks, block];
     }
+    _setParam(key, value) {
+        this._missionParams = { ...this._missionParams, [key]: value };
+    }
+    _missionParamsBlock() {
+        const lang = this.hass?.language;
+        const p = this._missionParams;
+        if (this._mission === "math") {
+            const cur = String(p["difficulty"] ?? "medium");
+            return b `<div class="block">
+        <label class="field">${localize(lang, "mparam.difficulty")}</label>
+        <div class="seg">
+          ${["easy", "medium", "hard"].map((d) => b `<button
+              class=${cur === d ? "on" : ""}
+              @click=${() => this._setParam("difficulty", d)}
+            >
+              ${localize(lang, "mparam." + d)}
+            </button>`)}
+        </div>
+      </div>`;
+        }
+        if (this._mission === "shake") {
+            return b `<div class="block">
+        <label class="field">${localize(lang, "mparam.shake_count")}</label>
+        <input
+          type="number"
+          min="3"
+          max="50"
+          .value=${String(p["count"] ?? 12)}
+          @input=${(e) => this._setParam("count", Number(e.target.value))}
+        />
+      </div>`;
+        }
+        if (this._mission === "qr") {
+            return b `<div class="block">
+        <label class="field">${localize(lang, "mparam.qr_value")}</label>
+        <input
+          type="text"
+          placeholder=${localize(lang, "common.optional")}
+          .value=${String(p["value"] ?? "")}
+          @input=${(e) => this._setParam("value", e.target.value)}
+        />
+      </div>`;
+        }
+        if (this._mission === "open_door") {
+            return b `<div class="block">
+        <label class="field">${localize(lang, "mparam.door_entity")}</label>
+        <input
+          type="text"
+          placeholder="binary_sensor.front_door"
+          .value=${String(p["entity_id"] ?? "")}
+          @input=${(e) => this._setParam("entity_id", e.target.value)}
+        />
+      </div>`;
+        }
+        return A;
+    }
     async _save() {
         this._saving = true;
         // The backend replaces the whole `features` dict on update, so we spread the
@@ -714,7 +821,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
             features: {
                 ...prev,
-                mission: { ...prev?.mission, type: this._mission },
+                mission: { ...prev?.mission, type: this._mission, params: this._missionParams },
                 snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
                 audio: {
                     ...prev?.audio,
@@ -819,6 +926,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               />
             </div>
           </div>
+
+          ${this._missionParamsBlock()}
 
           <div class="block grid2">
             <div>
@@ -1099,6 +1208,9 @@ __decorate([
 ], AuroraAlarmDialog.prototype, "_mission", void 0);
 __decorate([
     r()
+], AuroraAlarmDialog.prototype, "_missionParams", void 0);
+__decorate([
+    r()
 ], AuroraAlarmDialog.prototype, "_snoozeMax", void 0);
 __decorate([
     r()
@@ -1373,10 +1485,437 @@ AuroraAlarmList = __decorate([
     t("aurora-alarm-list")
 ], AuroraAlarmList);
 
+/** Generate an arithmetic problem. Difficulty: "easy" | "medium" | "hard". */
+function makeMath(difficulty = "medium") {
+    const r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    if (difficulty === "easy") {
+        const a = r(2, 9);
+        const b = r(2, 9);
+        return { question: `${a} + ${b}`, answer: a + b };
+    }
+    if (difficulty === "hard") {
+        const a = r(6, 14);
+        const b = r(6, 14);
+        const c = r(2, 9);
+        return { question: `${a} × ${b} + ${c}`, answer: a * b + c };
+    }
+    // medium
+    const a = r(3, 12);
+    const b = r(3, 12);
+    return { question: `${a} × ${b}`, answer: a * b };
+}
+/** Magnitude of the change between two acceleration samples (for shake). */
+function shakeMagnitude(a, b) {
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z);
+}
+const SHAKE_THRESHOLD = 18; // per-sample magnitude that counts as a shake
+const SHAKE_DEFAULT_COUNT = 12;
+/**
+ * Which mission to fall back to when `type` can't run on this device/setup
+ * (no camera, no motion sensor, missing entity). Always terminates at "tap".
+ */
+function degradeMission(type) {
+    switch (type) {
+        case "vision":
+            return "math";
+        case "qr":
+            return "math";
+        case "shake":
+            return "math";
+        case "open_door":
+            return "tap";
+        case "math":
+            return "tap";
+        default:
+            return "tap";
+    }
+}
+/** Missions that need an active mission UI (everything except none/tap). */
+function needsChallenge(type) {
+    return type !== "none" && type !== "tap";
+}
+
+/**
+ * Anti-snooze challenge shown over the ring. Emits `solved` once the active
+ * mission is completed. Falls back to a simpler mission (and ultimately a tap)
+ * when the device/setup can't run the requested one. Vision is wired in a later
+ * increment — for now it degrades to math.
+ */
+let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
+    constructor() {
+        super(...arguments);
+        this.mission = { type: "tap" };
+        this._active = "tap";
+        this._math = null;
+        this._input = "";
+        this._wrong = false;
+        this._shakes = 0;
+        this._needMotionPerm = false;
+        this._notice = "";
+        this._solved = false;
+        this._doorWasOpen = false;
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this._start(this.mission.type || "tap");
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._teardown();
+    }
+    get _lang() {
+        return this.hass?.language;
+    }
+    _start(type) {
+        this._teardown();
+        this._active = type;
+        this._wrong = false;
+        this._notice = "";
+        this._needMotionPerm = false;
+        if (type === "math") {
+            this._math = makeMath(String(this.mission.params?.["difficulty"] ?? "medium"));
+            this._input = "";
+        }
+        else if (type === "shake") {
+            this._startShake();
+        }
+        else if (type === "qr" || type === "vision") {
+            // Vision degrades to math until its backend lands.
+            if (type === "vision") {
+                this._degrade();
+            }
+            else {
+                void this._startCamera();
+            }
+        }
+        else if (type === "open_door") {
+            // Require a real, existing sensor; remember its state so we only solve on
+            // an off → on transition (not if the door was already open at ring time).
+            if (!this._doorEntity || !this.hass?.states[this._doorEntity]) {
+                this._degrade();
+            }
+            else {
+                this._doorWasOpen = this.hass.states[this._doorEntity].state === "on";
+            }
+        }
+    }
+    _degrade() {
+        const next = degradeMission(this._active);
+        this._notice = localize(this._lang, "missionui.degraded");
+        this._start(next);
+    }
+    _solve() {
+        if (this._solved)
+            return;
+        this._solved = true;
+        this._teardown();
+        this.dispatchEvent(new CustomEvent("solved", { bubbles: true, composed: true }));
+    }
+    _teardown() {
+        if (this._scanTimer) {
+            window.clearInterval(this._scanTimer);
+            this._scanTimer = undefined;
+        }
+        if (this._motionHandler) {
+            window.removeEventListener("devicemotion", this._motionHandler);
+            this._motionHandler = undefined;
+        }
+        if (this._stream) {
+            this._stream.getTracks().forEach((t) => t.stop());
+            this._stream = undefined;
+        }
+    }
+    // --- math ---------------------------------------------------------------
+    _checkMath() {
+        if (this._math && Number(this._input) === this._math.answer) {
+            this._solve();
+        }
+        else {
+            this._wrong = true;
+            this._math = makeMath(String(this.mission.params?.["difficulty"] ?? "medium"));
+            this._input = "";
+        }
+    }
+    // --- shake --------------------------------------------------------------
+    _startShake() {
+        this._shakes = 0;
+        const DM = window.DeviceMotionEvent;
+        if (!DM) {
+            this._degrade();
+            return;
+        }
+        if (typeof DM.requestPermission === "function") {
+            this._needMotionPerm = true; // iOS: user gesture required
+            return;
+        }
+        this._listenMotion();
+    }
+    async _enableMotion() {
+        if (this._active !== "shake")
+            return; // ignore a stale click after degrade
+        const DM = window.DeviceMotionEvent;
+        try {
+            const res = await DM.requestPermission?.();
+            if (res === "granted") {
+                this._needMotionPerm = false;
+                this._listenMotion();
+            }
+            else {
+                this._degrade();
+            }
+        }
+        catch {
+            this._degrade();
+        }
+    }
+    _listenMotion() {
+        const target = Number(this.mission.params?.["count"] ?? SHAKE_DEFAULT_COUNT) || SHAKE_DEFAULT_COUNT;
+        this._motionHandler = (e) => {
+            const a = e.accelerationIncludingGravity;
+            if (!a || a.x == null || a.y == null || a.z == null)
+                return;
+            const cur = { x: a.x, y: a.y, z: a.z };
+            if (this._last && shakeMagnitude(cur, this._last) > SHAKE_THRESHOLD) {
+                this._shakes += 1;
+                if (this._shakes >= target)
+                    this._solve();
+            }
+            this._last = cur;
+        };
+        window.addEventListener("devicemotion", this._motionHandler);
+    }
+    // --- qr -----------------------------------------------------------------
+    async _startCamera() {
+        const BD = window
+            .BarcodeDetector;
+        if (!BD || !navigator.mediaDevices?.getUserMedia) {
+            this._notice = localize(this._lang, "missionui.nocam");
+            this._degrade();
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+            });
+            // The component may have been torn down (solved/degraded/disconnected)
+            // while getUserMedia was pending — don't leak the camera track.
+            if (!this.isConnected || this._active !== "qr") {
+                stream.getTracks().forEach((t) => t.stop());
+                return;
+            }
+            this._stream = stream;
+            await this.updateComplete;
+            if (!this.isConnected || this._active !== "qr") {
+                this._teardown();
+                return;
+            }
+            const video = this.renderRoot.querySelector("video");
+            if (!video) {
+                this._degrade();
+                return;
+            }
+            video.srcObject = this._stream;
+            await video.play();
+            const detector = new BD({ formats: ["qr_code"] });
+            const expected = String(this.mission.params?.["value"] ?? "");
+            this._scanTimer = window.setInterval(async () => {
+                try {
+                    const codes = await detector.detect(video);
+                    for (const c of codes) {
+                        if (!expected || c.rawValue === expected) {
+                            this._solve();
+                            return;
+                        }
+                    }
+                }
+                catch {
+                    /* transient detect errors are ignored */
+                }
+            }, 400);
+        }
+        catch {
+            this._notice = localize(this._lang, "missionui.nocam");
+            this._degrade();
+        }
+    }
+    // --- open_door ----------------------------------------------------------
+    get _doorEntity() {
+        return String(this.mission.params?.["entity_id"] ?? "");
+    }
+    updated() {
+        if (this._active === "open_door" && this._doorEntity && !this._solved) {
+            const open = this.hass?.states[this._doorEntity]?.state === "on";
+            if (open && !this._doorWasOpen)
+                this._solve();
+            this._doorWasOpen = open;
+        }
+    }
+    render() {
+        return b `<div class="wrap">${this._body()} ${this._noticeEl()}</div>`;
+    }
+    _noticeEl() {
+        return this._notice
+            ? b `<div class="notice">${this._notice}</div>`
+            : A;
+    }
+    _body() {
+        switch (this._active) {
+            case "math":
+                return b `
+          <div class="prompt">${localize(this._lang, "missionui.math_prompt")}</div>
+          <div class="math clock">${this._math?.question ?? ""} =</div>
+          <input
+            class="ans"
+            type="number"
+            inputmode="numeric"
+            .value=${this._input}
+            @input=${(e) => (this._input = e.target.value)}
+            @keydown=${(e) => e.key === "Enter" && this._checkMath()}
+          />
+          ${this._wrong
+                    ? b `<div class="wrong">${localize(this._lang, "missionui.wrong")}</div>`
+                    : A}
+          <button class="big-btn" @click=${this._checkMath}>
+            ${localize(this._lang, "missionui.check")}
+          </button>
+        `;
+            case "shake":
+                return b `
+          <div class="prompt">${localize(this._lang, "missionui.shake_prompt")}</div>
+          ${this._needMotionPerm
+                    ? b `<button class="big-btn" @click=${this._enableMotion}>
+                ${localize(this._lang, "missionui.shake_enable")}
+              </button>`
+                    : b `<div class="shakebar">
+                <i style=${`width:${Math.min(100, (this._shakes / (Number(this.mission.params?.["count"] ?? SHAKE_DEFAULT_COUNT) || SHAKE_DEFAULT_COUNT)) * 100)}%`}></i>
+              </div>`}
+        `;
+            case "qr":
+                return b `
+          <div class="prompt">${localize(this._lang, "missionui.qr_prompt")}</div>
+          <video playsinline muted></video>
+        `;
+            case "open_door": {
+                const name = this.hass?.states[this._doorEntity]?.attributes.friendly_name ||
+                    localize(this._lang, "missionui.door");
+                return b `<div class="prompt">
+          ${localize(this._lang, "missionui.opendoor_prompt", { name: String(name) })}
+        </div>`;
+            }
+            default:
+                // tap (terminal fallback): a single confirm.
+                return b `<button class="big-btn" @click=${this._solve}>
+          ${localize(this._lang, "ring.stop")}
+        </button>`;
+        }
+    }
+};
+AuroraMissionOverlay.styles = [
+    auroraStyles,
+    i$3 `
+      .wrap {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        max-width: 360px;
+      }
+      .prompt {
+        font-size: 1.3rem;
+        font-weight: 600;
+      }
+      .math {
+        font-size: 2.6rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+      input.ans {
+        font-size: 1.6rem;
+        text-align: center;
+        width: 160px;
+      }
+      .notice,
+      .wrong {
+        font-size: 0.95rem;
+        opacity: 0.85;
+      }
+      .wrong {
+        color: #ffd2d2;
+      }
+      video {
+        width: min(80vw, 320px);
+        border-radius: 18px;
+        background: #000;
+      }
+      .shakebar {
+        width: 220px;
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.25);
+        overflow: hidden;
+      }
+      .shakebar > i {
+        display: block;
+        height: 100%;
+        background: var(--aurora-accent-grad);
+        transition: width 0.15s ease;
+      }
+      .big-btn {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        font-size: 1.05rem;
+        padding: 14px 28px;
+        border-radius: 999px;
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraMissionOverlay.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraMissionOverlay.prototype, "mission", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_active", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_math", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_input", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_wrong", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_shakes", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_needMotionPerm", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_notice", void 0);
+AuroraMissionOverlay = __decorate([
+    t("aurora-mission-overlay")
+], AuroraMissionOverlay);
+
 let AuroraRingOverlay = class AuroraRingOverlay extends i {
     constructor() {
         super(...arguments);
         this._now = new Date();
+        this._showMission = false;
     }
     connectedCallback() {
         super.connectedCallback();
@@ -1387,30 +1926,72 @@ let AuroraRingOverlay = class AuroraRingOverlay extends i {
         if (this._timer)
             window.clearInterval(this._timer);
     }
+    get _sensor() {
+        return Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
+    }
     get _ringing() {
-        const s = Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
-        return s?.state === "on";
+        return this._sensor?.state === "on";
+    }
+    get _mission() {
+        const m = this._sensor?.attributes?.mission;
+        return m ?? { type: "tap" };
+    }
+    _dismiss() {
+        this._showMission = false;
+        ringAction(this.hass, "dismiss");
+    }
+    _onStop() {
+        // A real mission must be solved first; tap/none dismiss immediately.
+        if (needsChallenge(this._mission.type)) {
+            this._showMission = true;
+        }
+        else {
+            this._dismiss();
+        }
+    }
+    updated() {
+        // Close the mission overlay once the ring is gone (don't mutate in render()).
+        if (!this._ringing && this._showMission)
+            this._showMission = false;
     }
     render() {
         if (!this._ringing)
             return A;
         const hh = String(this._now.getHours()).padStart(2, "0");
         const mm = String(this._now.getMinutes()).padStart(2, "0");
+        const challenge = needsChallenge(this._mission.type);
         return b `
       <div class="overlay">
         <div class="sky"></div>
         <div class="sun"></div>
         <div class="content">
-          <div class="big clock">${hh}:${mm}</div>
-          <div class="label">${localize(this.hass?.language, "ring.label")}</div>
-          <div class="actions">
-            <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
-              ${localize(this.hass?.language, "ring.snooze")}
-            </button>
-            <button class="big-btn stop" @click=${() => ringAction(this.hass, "dismiss")}>
-              ${localize(this.hass?.language, "ring.stop")}
-            </button>
-          </div>
+          ${this._showMission
+            ? b `<aurora-mission-overlay
+                .hass=${this.hass}
+                .mission=${this._mission}
+                @solved=${this._dismiss}
+              ></aurora-mission-overlay>`
+            : b `
+                <div class="big clock">${hh}:${mm}</div>
+                <div class="label">${localize(this.hass?.language, "ring.label")}</div>
+                <div class="actions">
+                  <button class="big-btn snooze" @click=${() => ringAction(this.hass, "snooze")}>
+                    ${localize(this.hass?.language, "ring.snooze")}
+                  </button>
+                  <button class="big-btn stop" @click=${this._onStop}>
+                    ${challenge
+                ? localize(this.hass?.language, "ring.start_mission")
+                : localize(this.hass?.language, "ring.stop")}
+                  </button>
+                </div>
+              `}
+          ${this._showMission
+            ? b `<div class="actions">
+                <button class="big-btn snooze" @click=${() => (this._showMission = false)}>
+                  ${localize(this.hass?.language, "missionui.back")}
+                </button>
+              </div>`
+            : A}
         </div>
       </div>
     `;
@@ -1527,6 +2108,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraRingOverlay.prototype, "_now", void 0);
+__decorate([
+    r()
+], AuroraRingOverlay.prototype, "_showMission", void 0);
 AuroraRingOverlay = __decorate([
     t("aurora-ring-overlay")
 ], AuroraRingOverlay);

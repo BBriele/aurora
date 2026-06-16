@@ -1,5 +1,7 @@
 """Aurora ringing binary sensor."""
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -38,3 +40,14 @@ class AuroraRingingBinarySensor(AuroraEntity, BinarySensorEntity):
             AuroraState.RINGING,
             AuroraState.MISSION,
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose the active alarm's id + mission so the card can challenge."""
+        data = self.coordinator.data
+        if not self.is_on:
+            return None
+        return {
+            "alarm_id": data.active_alarm_id,
+            "mission": data.active_mission,
+        }

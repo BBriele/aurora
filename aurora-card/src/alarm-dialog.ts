@@ -29,6 +29,7 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _repeat: RepeatMode = "daily";
   @state() private _days: number[] = [0, 1, 2, 3, 4];
   @state() private _mission: MissionType = "tap";
+  @state() private _missionParams: Record<string, unknown> = {};
   @state() private _snoozeMax = 3;
   @state() private _snoozeMin = 9;
   @state() private _audioSource = "";
@@ -55,6 +56,7 @@ export class AuroraAlarmDialog extends LitElement {
     this._repeat = a?.schedule.repeat_mode ?? "daily";
     this._days = a?.schedule.weekdays?.length ? [...a.schedule.weekdays] : [0, 1, 2, 3, 4];
     this._mission = a?.features.mission.type ?? "tap";
+    this._missionParams = { ...(a?.features.mission.params ?? {}) };
     this._snoozeMax = a?.features.snooze.max ?? 3;
     this._snoozeMin = a ? Math.round((a.features.snooze.duration ?? 540) / 60) : 9;
     this._audioSource = a?.features.audio.source ?? "";
@@ -82,6 +84,69 @@ export class AuroraAlarmDialog extends LitElement {
       : [...this._briefingBlocks, block];
   }
 
+  private _setParam(key: string, value: unknown): void {
+    this._missionParams = { ...this._missionParams, [key]: value };
+  }
+
+  private _missionParamsBlock(): TemplateResult | typeof nothing {
+    const lang = this.hass?.language;
+    const p = this._missionParams;
+    if (this._mission === "math") {
+      const cur = String(p["difficulty"] ?? "medium");
+      return html`<div class="block">
+        <label class="field">${localize(lang, "mparam.difficulty")}</label>
+        <div class="seg">
+          ${["easy", "medium", "hard"].map(
+            (d) => html`<button
+              class=${cur === d ? "on" : ""}
+              @click=${() => this._setParam("difficulty", d)}
+            >
+              ${localize(lang, "mparam." + d)}
+            </button>`
+          )}
+        </div>
+      </div>`;
+    }
+    if (this._mission === "shake") {
+      return html`<div class="block">
+        <label class="field">${localize(lang, "mparam.shake_count")}</label>
+        <input
+          type="number"
+          min="3"
+          max="50"
+          .value=${String(p["count"] ?? 12)}
+          @input=${(e: Event) =>
+            this._setParam("count", Number((e.target as HTMLInputElement).value))}
+        />
+      </div>`;
+    }
+    if (this._mission === "qr") {
+      return html`<div class="block">
+        <label class="field">${localize(lang, "mparam.qr_value")}</label>
+        <input
+          type="text"
+          placeholder=${localize(lang, "common.optional")}
+          .value=${String(p["value"] ?? "")}
+          @input=${(e: Event) =>
+            this._setParam("value", (e.target as HTMLInputElement).value)}
+        />
+      </div>`;
+    }
+    if (this._mission === "open_door") {
+      return html`<div class="block">
+        <label class="field">${localize(lang, "mparam.door_entity")}</label>
+        <input
+          type="text"
+          placeholder="binary_sensor.front_door"
+          .value=${String(p["entity_id"] ?? "")}
+          @input=${(e: Event) =>
+            this._setParam("entity_id", (e.target as HTMLInputElement).value)}
+        />
+      </div>`;
+    }
+    return nothing;
+  }
+
   private async _save(): Promise<void> {
     this._saving = true;
     // The backend replaces the whole `features` dict on update, so we spread the
@@ -97,7 +162,7 @@ export class AuroraAlarmDialog extends LitElement {
       schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
       features: {
         ...prev,
-        mission: { ...prev?.mission, type: this._mission },
+        mission: { ...prev?.mission, type: this._mission, params: this._missionParams },
         snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
         audio: {
           ...prev?.audio,
@@ -353,6 +418,8 @@ export class AuroraAlarmDialog extends LitElement {
               />
             </div>
           </div>
+
+          ${this._missionParamsBlock()}
 
           <div class="block grid2">
             <div>

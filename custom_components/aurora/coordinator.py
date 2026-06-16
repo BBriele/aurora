@@ -167,6 +167,7 @@ class AuroraCoordinatorData:
     state: AuroraState
     next_alarm: NextAlarm | None
     active_alarm_id: str | None = None
+    active_mission: dict[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -315,12 +316,20 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         except ValueError:
             return None
 
+    @callback
+    def _active_mission(self) -> dict[str, object] | None:
+        """The ringing alarm's mission config (for the card overlay), if any."""
+        if self._active_alarm is None:
+            return None
+        return self._active_alarm.features.mission.as_dict()
+
     async def _async_update_data(self) -> AuroraCoordinatorData:
         """Return the current snapshot (push coordinator: no I/O)."""
         return AuroraCoordinatorData(
             state=self._state,
             next_alarm=self._next,
             active_alarm_id=self._active_alarm_id,
+            active_mission=self._active_mission(),
         )
 
     @callback
@@ -331,6 +340,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 state=self._state,
                 next_alarm=self._next,
                 active_alarm_id=self._active_alarm_id,
+                active_mission=self._active_mission(),
             )
         )
 
