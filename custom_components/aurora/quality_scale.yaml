@@ -22,16 +22,16 @@ rules:
   dependency-transparency: done  # no external requirements
   action-setup: done  # services registered in async_setup
   common-modules: done
-  docs-installation-instructions: todo
-  docs-removal-instructions: todo
-  docs-actions: todo
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-actions: done
   brands: todo  # submit icon/logo to home-assistant/brands
 
   # --- Silver ---
   action-exceptions: done
   config-entry-unloading: done
-  docs-configuration-parameters: todo
-  docs-installation-parameters: todo
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
   entity-unavailable:
     status: exempt
     comment: Local push integration; entities always have data (no external service to be unreachable).
@@ -54,13 +54,13 @@ rules:
   discovery-update-info:
     status: exempt
     comment: No discovery, so no discovery updates.
-  docs-data-update: todo
-  docs-examples: todo
-  docs-known-limitations: todo
-  docs-supported-devices: todo
-  docs-supported-functions: todo
-  docs-troubleshooting: todo
-  docs-use-cases: todo
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
   dynamic-devices:
     status: exempt
     comment: Single service device; alarms are records, not devices.
