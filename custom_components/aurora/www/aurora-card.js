@@ -1304,8 +1304,18 @@ let AuroraCard = class AuroraCard extends i {
     static getStubConfig() {
         return { title: "Aurora" };
     }
+    /**
+     * The next-alarm sensor's entity_id is locale-dependent (has_entity_name +
+     * translation_key → e.g. sensor.aurora_prossima_sveglia in Italian), so we
+     * never hardcode the English slug. Match the timestamp sensor under Aurora.
+     */
+    _nextAlarmState() {
+        const states = this.hass?.states ?? {};
+        return Object.values(states).find((s) => s.entity_id.startsWith("sensor.aurora") &&
+            s.attributes?.device_class === "timestamp");
+    }
     _hero() {
-        const next = this.hass?.states["sensor.aurora_next_alarm"];
+        const next = this._nextAlarmState();
         const valid = next && next.state && !["unknown", "unavailable"].includes(next.state);
         let time = "—";
         let sub = "Nessuna sveglia programmata";
@@ -1374,8 +1384,8 @@ AuroraCard.styles = [
       .hero {
         position: relative;
         padding: 26px 22px 30px;
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         overflow: hidden;
       }
       .hero::after {
@@ -1386,7 +1396,11 @@ AuroraCard.styles = [
         width: 200px;
         height: 200px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(255, 240, 200, 0.5), transparent 70%);
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--aurora-on-accent) 16%, transparent),
+          transparent 70%
+        );
       }
       .hero-k {
         text-transform: uppercase;

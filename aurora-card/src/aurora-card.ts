@@ -4,7 +4,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import "./alarm-list";
 import "./ring-overlay";
 import { auroraStyles } from "./theme";
-import type { HomeAssistant } from "./types";
+import type { HassEntity, HomeAssistant } from "./types";
 
 interface AuroraCardConfig {
   type: string;
@@ -29,8 +29,22 @@ export class AuroraCard extends LitElement {
     return { title: "Aurora" };
   }
 
+  /**
+   * The next-alarm sensor's entity_id is locale-dependent (has_entity_name +
+   * translation_key → e.g. sensor.aurora_prossima_sveglia in Italian), so we
+   * never hardcode the English slug. Match the timestamp sensor under Aurora.
+   */
+  private _nextAlarmState(): HassEntity | undefined {
+    const states = this.hass?.states ?? {};
+    return Object.values(states).find(
+      (s) =>
+        s.entity_id.startsWith("sensor.aurora") &&
+        s.attributes?.device_class === "timestamp"
+    );
+  }
+
   private _hero(): TemplateResult {
-    const next = this.hass?.states["sensor.aurora_next_alarm"];
+    const next = this._nextAlarmState();
     const valid = next && next.state && !["unknown", "unavailable"].includes(next.state);
     let time = "—";
     let sub = "Nessuna sveglia programmata";
@@ -74,8 +88,8 @@ export class AuroraCard extends LitElement {
       .hero {
         position: relative;
         padding: 26px 22px 30px;
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         overflow: hidden;
       }
       .hero::after {
@@ -86,7 +100,11 @@ export class AuroraCard extends LitElement {
         width: 200px;
         height: 200px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(255, 240, 200, 0.5), transparent 70%);
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--aurora-on-accent) 16%, transparent),
+          transparent 70%
+        );
       }
       .hero-k {
         text-transform: uppercase;
