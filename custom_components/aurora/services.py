@@ -7,9 +7,7 @@ runtime failure, per the Quality Scale ``action-exceptions`` rule.
 """
 
 import logging
-from typing import Any
 
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import (
     HomeAssistant,
@@ -20,6 +18,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.collection import ItemNotFound
+import voluptuous as vol
 
 from .const import (
     DOMAIN,
@@ -50,9 +49,15 @@ _ALARM_FIELDS = {
     vol.Optional("features"): dict,
 }
 _ADD_SCHEMA = vol.Schema({vol.Required("time"): str, **_ALARM_FIELDS})
-_UPDATE_SCHEMA = vol.Schema({vol.Required("id"): str, vol.Optional("time"): str, **_ALARM_FIELDS})
+_UPDATE_SCHEMA = vol.Schema(
+    {vol.Required("id"): str, vol.Optional("time"): str, **_ALARM_FIELDS}
+)
 _BENCHMARK_SCHEMA = vol.Schema(
-    {vol.Optional("samples", default=5): vol.All(vol.Coerce(int), vol.Range(min=1, max=50))}
+    {
+        vol.Optional("samples", default=5): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=50)
+        )
+    }
 )
 
 
@@ -129,14 +134,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def benchmark_vision(call: ServiceCall) -> ServiceResponse:
         return await _coordinator(hass).async_vision_benchmark(call.data["samples"])
 
-    hass.services.async_register(DOMAIN, SERVICE_ADD_ALARM, add_alarm, schema=_ADD_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_ADD_ALARM, add_alarm, schema=_ADD_SCHEMA
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_UPDATE_ALARM, update_alarm, schema=_UPDATE_SCHEMA
     )
     hass.services.async_register(
         DOMAIN, SERVICE_REMOVE_ALARM, remove_alarm, schema=_ID_SCHEMA
     )
-    hass.services.async_register(DOMAIN, SERVICE_SKIP_NEXT, skip_next, schema=_ID_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SKIP_NEXT, skip_next, schema=_ID_SCHEMA
+    )
     hass.services.async_register(DOMAIN, SERVICE_SNOOZE, snooze, schema=_EMPTY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_DISMISS, dismiss, schema=_EMPTY_SCHEMA)
     hass.services.async_register(

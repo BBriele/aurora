@@ -8,10 +8,10 @@ entities can fill each role, so the UI can do *everything* without HA's config U
 
 from typing import Any
 
-import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+import voluptuous as vol
 
 from .capabilities import get_llm_vision_providers, suggest_entities
 from .const import ALL_ROLES, DOMAIN

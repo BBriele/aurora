@@ -11,8 +11,10 @@ from homeassistant.components import persistent_notification
 from homeassistant.components.notify import (
     ATTR_MESSAGE,
     ATTR_TITLE,
-    DOMAIN as NOTIFY_DOMAIN,
     SERVICE_SEND_MESSAGE,
+)
+from homeassistant.components.notify import (
+    DOMAIN as NOTIFY_DOMAIN,
 )
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant

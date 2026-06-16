@@ -1,7 +1,7 @@
 """Aurora read-model sensors consumed by the card and automations."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import EntityCategory
@@ -36,7 +36,7 @@ class AuroraStateSensor(AuroraEntity, SensorEntity):
 
     _attr_translation_key = "state"
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = [state.value for state in AuroraState]
+    _attr_options: ClassVar[list[str]] = [state.value for state in AuroraState]
 
     def __init__(self, coordinator: AuroraCoordinator) -> None:
         """Set a stable unique id."""

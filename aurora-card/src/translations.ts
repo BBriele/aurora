@@ -41,6 +41,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "role.conversation.desc": "Voice assistant for commands",
     "role.tts.label": "Text-to-speech",
     "role.tts.desc": "Voice for the briefing and announcements",
+    "role.vision_provider.label": "Vision provider",
+    "role.vision_provider.desc": "AI that judges the wake-up selfie (AI Task or LLM Vision)",
 
     // missions
     "mission.none": "None",
@@ -135,6 +137,15 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "globals.weather": "Weather (weather entity)",
     "globals.briefing_calendars": "Briefing calendars",
     "globals.todo_lists": "To-do lists",
+    "globals.vision_intro":
+      "Selfie wake check (AI vision) — the optional anti-snooze mission that confirms you are up. Aurora works with two providers: bind a Home Assistant AI Task entity, or install LLM Vision (auto-detected if no AI Task is set).",
+    "globals.vision_provider": "AI Task vision entity",
+    "globals.vision_active_aitask": "Active: {name} (Home Assistant AI Task).",
+    "globals.vision_active_llm": "No AI Task bound — using LLM Vision (auto-detected): {names}.",
+    "globals.vision_active_none":
+      "No vision provider available — the selfie mission falls back to the math challenge. Bind an AI Task entity or install LLM Vision.",
+    "globals.vision_ref_aitask": "Home Assistant AI Tasks",
+    "globals.vision_ref_llm": "LLM Vision integration",
     "globals.save": "Save shared settings",
 
     // entity picker
@@ -195,6 +206,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "role.conversation.desc": "Assistente vocale per i comandi",
     "role.tts.label": "Sintesi vocale",
     "role.tts.desc": "Voce per briefing e annunci",
+    "role.vision_provider.label": "Provider di visione",
+    "role.vision_provider.desc": "IA che valuta il selfie del risveglio (AI Task o LLM Vision)",
 
     "mission.none": "Nessuna",
     "mission.tap": "Tocco",
@@ -279,6 +292,15 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "globals.weather": "Meteo (entità weather)",
     "globals.briefing_calendars": "Calendari del briefing",
     "globals.todo_lists": "Liste di cose da fare",
+    "globals.vision_intro":
+      "Verifica del risveglio con selfie (visione IA) — la missione anti-snooze opzionale che conferma che sei sveglio. Aurora funziona con due provider: collega un'entità AI Task di Home Assistant, oppure installa LLM Vision (rilevato in automatico se non imposti un'AI Task).",
+    "globals.vision_provider": "Entità di visione AI Task",
+    "globals.vision_active_aitask": "Attivo: {name} (AI Task di Home Assistant).",
+    "globals.vision_active_llm": "Nessuna AI Task collegata — uso LLM Vision (rilevato): {names}.",
+    "globals.vision_active_none":
+      "Nessun provider di visione disponibile — la missione selfie ripiega sulla sfida matematica. Collega un'entità AI Task o installa LLM Vision.",
+    "globals.vision_ref_aitask": "AI Task di Home Assistant",
+    "globals.vision_ref_llm": "Integrazione LLM Vision",
     "globals.save": "Salva globali",
 
     "picker.none": "Nessuna entità compatibile trovata.",

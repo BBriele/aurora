@@ -7,6 +7,10 @@ import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, RoleEntities } from "./types";
 
+/** Reference docs for the two supported wake-up vision providers. */
+const AI_TASK_DOCS = "https://www.home-assistant.io/integrations/ai_task/";
+const LLM_VISION_REPO = "https://github.com/valentinfrlch/ha-llmvision";
+
 /** Shared, installation-wide settings (not per-user). */
 @customElement("aurora-globals-view")
 export class AuroraGlobalsView extends LitElement {
@@ -49,6 +53,7 @@ export class AuroraGlobalsView extends LitElement {
         weather: this._options["weather"] ?? "",
         briefing_calendars: this._options["briefing_calendars"] ?? [],
         todo_lists: this._options["todo_lists"] ?? [],
+        vision_provider: this._options["vision_provider"] ?? "",
       });
       this._options = { ...res.options };
       this._saved = true;
@@ -100,6 +105,34 @@ export class AuroraGlobalsView extends LitElement {
         font-size: 0.85rem;
         color: var(--aurora-dim);
         font-style: italic;
+      }
+      .detected {
+        font-size: 0.85rem;
+        color: var(--aurora-dim);
+        margin-top: 8px;
+        line-height: 1.5;
+      }
+      .detected b {
+        color: var(--aurora-text);
+        font-weight: 600;
+      }
+      .refs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        margin-top: 12px;
+      }
+      .refs a {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--aurora-accent);
+        font-size: 0.83rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .refs a:hover {
+        text-decoration: underline;
       }
       .savebar {
         display: flex;
@@ -160,11 +193,44 @@ export class AuroraGlobalsView extends LitElement {
       )}
       ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
 
+      ${this._visionSection()}
+
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
         </button>
         ${this._saved ? html`<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : nothing}
+      </div>
+    `;
+  }
+
+  private _visionSection(): TemplateResult {
+    const lang = this.hass?.language;
+    const aiTasks = this._entities!.roles?.["vision_provider"] ?? [];
+    const llm = this._entities!.vision_providers ?? [];
+    const bound = (this._options["vision_provider"] as string) || "";
+    let active: string;
+    if (bound) {
+      const name = (this.hass?.states[bound]?.attributes?.friendly_name as string) || bound;
+      active = localize(lang, "globals.vision_active_aitask", { name });
+    } else if (llm.length) {
+      active = localize(lang, "globals.vision_active_llm", {
+        names: llm.map((p) => p.title).join(", "),
+      });
+    } else {
+      active = localize(lang, "globals.vision_active_none");
+    }
+    return html`
+      <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
+      ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      <div class="detected">${active}</div>
+      <div class="refs">
+        <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
+          ↗ ${localize(lang, "globals.vision_ref_aitask")}
+        </a>
+        <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
+          ↗ ${localize(lang, "globals.vision_ref_llm")}
+        </a>
       </div>
     `;
   }

@@ -7,9 +7,11 @@ import logging
 from homeassistant.components.media_player import (
     ATTR_MEDIA_CONTENT_ID,
     ATTR_MEDIA_CONTENT_TYPE,
-    DOMAIN as MEDIA_PLAYER_DOMAIN,
     SERVICE_PLAY_MEDIA,
     MediaType,
+)
+from homeassistant.components.media_player import (
+    DOMAIN as MEDIA_PLAYER_DOMAIN,
 )
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -80,11 +82,16 @@ class AudioSinkAdapter:
             await self._hass.services.async_call(
                 MEDIA_PLAYER_DOMAIN,
                 SERVICE_VOLUME_SET,
-                {ATTR_ENTITY_ID: self._entity_id, "volume_level": max(0.0, min(level, 1.0))},
+                {
+                    ATTR_ENTITY_ID: self._entity_id,
+                    "volume_level": max(0.0, min(level, 1.0)),
+                },
                 blocking=False,
             )
         except HomeAssistantError as err:
-            _LOGGER.debug("Aurora audio: volume_set failed on %s: %s", self._entity_id, err)
+            _LOGGER.debug(
+                "Aurora audio: volume_set failed on %s: %s", self._entity_id, err
+            )
 
     async def async_stop(self) -> None:
         """Cancel the fade and stop playback."""

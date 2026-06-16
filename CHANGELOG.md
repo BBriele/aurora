@@ -4,6 +4,28 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.8.0 - 2026-06-17
+
+### Added
+- Wake-up vision provider configuration in the Aurora app (Shared tab): pick a
+  Home Assistant AI Task entity, see the auto-detected LLM Vision provider, and
+  the currently active provider at a glance.
+- Reference links to both supported AI vision providers (Home Assistant AI Tasks
+  and LLM Vision) in the app and the README.
+
+### Changed
+- Dropdown selectors (anti-snooze mission, entity pickers, profile switcher) now
+  follow the active Home Assistant theme: the OS-native widget is replaced with a
+  themed control, a custom chevron, a themed option list and an accent focus ring.
+- All configuration now lives in the Aurora app. Setup in Home Assistant is a
+  single click with nothing else to fill in.
+
+### Removed
+- The integration's options ("Configure") flow and the "Add alarm" config
+  subentry on the Devices & Services page. Device bindings, shared settings and
+  alarms are managed in the Aurora app, so reconfiguration through Home Assistant
+  is not applicable.
+
 ## 0.7.0 - 2026-06-16
 
 ### Added

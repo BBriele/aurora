@@ -128,6 +128,7 @@ export const ROLE_ICONS: Record<string, string> = {
   presence_signal: "🚶",
   conversation: "🗣️",
   tts: "📣",
+  vision_provider: "👁️",
 };
 
 // Mission types in display order. Labels are localized via "mission.<type>".

@@ -70,7 +70,12 @@ rules:
   entity-translations: done
   exception-translations: done
   icon-translations: done
-  reconfiguration-flow: done
+  reconfiguration-flow:
+    status: exempt
+    comment: >-
+      Nothing in the config entry is set through a flow: setup is one click and
+      all configuration (role/device bindings, shared options, alarms) is done in
+      the Aurora app over the WebSocket API. There is no flow-set data to revise.
   repair-issues: done  # warns when alarms exist but no AudioSink is bound
   stale-devices:
     status: exempt

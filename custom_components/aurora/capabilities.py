@@ -6,11 +6,13 @@ entities could fill this role?* (:func:`suggest_entities`). Probes key on domain
 supported color modes / features and the presence of services — never on a brand.
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from homeassistant.components.light import brightness_supported
-from homeassistant.components.light import ATTR_SUPPORTED_COLOR_MODES
+from homeassistant.components.light import (
+    ATTR_SUPPORTED_COLOR_MODES,
+    brightness_supported,
+)
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.const import ATTR_SUPPORTED_FEATURES
 from homeassistant.core import HomeAssistant
@@ -40,13 +42,13 @@ class CapabilityResult:
     missing: list[str] = field(default_factory=list)
 
     @classmethod
-    def good(cls) -> "CapabilityResult":
-        """A passing result."""
+    def good(cls) -> CapabilityResult:
+        """Return a passing result."""
         return cls(ok=True)
 
     @classmethod
-    def fail(cls, *missing: str) -> "CapabilityResult":
-        """A failing result with the reasons it failed."""
+    def fail(cls, *missing: str) -> CapabilityResult:
+        """Return a failing result with the reasons it failed."""
         return cls(ok=False, missing=list(missing))
 
 
@@ -72,7 +74,7 @@ def _is_available(hass: HomeAssistant, entity_id: str) -> bool:
 
 
 def _probe_audio_sink(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
-    """A media_player that can play media is a valid AudioSink."""
+    """Check that a media_player that can play media is a valid AudioSink."""
     if _domain_of(entity_id) != "media_player":
         return CapabilityResult.fail("domain:media_player")
     features = _supported_features(hass, entity_id)
@@ -82,7 +84,7 @@ def _probe_audio_sink(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
 
 
 def _probe_wake_light(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
-    """A dimmable light, or a number (screen backlight), can drive a sunrise."""
+    """Check that a dimmable light or number (screen backlight) can drive a sunrise."""
     domain = _domain_of(entity_id)
     if domain == "light":
         state = hass.states.get(entity_id)
@@ -97,8 +99,11 @@ def _probe_wake_light(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
 
 
 def _probe_notify_channel(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
-    """A notify entity is a valid NotifyChannel (persistent_notification is the
-    universal last-resort fallback handled by the adapter, not bound here)."""
+    """Check that a notify entity is a valid NotifyChannel.
+
+    The persistent_notification is the universal last-resort fallback handled by
+    the adapter, not bound here.
+    """
     if _domain_of(entity_id) != "notify":
         return CapabilityResult.fail("domain:notify")
     return CapabilityResult.good()
@@ -126,7 +131,7 @@ def _probe_signal(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
 
 
 def _probe_display_surface(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
-    """A DisplaySurface is best-effort: a media_player or a switch/light screen.
+    """Validate a DisplaySurface: a media_player or a switch/light screen.
 
     Concrete kiosk control (load URL, screensaver off) is delegated to an optional
     user-supplied action; this probe only validates a plausible binding target.
@@ -137,7 +142,7 @@ def _probe_display_surface(hass: HomeAssistant, entity_id: str) -> CapabilityRes
 
 
 def _probe_vision_provider(hass: HomeAssistant, entity_id: str) -> CapabilityResult:
-    """An ai_task entity is the built-in VisionProvider candidate.
+    """Check that an ai_task entity is a valid built-in VisionProvider candidate.
 
     LLM Vision providers are config entries, not entities — see
     :func:`get_llm_vision_providers`.
@@ -160,9 +165,13 @@ ROLE_SPECS: dict[str, RoleSpec] = {
     ROLE_AUDIO_SINK: RoleSpec(ROLE_AUDIO_SINK, ("media_player",), _probe_audio_sink),
     ROLE_WAKE_LIGHT: RoleSpec(ROLE_WAKE_LIGHT, ("light", "number"), _probe_wake_light),
     ROLE_DISPLAY_SURFACE: RoleSpec(
-        ROLE_DISPLAY_SURFACE, ("media_player", "switch", "light"), _probe_display_surface
+        ROLE_DISPLAY_SURFACE,
+        ("media_player", "switch", "light"),
+        _probe_display_surface,
     ),
-    ROLE_NOTIFY_CHANNEL: RoleSpec(ROLE_NOTIFY_CHANNEL, ("notify",), _probe_notify_channel),
+    ROLE_NOTIFY_CHANNEL: RoleSpec(
+        ROLE_NOTIFY_CHANNEL, ("notify",), _probe_notify_channel
+    ),
     ROLE_VISION_PROVIDER: RoleSpec(
         ROLE_VISION_PROVIDER, ("ai_task",), _probe_vision_provider
     ),
@@ -172,7 +181,9 @@ ROLE_SPECS: dict[str, RoleSpec] = {
     ROLE_PRESENCE_SIGNAL: RoleSpec(
         ROLE_PRESENCE_SIGNAL, ("binary_sensor", "sensor"), _probe_signal
     ),
-    ROLE_CONVERSATION: RoleSpec(ROLE_CONVERSATION, ("conversation",), _probe_conversation),
+    ROLE_CONVERSATION: RoleSpec(
+        ROLE_CONVERSATION, ("conversation",), _probe_conversation
+    ),
     ROLE_TTS: RoleSpec(ROLE_TTS, ("tts",), _probe_tts),
 }
 

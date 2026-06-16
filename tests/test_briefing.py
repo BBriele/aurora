@@ -19,12 +19,14 @@ def _ctx(**kwargs) -> BriefingContext:
 
 
 def test_time_block_greeting_and_clock() -> None:
+    """Verify the time block produces a greeting and formatted clock string."""
     text = compose_briefing(_ctx(name="Gabriel"), blocks=["time"])
     assert "Good morning Gabriel" in text
     assert "07:05" in text
 
 
 def test_greeting_varies_by_hour() -> None:
+    """Verify greeting phrase changes correctly across different hours of the day."""
     assert "Good night" in compose_briefing(
         _ctx(now=datetime(2026, 6, 16, 3, 0)), blocks=["time"]
     )
@@ -37,6 +39,7 @@ def test_greeting_varies_by_hour() -> None:
 
 
 def test_weather_block_translates_and_rounds() -> None:
+    """Verify the weather block translates the condition and rounds the temperature."""
     ctx = _ctx(weather=WeatherFact(condition="rainy", temperature=18.6, unit="°C"))
     text = compose_briefing(ctx, blocks=["weather"])
     assert "rain" in text
@@ -44,11 +47,13 @@ def test_weather_block_translates_and_rounds() -> None:
 
 
 def test_weather_block_dropped_when_empty() -> None:
+    """Verify the weather block returns empty string when no weather data is present."""
     assert compose_briefing(_ctx(weather=WeatherFact()), blocks=["weather"]) == ""
     assert compose_briefing(_ctx(), blocks=["weather"]) == ""
 
 
 def test_calendar_block_counts_and_truncates() -> None:
+    """Verify the calendar block counts events and truncates beyond the third."""
     ctx = _ctx(events=["Meeting", "Dentist", "Gym", "Dinner"])
     text = compose_briefing(ctx, blocks=["calendar"])
     assert "You have 4 events today" in text
@@ -58,16 +63,23 @@ def test_calendar_block_counts_and_truncates() -> None:
 
 
 def test_calendar_block_singular_and_empty() -> None:
-    assert "1 event today" in compose_briefing(_ctx(events=["Only one"]), blocks=["calendar"])
-    assert "Nothing on your calendar" in compose_briefing(_ctx(), blocks=["calendar"])
+    """Verify the calendar block uses singular phrasing and handles empty lists."""
+    assert "1 event today" in compose_briefing(
+        _ctx(events=["Only one"]), blocks=["calendar"]
+    )
+    assert "Nothing on your calendar" in compose_briefing(
+        _ctx(), blocks=["calendar"]
+    )
 
 
 def test_todo_block_dropped_when_empty() -> None:
+    """Verify the todo block is omitted when the list is empty and included when not."""
     assert compose_briefing(_ctx(), blocks=["todo"]) == ""
     assert "To do: Milk" in compose_briefing(_ctx(todos=["Milk"]), blocks=["todo"])
 
 
 def test_default_blocks_when_none() -> None:
+    """Verify all four default blocks appear in correct order when blocks is None."""
     ctx = _ctx(
         name="Aurora",
         weather=WeatherFact(condition="sunny", temperature=25, unit="°C"),
@@ -82,10 +94,12 @@ def test_default_blocks_when_none() -> None:
 
 
 def test_unknown_block_skipped() -> None:
+    """Verify an unrecognised block name produces an empty string output."""
     assert compose_briefing(_ctx(), blocks=["bogus"]) == ""
 
 
 def test_italian_pack_selected_by_language() -> None:
+    """Verify that language='it' selects the Italian phrase pack."""
     ctx = _ctx(
         name="Gabriel",
         weather=WeatherFact(condition="rainy", temperature=18, unit="°C"),
@@ -98,11 +112,13 @@ def test_italian_pack_selected_by_language() -> None:
 
 
 def test_unknown_language_falls_back_to_english() -> None:
+    """Verify an unsupported language tag falls back to the English phrase pack."""
     text = compose_briefing(_ctx(name="X"), blocks=["time"], language="de")
     assert "Good morning X" in text
 
 
 def test_base_language_match() -> None:
+    """Verify that 'it-IT' resolves to the Italian phrase pack via base-tag matching."""
     # "it-IT" should resolve to the Italian pack.
     text = compose_briefing(_ctx(), blocks=["calendar"], language="it-IT")
     assert "Nessun impegno" in text

@@ -6,8 +6,8 @@ overrides, falling back to the installation's role bindings, and always adds a
 adapter never breaks the others (or the alarm).
 """
 
-import logging
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -90,7 +90,7 @@ class RingController:
         for adapter in adapters:
             try:
                 await adapter.async_start()
-            except Exception:  # noqa: BLE001 - isolate a bad adapter from the ring
+            except Exception:
                 _LOGGER.exception("Aurora: adapter failed to start")
 
     async def async_stop(self) -> None:
@@ -98,6 +98,6 @@ class RingController:
         for adapter in self._adapters:
             try:
                 await adapter.async_stop()
-            except Exception:  # noqa: BLE001 - best-effort teardown
+            except Exception:
                 _LOGGER.exception("Aurora: adapter failed to stop")
         self._adapters = []

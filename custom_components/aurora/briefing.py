@@ -144,7 +144,7 @@ def _block_time(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str | Non
 
 
 def _block_weather(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str | None:
-    """Current condition and temperature, if any."""
+    """Return the current condition and temperature, if any."""
     w = ctx.weather
     if w is None or (w.condition is None and w.temperature is None):
         return None
@@ -158,7 +158,7 @@ def _block_weather(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str | 
 
 
 def _block_calendar(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str | None:
-    """A count + the first few of today's events."""
+    """Return a count + the first few of today's events."""
     if not ctx.events:
         return p["no_events"]
     count = len(ctx.events)
@@ -169,7 +169,7 @@ def _block_calendar(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str |
 
 
 def _block_todo(ctx: BriefingContext, lang: str, p: dict[str, str]) -> str | None:
-    """The first few open to-do items, if any."""
+    """Return the first few open to-do items, if any."""
     if not ctx.todos:
         return None
     count = len(ctx.todos)

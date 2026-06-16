@@ -15,7 +15,9 @@ _ASLEEP_WORDS = {"deep", "deep_sleep", "rem", "asleep", "sleeping"}
 _ON_WORDS = {"on", "true", "home", "detected", "open"}
 
 
-def interpret_signal(domain: str, state: str, attributes: dict[str, Any]) -> float | None:
+def interpret_signal(
+    domain: str, state: str | None, attributes: dict[str, Any]
+) -> float | None:
     """Map one signal to an "awake-ness" score in [0, 1], or None if unusable.
 
     Capability-first heuristic: configure signals that read higher when you are

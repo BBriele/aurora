@@ -8,6 +8,7 @@ from custom_components.aurora.vision import (
 
 
 def test_parse_verdict_affirmative() -> None:
+    """Verify parse_verdict returns True for affirmative AI responses."""
     assert parse_verdict("YES") is True
     assert parse_verdict("Yes, the person is awake and out of bed.") is True
     assert parse_verdict("The person is clearly awake.") is True
@@ -15,6 +16,7 @@ def test_parse_verdict_affirmative() -> None:
 
 
 def test_parse_verdict_negative_or_vague() -> None:
+    """Verify parse_verdict returns False for negative, vague, or empty responses."""
     assert parse_verdict("NO") is False
     assert parse_verdict("No, they appear asleep.") is False
     assert parse_verdict("The eyes are closed.") is False
@@ -23,6 +25,7 @@ def test_parse_verdict_negative_or_vague() -> None:
 
 
 def test_circuit_breaker_trips_and_recovers() -> None:
+    """Verify CircuitBreaker opens after threshold failures and recovers after wait."""
     cb = CircuitBreaker(threshold=3, recovery_s=60)
     assert cb.allow(0) is True
     cb.record(False, 0)
@@ -36,6 +39,7 @@ def test_circuit_breaker_trips_and_recovers() -> None:
 
 
 def test_circuit_breaker_success_resets() -> None:
+    """Verify a successful record resets the CircuitBreaker failure counter."""
     cb = CircuitBreaker(threshold=2, recovery_s=30)
     cb.record(False, 0)
     cb.record(True, 1)  # success resets the counter
@@ -44,6 +48,7 @@ def test_circuit_breaker_success_resets() -> None:
 
 
 def test_latency_window_average_and_cap() -> None:
+    """Verify LatencyWindow tracks a rolling average and evicts oldest entries."""
     w = LatencyWindow(size=3)
     assert w.average() is None
     w.add(100)

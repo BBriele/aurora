@@ -4,81 +4,11 @@
     "step": {
       "user": {
         "title": "Set up Aurora",
-        "description": "Aurora is your smart alarm clock. Bind devices (speakers, lights, notifications…) afterwards in the options — nothing is required to start.",
-        "data": {
-          "owner": "Primary owner"
-        },
-        "data_description": {
-          "owner": "Optional name of the person this installation primarily belongs to."
-        }
-      },
-      "reconfigure": {
-        "title": "Reconfigure Aurora",
-        "data": {
-          "owner": "Primary owner"
-        }
+        "description": "Aurora is your smart alarm clock. Setup is one click — there is nothing to configure here. Afterwards, open the Aurora app (the sidebar panel or the dashboard card) to bind your devices, set shared options and add alarms."
       }
     },
     "abort": {
-      "single_instance_allowed": "Aurora is already configured. Only one installation is supported — add alarms inside it.",
-      "reconfigure_successful": "Aurora was reconfigured."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Role bindings",
-        "description": "Bind abstract roles to your devices. Every field is optional — leave a role empty and Aurora simply skips that feature. The exact alarm time is always kept.",
-        "data": {
-          "audio_sink": "Speaker (ringtone)",
-          "wake_light": "Sunrise light / screen",
-          "display_surface": "Display surface",
-          "notify_channel": "Notification channels",
-          "sleep_signal": "Sleep signals",
-          "presence_signal": "Presence signals",
-          "conversation": "Voice agent",
-          "tts": "Text-to-speech",
-          "skip_calendars": "Skip calendars",
-          "holiday_calendars": "Holiday calendars",
-          "ring_max_duration": "Max ring duration"
-        },
-        "data_description": {
-          "audio_sink": "A media player used to play the ringtone.",
-          "wake_light": "A dimmable light, WLED, or a screen-brightness number for the sunrise.",
-          "display_surface": "A tablet/screen that can show the ring view.",
-          "notify_channel": "Where ring notifications are sent (phone, watch, overlay…).",
-          "sleep_signal": "Sensors that hint whether you are asleep, for early wake-up.",
-          "presence_signal": "Sensors that hint whether you are present/awake.",
-          "ring_max_duration": "Safety auto-stop if a ring is never dismissed."
-        }
-      }
-    }
-  },
-  "config_subentries": {
-    "alarm": {
-      "title": "Alarm",
-      "initiate_flow": {
-        "user": "Add alarm"
-      },
-      "step": {
-        "user": {
-          "title": "Add alarm",
-          "description": "Create a new alarm. Edit or remove it later from the Aurora card.",
-          "data": {
-            "time": "Time",
-            "label": "Label",
-            "repeat_mode": "Repeat",
-            "weekdays": "Days",
-            "mission": "Dismiss mission"
-          },
-          "data_description": {
-            "weekdays": "Only used when Repeat is set to Weekly."
-          }
-        }
-      },
-      "abort": {
-        "alarm_created": "Alarm created. Manage it from the Aurora card."
-      }
+      "single_instance_allowed": "Aurora is already configured. Only one installation is supported — manage everything inside the Aurora app."
     }
   },
   "entity": {

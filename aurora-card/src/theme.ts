@@ -120,16 +120,38 @@ export const auroraStyles = css`
   select {
     font: inherit;
     color: var(--aurora-text);
-    background: color-mix(in srgb, var(--aurora-dim) 8%, transparent);
+    /* Solid theme fill (a faint near-transparent fill makes native selects fall
+       back to the unstyled OS widget on many platforms). */
+    background: color-mix(in srgb, var(--aurora-text) 5%, var(--aurora-surface));
     border: 1px solid var(--aurora-divider);
     border-radius: var(--aurora-radius-sm);
     padding: 10px 12px;
     width: 100%;
   }
+  /* Native <select> ignores the theme unless the OS appearance is stripped; then
+     we draw our own chevron and theme the option popup so all dropdowns match. */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    padding-right: 38px;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888fa3'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 14px;
+  }
+  select option,
+  select optgroup {
+    background: var(--aurora-surface);
+    color: var(--aurora-text);
+  }
   input:focus,
-  select:focus {
+  select:focus,
+  select:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--aurora-accent) 55%, transparent);
     outline-offset: 1px;
+    border-color: color-mix(in srgb, var(--aurora-accent) 45%, var(--aurora-divider));
   }
   label.field {
     display: block;

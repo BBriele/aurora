@@ -155,6 +155,8 @@ const STRINGS = {
         "role.conversation.desc": "Voice assistant for commands",
         "role.tts.label": "Text-to-speech",
         "role.tts.desc": "Voice for the briefing and announcements",
+        "role.vision_provider.label": "Vision provider",
+        "role.vision_provider.desc": "AI that judges the wake-up selfie (AI Task or LLM Vision)",
         // missions
         "mission.none": "None",
         "mission.tap": "Tap",
@@ -239,6 +241,13 @@ const STRINGS = {
         "globals.weather": "Weather (weather entity)",
         "globals.briefing_calendars": "Briefing calendars",
         "globals.todo_lists": "To-do lists",
+        "globals.vision_intro": "Selfie wake check (AI vision) — the optional anti-snooze mission that confirms you are up. Aurora works with two providers: bind a Home Assistant AI Task entity, or install LLM Vision (auto-detected if no AI Task is set).",
+        "globals.vision_provider": "AI Task vision entity",
+        "globals.vision_active_aitask": "Active: {name} (Home Assistant AI Task).",
+        "globals.vision_active_llm": "No AI Task bound — using LLM Vision (auto-detected): {names}.",
+        "globals.vision_active_none": "No vision provider available — the selfie mission falls back to the math challenge. Bind an AI Task entity or install LLM Vision.",
+        "globals.vision_ref_aitask": "Home Assistant AI Tasks",
+        "globals.vision_ref_llm": "LLM Vision integration",
         "globals.save": "Save shared settings",
         // entity picker
         "picker.none": "No compatible entity found.",
@@ -294,6 +303,8 @@ const STRINGS = {
         "role.conversation.desc": "Assistente vocale per i comandi",
         "role.tts.label": "Sintesi vocale",
         "role.tts.desc": "Voce per briefing e annunci",
+        "role.vision_provider.label": "Provider di visione",
+        "role.vision_provider.desc": "IA che valuta il selfie del risveglio (AI Task o LLM Vision)",
         "mission.none": "Nessuna",
         "mission.tap": "Tocco",
         "mission.math": "Matematica",
@@ -368,6 +379,13 @@ const STRINGS = {
         "globals.weather": "Meteo (entità weather)",
         "globals.briefing_calendars": "Calendari del briefing",
         "globals.todo_lists": "Liste di cose da fare",
+        "globals.vision_intro": "Verifica del risveglio con selfie (visione IA) — la missione anti-snooze opzionale che conferma che sei sveglio. Aurora funziona con due provider: collega un'entità AI Task di Home Assistant, oppure installa LLM Vision (rilevato in automatico se non imposti un'AI Task).",
+        "globals.vision_provider": "Entità di visione AI Task",
+        "globals.vision_active_aitask": "Attivo: {name} (AI Task di Home Assistant).",
+        "globals.vision_active_llm": "Nessuna AI Task collegata — uso LLM Vision (rilevato): {names}.",
+        "globals.vision_active_none": "Nessun provider di visione disponibile — la missione selfie ripiega sulla sfida matematica. Collega un'entità AI Task o installa LLM Vision.",
+        "globals.vision_ref_aitask": "AI Task di Home Assistant",
+        "globals.vision_ref_llm": "Integrazione LLM Vision",
         "globals.save": "Salva globali",
         "picker.none": "Nessuna entità compatibile trovata.",
         "picker.empty_option": "— Nessuno —",
@@ -546,16 +564,38 @@ const auroraStyles = i$3 `
   select {
     font: inherit;
     color: var(--aurora-text);
-    background: color-mix(in srgb, var(--aurora-dim) 8%, transparent);
+    /* Solid theme fill (a faint near-transparent fill makes native selects fall
+       back to the unstyled OS widget on many platforms). */
+    background: color-mix(in srgb, var(--aurora-text) 5%, var(--aurora-surface));
     border: 1px solid var(--aurora-divider);
     border-radius: var(--aurora-radius-sm);
     padding: 10px 12px;
     width: 100%;
   }
+  /* Native <select> ignores the theme unless the OS appearance is stripped; then
+     we draw our own chevron and theme the option popup so all dropdowns match. */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    padding-right: 38px;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888fa3'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 14px;
+  }
+  select option,
+  select optgroup {
+    background: var(--aurora-surface);
+    color: var(--aurora-text);
+  }
   input:focus,
-  select:focus {
+  select:focus,
+  select:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--aurora-accent) 55%, transparent);
     outline-offset: 1px;
+    border-color: color-mix(in srgb, var(--aurora-accent) 45%, var(--aurora-divider));
   }
   label.field {
     display: block;
@@ -683,6 +723,7 @@ const ROLE_ICONS = {
     presence_signal: "🚶",
     conversation: "🗣️",
     tts: "📣",
+    vision_provider: "👁️",
 };
 // Mission types in display order. Labels are localized via "mission.<type>".
 const MISSION_TYPES = [
@@ -2677,6 +2718,9 @@ AuroraDevicesView = __decorate([
     t("aurora-devices-view")
 ], AuroraDevicesView);
 
+/** Reference docs for the two supported wake-up vision providers. */
+const AI_TASK_DOCS = "https://www.home-assistant.io/integrations/ai_task/";
+const LLM_VISION_REPO = "https://github.com/valentinfrlch/ha-llmvision";
 /** Shared, installation-wide settings (not per-user). */
 let AuroraGlobalsView = class AuroraGlobalsView extends i {
     constructor() {
@@ -2714,6 +2758,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
                 weather: this._options["weather"] ?? "",
                 briefing_calendars: this._options["briefing_calendars"] ?? [],
                 todo_lists: this._options["todo_lists"] ?? [],
+                vision_provider: this._options["vision_provider"] ?? "",
             });
             this._options = { ...res.options };
             this._saved = true;
@@ -2762,11 +2807,45 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
       ${this._picker("briefing_calendars", localize(this.hass?.language, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
       ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
 
+      ${this._visionSection()}
+
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
         </button>
         ${this._saved ? b `<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : A}
+      </div>
+    `;
+    }
+    _visionSection() {
+        const lang = this.hass?.language;
+        const aiTasks = this._entities.roles?.["vision_provider"] ?? [];
+        const llm = this._entities.vision_providers ?? [];
+        const bound = this._options["vision_provider"] || "";
+        let active;
+        if (bound) {
+            const name = this.hass?.states[bound]?.attributes?.friendly_name || bound;
+            active = localize(lang, "globals.vision_active_aitask", { name });
+        }
+        else if (llm.length) {
+            active = localize(lang, "globals.vision_active_llm", {
+                names: llm.map((p) => p.title).join(", "),
+            });
+        }
+        else {
+            active = localize(lang, "globals.vision_active_none");
+        }
+        return b `
+      <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
+      ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      <div class="detected">${active}</div>
+      <div class="refs">
+        <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
+          ↗ ${localize(lang, "globals.vision_ref_aitask")}
+        </a>
+        <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
+          ↗ ${localize(lang, "globals.vision_ref_llm")}
+        </a>
       </div>
     `;
     }
@@ -2830,6 +2909,34 @@ AuroraGlobalsView.styles = [
         font-size: 0.85rem;
         color: var(--aurora-dim);
         font-style: italic;
+      }
+      .detected {
+        font-size: 0.85rem;
+        color: var(--aurora-dim);
+        margin-top: 8px;
+        line-height: 1.5;
+      }
+      .detected b {
+        color: var(--aurora-text);
+        font-weight: 600;
+      }
+      .refs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        margin-top: 12px;
+      }
+      .refs a {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--aurora-accent);
+        font-size: 0.83rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .refs a:hover {
+        text-decoration: underline;
       }
       .savebar {
         display: flex;
@@ -3002,7 +3109,7 @@ AuroraPanel.styles = [
       }
       .who select {
         width: auto;
-        padding: 6px 10px;
+        padding: 6px 34px 6px 12px;
       }
       .avatar {
         width: 30px;

@@ -91,7 +91,7 @@ export class AuroraPanel extends LitElement {
       }
       .who select {
         width: auto;
-        padding: 6px 10px;
+        padding: 6px 34px 6px 12px;
       }
       .avatar {
         width: 30px;

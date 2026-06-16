@@ -12,6 +12,8 @@ import logging
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
+)
+from homeassistant.components.light import (
     DOMAIN as LIGHT_DOMAIN,
 )
 from homeassistant.const import (
@@ -86,7 +88,10 @@ class WakeLightAdapter:
                 await self._hass.services.async_call(
                     NUMBER_DOMAIN,
                     SERVICE_SET_VALUE,
-                    {ATTR_ENTITY_ID: self._entity_id, ATTR_VALUE: low + (high - low) * fraction},
+                    {
+                        ATTR_ENTITY_ID: self._entity_id,
+                        ATTR_VALUE: low + (high - low) * fraction,
+                    },
                     blocking=False,
                 )
         except HomeAssistantError as err:

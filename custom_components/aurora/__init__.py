@@ -28,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # manifest.json version, appended to the card URL for cache-busting.
-_CARD_VERSION = "0.7.0"
+_CARD_VERSION = "0.8.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -68,9 +68,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.version,
         entry.minor_version,
     )
-    if entry.version > 1:
-        return False
-    return True
+    return not entry.version > 1
 
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
@@ -82,7 +80,9 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     card_dir = Path(__file__).parent / "www"
     card_file = card_dir / CARD_FILENAME
     if not await hass.async_add_executor_job(card_file.is_file):
-        _LOGGER.debug("Aurora frontend bundle not present yet (%s); skipping", card_file)
+        _LOGGER.debug(
+            "Aurora frontend bundle not present yet (%s); skipping", card_file
+        )
         return
 
     module_url = f"{CARD_URL}?v={_CARD_VERSION}"
@@ -103,5 +103,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
                 embed_iframe=False,
             )
         _LOGGER.debug("Registered Aurora card + panel at %s", CARD_URL)
-    except Exception:  # noqa: BLE001 - frontend reg must never block core setup
-        _LOGGER.warning("Aurora frontend (card/panel) registration failed", exc_info=True)
+    except Exception:
+        _LOGGER.warning(
+            "Aurora frontend (card/panel) registration failed", exc_info=True
+        )

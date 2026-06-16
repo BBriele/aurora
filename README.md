@@ -30,7 +30,7 @@ The core never knows about specific integrations or `entity_id`s. It reasons in 
 | `DisplaySurface` | ring/sunrise view | a `media_player` / `switch` / `light` (kiosk) | ring via `NotifyChannel` |
 | `NotifyChannel` | ring channels | any `notify.*` entity | `persistent_notification` (always present) |
 | `SleepSignal` / `PresenceSignal` | smart (early) wake | `binary_sensor` / `sensor` | **exact time guaranteed** |
-| `VisionProvider` | AI selfie mission *(Phase 3)* | an `ai_task` entity or an LLM Vision provider | Tap / math mission |
+| `VisionProvider` | AI selfie anti-snooze mission | an [`ai_task`](https://www.home-assistant.io/integrations/ai_task/) entity **or** an [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) provider | Tap / math mission |
 | `Conversation` | voice control *(Phase 4)* | a `conversation` agent | native HA intents |
 | `TTS` | spoken briefing | any `tts.*` entity | text notification |
 
@@ -65,7 +65,7 @@ Everything is managed from the **Aurora app** (sidebar) or the **Aurora dashboar
 
 ### Installation parameters
 
-Setup is a single click — there are **no required parameters**. An optional **owner** (a display name) can be set during setup or later via **⋮ → Reconfigure**.
+Setup is a single click — there are **no parameters**. The Home Assistant integration page only *installs* Aurora; it deliberately has no *Configure* step. **All** configuration — device bindings, shared settings and alarms — is done in the Aurora app (sidebar panel / dashboard card), which reads and writes the config entry over Aurora's WebSocket API.
 
 ### Configuration parameters
 
@@ -81,6 +81,16 @@ Setup is a single click — there are **no required parameters**. An optional **
 | Weather (briefing) | `weather.*` entity read by the briefing. Empty = auto-detect. |
 | Briefing calendars | Calendars read for "today's events". Empty = auto-detect. |
 | To-do lists | `todo.*` lists read for open items. Empty = auto-detect. |
+| Wake-up vision (AI) | Optional `ai_task.*` entity for the selfie mission; if unset, an installed LLM Vision provider is auto-used. See *Wake-up vision (AI)* below. |
+
+### Wake-up vision (AI)
+
+The optional **selfie** anti-snooze mission asks an AI whether you are actually out of bed. Aurora is provider-agnostic and supports **two interchangeable backends**, chosen automatically (configure in *Shared → Wake-up vision (AI)*):
+
+- **[Home Assistant AI Tasks](https://www.home-assistant.io/integrations/ai_task/)** — bind an `ai_task.*` entity (provided by conversation/LLM integrations such as OpenAI, Google Generative AI or Ollama). Aurora requests a structured yes/no "awake" verdict with the selfie attached.
+- **[LLM Vision](https://github.com/valentinfrlch/ha-llmvision)** ([docs](https://llmvision.org)) — if no AI Task entity is bound, Aurora auto-detects an installed LLM Vision provider and calls its `image_analyzer`.
+
+If neither is available the selfie mission gracefully degrades to the math challenge, so an alarm can always be dismissed. The currently active provider is shown live in *Shared → Wake-up vision (AI)*.
 
 **Per-alarm features** (in the alarm editor):
 

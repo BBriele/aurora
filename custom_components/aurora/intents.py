@@ -7,12 +7,14 @@ README). Responses are localized from the active Home Assistant language.
 """
 
 import logging
+from typing import ClassVar
 
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv, intent
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import intent
 from homeassistant.util import dt as dt_util
+import voluptuous as vol
 
 from .const import DOMAIN
 
@@ -52,7 +54,9 @@ _RESPONSES: dict[str, dict[str, str]] = {
 def _say(hass: HomeAssistant, key: str, **vars: str) -> str:
     """Localized response text for the active HA language (English fallback)."""
     lang = (hass.config.language or "en").lower()
-    pack = _RESPONSES.get(lang) or _RESPONSES.get(lang.split("-")[0]) or _RESPONSES["en"]
+    pack = (
+        _RESPONSES.get(lang) or _RESPONSES.get(lang.split("-")[0]) or _RESPONSES["en"]
+    )
     return pack.get(key, _RESPONSES["en"][key]).format(**vars)
 
 
@@ -125,7 +129,7 @@ class SkipNextIntent(intent.IntentHandler):
         try:
             await hass.data[DOMAIN].async_update_item(nxt.alarm_id, {"skip_next": True})
             response.async_set_speech(_say(hass, "skipped"))
-        except Exception:  # noqa: BLE001 - voice path must always answer
+        except Exception:
             _LOGGER.warning("Aurora intent: skip_next failed", exc_info=True)
             response.async_set_speech(_say(hass, "not_ready"))
         return response
@@ -147,7 +151,9 @@ class NextAlarmIntent(intent.IntentHandler):
             response.async_set_speech(_say(hass, "no_alarm"))
             return response
         local = dt_util.as_local(nxt.fire_at_utc)
-        response.async_set_speech(_say(hass, "next_alarm", time=local.strftime("%H:%M")))
+        response.async_set_speech(
+            _say(hass, "next_alarm", time=local.strftime("%H:%M"))
+        )
         return response
 
 
@@ -156,7 +162,7 @@ class SetAlarmIntent(intent.IntentHandler):
 
     intent_type = INTENT_SET_ALARM
     description = "Create a new Aurora alarm at a given time"
-    slot_schema = {vol.Required("time"): cv.string}
+    slot_schema: ClassVar[dict] = {vol.Required("time"): cv.string}
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         """Parse the time slot and create a daily alarm."""
@@ -171,7 +177,7 @@ class SetAlarmIntent(intent.IntentHandler):
         try:
             await hass.data[DOMAIN].async_create_item({"time": hhmm})
             response.async_set_speech(_say(hass, "set_alarm", time=hhmm))
-        except Exception:  # noqa: BLE001 - voice path must always answer
+        except Exception:
             _LOGGER.warning("Aurora intent: set_alarm failed", exc_info=True)
             response.async_set_speech(_say(hass, "not_ready"))
         return response

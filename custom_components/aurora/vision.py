@@ -77,8 +77,8 @@ class LatencyWindow:
         """Mean latency in ms, or None if no samples yet."""
         if not self._values:
             return None
-        return round(sum(self._values) / len(self._values))
+        return float(round(sum(self._values) / len(self._values)))
 
     def count(self) -> int:
-        """Number of samples currently in the window."""
+        """Return the number of samples currently in the window."""
         return len(self._values)

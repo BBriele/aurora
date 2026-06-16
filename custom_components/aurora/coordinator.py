@@ -14,12 +14,12 @@ fire handler only advances the state machine and logs.
 import asyncio
 import base64
 import contextlib
-import logging
-import os
-import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import StrEnum
+import logging
+import os
+import time
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
@@ -193,7 +193,7 @@ class AuroraCoordinatorData:
 class AuroraRuntimeData:
     """Per-entry runtime data, stored on ``entry.runtime_data``."""
 
-    coordinator: "AuroraCoordinator"
+    coordinator: AuroraCoordinator
 
 
 type AuroraConfigEntry = ConfigEntry[AuroraRuntimeData]
@@ -296,7 +296,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     blocking=True,
                     return_response=True,
                 )
-            except Exception:  # noqa: BLE001 - calendars are best-effort
+            except Exception:
                 _LOGGER.warning("Aurora: could not read skip calendars", exc_info=True)
                 response = None
             for cal in (response or {}).values():
@@ -341,7 +341,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
 
     @callback
     def _active_mission(self) -> dict[str, object] | None:
-        """The ringing alarm's mission config (for the card overlay), if any."""
+        """Return the ringing alarm's mission config (for the card overlay), if any."""
         if self._active_alarm is None:
             return None
         return self._active_alarm.features.mission.as_dict()
@@ -450,7 +450,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         """Role bindings for ``alarm``: its owner-profile bindings over globals."""
         options: dict[str, object] = dict(self.config_entry.options)
         profiles = options.get(CONF_PROFILES) or {}
-        profile = profiles.get(alarm.profile_id or "") if isinstance(profiles, dict) else None
+        profile = (
+            profiles.get(alarm.profile_id or "") if isinstance(profiles, dict) else None
+        )
         if isinstance(profile, dict):
             bindings = profile.get(CONF_PROFILE_BINDINGS)
             if isinstance(bindings, dict):
@@ -585,7 +587,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             if state is None:
                 continue
             scores.append(
-                interpret_signal(entity_id.partition(".")[0], state.state, state.attributes)
+                interpret_signal(
+                    entity_id.partition(".")[0], state.state, state.attributes
+                )
             )
         if self._fusion.add(fuse(scores)):
             _LOGGER.info("Aurora smart-wake: early wake for '%s'", alarm.id)
@@ -674,7 +678,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         """Run the post-wake routine (briefing), then return to idle."""
         try:
             await self._async_run_briefing(alarm)
-        except Exception:  # noqa: BLE001 - a briefing failure must not strand state
+        except Exception:
             _LOGGER.exception("Aurora: wake-up briefing failed")
         finally:
             # Only fall back to idle if nothing newer took over (e.g. a fresh
@@ -835,7 +839,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 blocking=True,
                 return_response=True,
             )
-        except Exception:  # noqa: BLE001 - calendars are best-effort
+        except Exception:
             _LOGGER.warning("Aurora briefing: could not read calendars", exc_info=True)
             return []
         rows: list[tuple[str, str]] = []
@@ -864,8 +868,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 blocking=True,
                 return_response=True,
             )
-        except Exception:  # noqa: BLE001 - to-do lists are best-effort
-            _LOGGER.warning("Aurora briefing: could not read to-do lists", exc_info=True)
+        except Exception:
+            _LOGGER.warning(
+                "Aurora briefing: could not read to-do lists", exc_info=True
+            )
             return []
         todos: list[str] = []
         for data in (response or {}).values():
@@ -903,7 +909,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     target={"entity_id": tts_entity},
                 )
                 return
-            except Exception:  # noqa: BLE001 - degrade to a visible notification
+            except Exception:
                 _LOGGER.warning("Aurora briefing: tts.speak failed", exc_info=True)
         persistent_notification.async_create(
             self.hass,
@@ -1023,12 +1029,16 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     )
                 ok = True
                 break
-            except Exception:  # noqa: BLE001 - any provider/timeout failure → retry/degrade
+            except Exception:
                 _LOGGER.warning(
-                    "Aurora vision: inference attempt %s failed", attempt + 1, exc_info=True
+                    "Aurora vision: inference attempt %s failed",
+                    attempt + 1,
+                    exc_info=True,
                 )
                 if attempt + 1 < VISION_MAX_ATTEMPTS:
-                    backoff = min(VISION_BACKOFF_BASE_S * (2**attempt), VISION_BACKOFF_CAP_S)
+                    backoff = min(
+                        VISION_BACKOFF_BASE_S * (2**attempt), VISION_BACKOFF_CAP_S
+                    )
                     await asyncio.sleep(backoff)
         latency_ms = round((time.monotonic() - start) * 1000)
         self._vision_breaker.record(ok, time.monotonic())
@@ -1044,15 +1054,21 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             await self.hass.async_add_executor_job(_cleanup)
 
         if not ok:
-            return {"awake": False, "error": "inference_failed", "latency_ms": latency_ms}
+            return {
+                "awake": False,
+                "error": "inference_failed",
+                "latency_ms": latency_ms,
+            }
         return {"awake": parse_verdict(text), "latency_ms": latency_ms}
 
     async def async_vision_benchmark(self, samples: int) -> dict[str, object]:
         """Run ``samples`` timed inferences on a generated image; report stats."""
         try:
-            from PIL import Image  # noqa: PLC0415 - optional, only for benchmarking
-        except ImportError:
-            raise HomeAssistantError("Pillow is required for the vision benchmark")
+            from PIL import Image
+        except ImportError as err:
+            raise HomeAssistantError(
+                "Pillow is required for the vision benchmark"
+            ) from err
 
         def _sample_image() -> str:
             import io
@@ -1069,7 +1085,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             if result.get("error") is None:
                 succeeded += 1
             lat = result.get("latency_ms")
-            if isinstance(lat, (int, float)) and result.get("error") in (None, "inference_failed"):
+            if isinstance(lat, (int, float)) and result.get("error") in (
+                None,
+                "inference_failed",
+            ):
                 latencies.append(float(lat))
         return {
             "samples": samples,
