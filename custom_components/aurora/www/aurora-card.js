@@ -115,6 +115,14 @@ function getRoleEntities(hass) {
     return hass.callWS({ type: "aurora/options/entities" });
 }
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
+/** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
+function visionCheck(hass, image, alarmId) {
+    return hass.callWS({
+        type: "aurora/vision/check",
+        image,
+        alarm_id: alarmId,
+    });
+}
 
 const STRINGS = {
     en: {
@@ -1535,6 +1543,7 @@ function needsChallenge(type) {
     return type !== "none" && type !== "tap";
 }
 
+const VISION_MAX_FAILS = 3;
 /**
  * Anti-snooze challenge shown over the ring. Emits `solved` once the active
  * mission is completed. Falls back to a simpler mission (and ultimately a tap)
@@ -1545,7 +1554,10 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
     constructor() {
         super(...arguments);
         this.mission = { type: "tap" };
+        this.alarmId = null;
         this._active = "tap";
+        this._checking = false;
+        this._visionFails = 0;
         this._math = null;
         this._input = "";
         this._wrong = false;
@@ -1579,14 +1591,12 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
         else if (type === "shake") {
             this._startShake();
         }
-        else if (type === "qr" || type === "vision") {
-            // Vision degrades to math until its backend lands.
-            if (type === "vision") {
-                this._degrade();
-            }
-            else {
-                void this._startCamera();
-            }
+        else if (type === "qr") {
+            void this._startCamera(false);
+        }
+        else if (type === "vision") {
+            this._checking = false;
+            void this._startCamera(true);
         }
         else if (type === "open_door") {
             // Require a real, existing sensor; remember its state so we only solve on
@@ -1684,28 +1694,30 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
         };
         window.addEventListener("devicemotion", this._motionHandler);
     }
-    // --- qr -----------------------------------------------------------------
-    async _startCamera() {
+    // --- camera (qr + vision selfie) ----------------------------------------
+    async _startCamera(selfie) {
+        const kind = selfie ? "vision" : "qr";
         const BD = window
             .BarcodeDetector;
-        if (!BD || !navigator.mediaDevices?.getUserMedia) {
+        // QR needs the BarcodeDetector; the selfie only needs a camera.
+        if (!navigator.mediaDevices?.getUserMedia || (!selfie && !BD)) {
             this._notice = localize(this._lang, "missionui.nocam");
             this._degrade();
             return;
         }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" },
+                video: { facingMode: selfie ? "user" : "environment" },
             });
             // The component may have been torn down (solved/degraded/disconnected)
             // while getUserMedia was pending — don't leak the camera track.
-            if (!this.isConnected || this._active !== "qr") {
+            if (!this.isConnected || this._active !== kind) {
                 stream.getTracks().forEach((t) => t.stop());
                 return;
             }
             this._stream = stream;
             await this.updateComplete;
-            if (!this.isConnected || this._active !== "qr") {
+            if (!this.isConnected || this._active !== kind) {
                 this._teardown();
                 return;
             }
@@ -1716,6 +1728,8 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
             }
             video.srcObject = this._stream;
             await video.play();
+            if (selfie || !BD)
+                return; // selfie waits for the capture button
             const detector = new BD({ formats: ["qr_code"] });
             const expected = String(this.mission.params?.["value"] ?? "");
             this._scanTimer = window.setInterval(async () => {
@@ -1736,6 +1750,46 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
         catch {
             this._notice = localize(this._lang, "missionui.nocam");
             this._degrade();
+        }
+    }
+    // --- vision (selfie) ----------------------------------------------------
+    async _captureSelfie() {
+        if (this._checking)
+            return;
+        const video = this.renderRoot.querySelector("video");
+        if (!video || !video.videoWidth)
+            return;
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            this._degrade();
+            return;
+        }
+        ctx.drawImage(video, 0, 0);
+        const image = canvas.toDataURL("image/jpeg", 0.6);
+        this._checking = true;
+        this._notice = "";
+        try {
+            const res = await visionCheck(this.hass, image, this.alarmId);
+            if (res.awake) {
+                this._solve();
+                return;
+            }
+            this._visionFails += 1;
+            this._notice = localize(this._lang, "missionui.vision_failed");
+            if (this._visionFails >= VISION_MAX_FAILS)
+                this._degrade();
+        }
+        catch {
+            this._visionFails += 1;
+            this._notice = localize(this._lang, "missionui.vision_failed");
+            if (this._visionFails >= VISION_MAX_FAILS)
+                this._degrade();
+        }
+        finally {
+            this._checking = false;
         }
     }
     // --- open_door ----------------------------------------------------------
@@ -1794,6 +1848,16 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
                 return b `
           <div class="prompt">${localize(this._lang, "missionui.qr_prompt")}</div>
           <video playsinline muted></video>
+        `;
+            case "vision":
+                return b `
+          <div class="prompt">${localize(this._lang, "missionui.vision_prompt")}</div>
+          <video playsinline muted></video>
+          <button class="big-btn" ?disabled=${this._checking} @click=${this._captureSelfie}>
+            ${this._checking
+                    ? localize(this._lang, "missionui.checking")
+                    : localize(this._lang, "missionui.capture")}
+          </button>
         `;
             case "open_door": {
                 const name = this.hass?.states[this._doorEntity]?.attributes.friendly_name ||
@@ -1887,8 +1951,17 @@ __decorate([
     n({ attribute: false })
 ], AuroraMissionOverlay.prototype, "mission", void 0);
 __decorate([
+    n({ attribute: false })
+], AuroraMissionOverlay.prototype, "alarmId", void 0);
+__decorate([
     r()
 ], AuroraMissionOverlay.prototype, "_active", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_checking", void 0);
+__decorate([
+    r()
+], AuroraMissionOverlay.prototype, "_visionFails", void 0);
 __decorate([
     r()
 ], AuroraMissionOverlay.prototype, "_math", void 0);
@@ -1936,6 +2009,9 @@ let AuroraRingOverlay = class AuroraRingOverlay extends i {
         const m = this._sensor?.attributes?.mission;
         return m ?? { type: "tap" };
     }
+    get _alarmId() {
+        return this._sensor?.attributes?.alarm_id ?? null;
+    }
     _dismiss() {
         this._showMission = false;
         ringAction(this.hass, "dismiss");
@@ -1969,6 +2045,7 @@ let AuroraRingOverlay = class AuroraRingOverlay extends i {
             ? b `<aurora-mission-overlay
                 .hass=${this.hass}
                 .mission=${this._mission}
+                .alarmId=${this._alarmId}
                 @solved=${this._dismiss}
               ></aurora-mission-overlay>`
             : b `

@@ -1,6 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+import { visionCheck } from "./api";
 import { localize } from "./localize";
 import {
   degradeMission,
@@ -12,6 +13,8 @@ import {
 } from "./missions";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, MissionType } from "./types";
+
+const VISION_MAX_FAILS = 3;
 
 interface MissionConfig {
   type: MissionType;
@@ -29,8 +32,11 @@ interface MissionConfig {
 export class AuroraMissionOverlay extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ attribute: false }) mission: MissionConfig = { type: "tap" };
+  @property({ attribute: false }) alarmId: string | null = null;
 
   @state() private _active: MissionType = "tap";
+  @state() private _checking = false;
+  @state() private _visionFails = 0;
   @state() private _math: MathProblem | null = null;
   @state() private _input = "";
   @state() private _wrong = false;
@@ -70,13 +76,11 @@ export class AuroraMissionOverlay extends LitElement {
       this._input = "";
     } else if (type === "shake") {
       this._startShake();
-    } else if (type === "qr" || type === "vision") {
-      // Vision degrades to math until its backend lands.
-      if (type === "vision") {
-        this._degrade();
-      } else {
-        void this._startCamera();
-      }
+    } else if (type === "qr") {
+      void this._startCamera(false);
+    } else if (type === "vision") {
+      this._checking = false;
+      void this._startCamera(true);
     } else if (type === "open_door") {
       // Require a real, existing sensor; remember its state so we only solve on
       // an off → on transition (not if the door was already open at ring time).
@@ -178,28 +182,30 @@ export class AuroraMissionOverlay extends LitElement {
     window.addEventListener("devicemotion", this._motionHandler);
   }
 
-  // --- qr -----------------------------------------------------------------
-  private async _startCamera(): Promise<void> {
+  // --- camera (qr + vision selfie) ----------------------------------------
+  private async _startCamera(selfie: boolean): Promise<void> {
+    const kind: MissionType = selfie ? "vision" : "qr";
     const BD = (window as unknown as { BarcodeDetector?: new (o?: object) => unknown })
       .BarcodeDetector;
-    if (!BD || !navigator.mediaDevices?.getUserMedia) {
+    // QR needs the BarcodeDetector; the selfie only needs a camera.
+    if (!navigator.mediaDevices?.getUserMedia || (!selfie && !BD)) {
       this._notice = localize(this._lang, "missionui.nocam");
       this._degrade();
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: selfie ? "user" : "environment" },
       });
       // The component may have been torn down (solved/degraded/disconnected)
       // while getUserMedia was pending — don't leak the camera track.
-      if (!this.isConnected || this._active !== "qr") {
+      if (!this.isConnected || this._active !== kind) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
       this._stream = stream;
       await this.updateComplete;
-      if (!this.isConnected || this._active !== "qr") {
+      if (!this.isConnected || this._active !== kind) {
         this._teardown();
         return;
       }
@@ -210,6 +216,7 @@ export class AuroraMissionOverlay extends LitElement {
       }
       video.srcObject = this._stream;
       await video.play();
+      if (selfie || !BD) return; // selfie waits for the capture button
       const detector = new BD({ formats: ["qr_code"] }) as {
         detect: (s: CanvasImageSource) => Promise<{ rawValue: string }[]>;
       };
@@ -230,6 +237,41 @@ export class AuroraMissionOverlay extends LitElement {
     } catch {
       this._notice = localize(this._lang, "missionui.nocam");
       this._degrade();
+    }
+  }
+
+  // --- vision (selfie) ----------------------------------------------------
+  private async _captureSelfie(): Promise<void> {
+    if (this._checking) return;
+    const video = this.renderRoot.querySelector("video");
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      this._degrade();
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+    const image = canvas.toDataURL("image/jpeg", 0.6);
+    this._checking = true;
+    this._notice = "";
+    try {
+      const res = await visionCheck(this.hass, image, this.alarmId);
+      if (res.awake) {
+        this._solve();
+        return;
+      }
+      this._visionFails += 1;
+      this._notice = localize(this._lang, "missionui.vision_failed");
+      if (this._visionFails >= VISION_MAX_FAILS) this._degrade();
+    } catch {
+      this._visionFails += 1;
+      this._notice = localize(this._lang, "missionui.vision_failed");
+      if (this._visionFails >= VISION_MAX_FAILS) this._degrade();
+    } finally {
+      this._checking = false;
     }
   }
 
@@ -363,6 +405,16 @@ export class AuroraMissionOverlay extends LitElement {
         return html`
           <div class="prompt">${localize(this._lang, "missionui.qr_prompt")}</div>
           <video playsinline muted></video>
+        `;
+      case "vision":
+        return html`
+          <div class="prompt">${localize(this._lang, "missionui.vision_prompt")}</div>
+          <video playsinline muted></video>
+          <button class="big-btn" ?disabled=${this._checking} @click=${this._captureSelfie}>
+            ${this._checking
+              ? localize(this._lang, "missionui.checking")
+              : localize(this._lang, "missionui.capture")}
+          </button>
         `;
       case "open_door": {
         const name =

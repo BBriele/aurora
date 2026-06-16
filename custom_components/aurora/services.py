@@ -127,13 +127,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await _coordinator(hass).async_speak_briefing(call.data.get("id"))
 
     async def benchmark_vision(call: ServiceCall) -> ServiceResponse:
-        # Vision (and its benchmark) is implemented in Phase 3; surface a clear
-        # placeholder so the service contract exists from day one.
-        return {
-            "status": "not_implemented",
-            "phase": 3,
-            "samples": call.data["samples"],
-        }
+        return await _coordinator(hass).async_vision_benchmark(call.data["samples"])
 
     hass.services.async_register(DOMAIN, SERVICE_ADD_ALARM, add_alarm, schema=_ADD_SCHEMA)
     hass.services.async_register(

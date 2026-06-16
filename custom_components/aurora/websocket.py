@@ -10,6 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 
 from .capabilities import get_llm_vision_providers, suggest_entities
@@ -20,6 +21,14 @@ def _entry(hass: HomeAssistant) -> Any:
     """Return the single Aurora config entry, or None."""
     entries = hass.config_entries.async_entries(DOMAIN)
     return entries[0] if entries else None
+
+
+def _coordinator(hass: HomeAssistant) -> Any:
+    """Return the loaded installation's coordinator, or None."""
+    entry = _entry(hass)
+    if entry is None or entry.state is not ConfigEntryState.LOADED:
+        return None
+    return entry.runtime_data.coordinator
 
 
 @websocket_api.websocket_command({vol.Required("type"): "aurora/settings/get"})
@@ -87,9 +96,32 @@ def ws_options_entities(
     )
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "aurora/vision/check",
+        vol.Required("image"): str,
+        vol.Optional("alarm_id"): vol.Any(None, str),
+    }
+)
+@websocket_api.async_response
+async def ws_vision_check(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Verify a selfie via the AI-vision provider; returns {awake, latency_ms}."""
+    coordinator = _coordinator(hass)
+    if coordinator is None:
+        connection.send_error(
+            msg["id"], websocket_api.ERR_NOT_FOUND, "Aurora is not set up"
+        )
+        return
+    result = await coordinator.async_vision_check(msg["image"], msg.get("alarm_id"))
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register the Aurora custom websocket commands."""
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_set)
     websocket_api.async_register_command(hass, ws_options_entities)
+    websocket_api.async_register_command(hass, ws_vision_check)

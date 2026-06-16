@@ -192,7 +192,7 @@
     },
     "benchmark_vision": {
       "name": "Benchmark visione",
-      "description": "Misura la latenza dell'AI vision sul tuo hardware (disponibile dalla Fase 3).",
+      "description": "Esegue inferenze AI-vision cronometrate per misurare la latenza del tuo provider/hardware.",
       "fields": {
         "samples": { "name": "Campioni", "description": "Numero di inferenze cronometrate." }
       }

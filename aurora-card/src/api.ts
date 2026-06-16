@@ -74,3 +74,22 @@ export function getRoleEntities(hass: HomeAssistant): Promise<RoleEntities> {
 
 export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss" | "trigger_now") =>
   hass.callService("aurora", service, {});
+
+export interface VisionResult {
+  awake: boolean;
+  latency_ms?: number;
+  error?: string;
+}
+
+/** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
+export function visionCheck(
+  hass: HomeAssistant,
+  image: string,
+  alarmId: string | null
+): Promise<VisionResult> {
+  return hass.callWS<VisionResult>({
+    type: "aurora/vision/check",
+    image,
+    alarm_id: alarmId,
+  });
+}

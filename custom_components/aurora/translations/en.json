@@ -192,7 +192,7 @@
     },
     "benchmark_vision": {
       "name": "Benchmark vision",
-      "description": "Measure AI-vision latency on your hardware (available from Phase 3).",
+      "description": "Run timed AI-vision inferences to measure latency on your provider/hardware.",
       "fields": {
         "samples": { "name": "Samples", "description": "Number of timed inferences." }
       }

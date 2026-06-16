@@ -46,6 +46,10 @@ export class AuroraRingOverlay extends LitElement {
     return m ?? { type: "tap" };
   }
 
+  private get _alarmId(): string | null {
+    return (this._sensor?.attributes?.alarm_id as string | undefined) ?? null;
+  }
+
   static styles = [
     auroraStyles,
     css`
@@ -185,6 +189,7 @@ export class AuroraRingOverlay extends LitElement {
             ? html`<aurora-mission-overlay
                 .hass=${this.hass}
                 .mission=${this._mission}
+                .alarmId=${this._alarmId}
                 @solved=${this._dismiss}
               ></aurora-mission-overlay>`
             : html`

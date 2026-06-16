@@ -12,7 +12,11 @@ fire handler only advances the state machine and logs.
 """
 
 import asyncio
+import base64
+import contextlib
 import logging
+import os
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import StrEnum
@@ -39,7 +43,10 @@ from .briefing import (
     WeatherFact,
     compose_briefing,
 )
+from .capabilities import get_llm_vision_providers
 from .const import (
+    CIRCUIT_FAILURE_THRESHOLD,
+    CIRCUIT_RECOVERY_S,
     CONF_BRIEFING_CALENDARS,
     CONF_HOLIDAY_CALENDARS,
     CONF_PROFILE_BINDINGS,
@@ -52,16 +59,28 @@ from .const import (
     DEFAULT_RING_MAX_DURATION,
     DEFAULT_SMART_WINDOW_MIN,
     DOMAIN,
+    LATENCY_WINDOW,
     ROLE_AUDIO_SINK,
     ROLE_PRESENCE_SIGNAL,
     ROLE_SLEEP_SIGNAL,
     ROLE_TTS,
+    ROLE_VISION_PROVIDER,
+    VISION_BACKOFF_BASE_S,
+    VISION_BACKOFF_CAP_S,
+    VISION_MAX_ATTEMPTS,
+    VISION_TIMEOUT_S,
 )
 from .models import AuroraAlarm
 from .ring import RingController
 from .scheduler import next_occurrence
 from .sleep import SleepFusion, fuse, interpret_signal
 from .storage import AlarmStorageCollection
+from .vision import (
+    DEFAULT_VISION_PROMPT,
+    CircuitBreaker,
+    LatencyWindow,
+    parse_verdict,
+)
 
 _PREWAKE_EVAL_INTERVAL = timedelta(minutes=5)
 _SKIP_LOOKAHEAD_DAYS = 21
@@ -217,6 +236,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_listeners: list[CALLBACK_TYPE] = []
         self._ring = RingController(hass)
         self._briefing_lock = asyncio.Lock()
+        self._vision_breaker = CircuitBreaker(
+            CIRCUIT_FAILURE_THRESHOLD, CIRCUIT_RECOVERY_S
+        )
+        self._vision_latency = LatencyWindow(LATENCY_WINDOW)
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -888,3 +911,173 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             title="Aurora — Briefing",
             notification_id=f"aurora_briefing_{alarm.id}",
         )
+
+    # --- AI vision (selfie) mission -----------------------------------------
+
+    @property
+    def vision_latency_ms(self) -> float | None:
+        """Rolling average AI-vision latency in ms (for the diagnostic sensor)."""
+        return self._vision_latency.average()
+
+    async def _async_vision_infer(
+        self, image_path: str, media_uri: str, prompt: str, options: dict[str, object]
+    ) -> str:
+        """Run the bound vision provider on the saved selfie, return its answer.
+
+        Prefers a bound ai_task entity (structured yes/no), else the first LLM
+        Vision provider (free-text). Raises on no provider / provider error.
+        """
+        ai_entity = _first_entity(options.get(ROLE_VISION_PROVIDER))
+        if ai_entity and ai_entity.startswith("ai_task."):
+            resp = await self.hass.services.async_call(
+                "ai_task",
+                "generate_data",
+                {
+                    "entity_id": ai_entity,
+                    "task_name": "Aurora wake check",
+                    "instructions": prompt,
+                    "structure": {
+                        "awake": {
+                            "description": "person is awake and out of bed",
+                            "selector": {"boolean": {}},
+                        }
+                    },
+                    "attachments": {
+                        "media_content_id": media_uri,
+                        "media_content_type": "image/jpeg",
+                    },
+                },
+                blocking=True,
+                return_response=True,
+            )
+            data = (resp or {}).get("data")
+            if isinstance(data, dict) and "awake" in data:
+                return "yes" if data.get("awake") else "no"
+            return str(data or "")
+        providers = get_llm_vision_providers(self.hass)
+        if providers:
+            resp = await self.hass.services.async_call(
+                "llmvision",
+                "image_analyzer",
+                {
+                    "provider": providers[0][0],
+                    "message": prompt,
+                    "image_file": image_path,
+                    "max_tokens": 10,
+                    "temperature": 0.1,
+                },
+                blocking=True,
+                return_response=True,
+            )
+            return str((resp or {}).get("response_text") or "")
+        raise HomeAssistantError("No vision provider configured")
+
+    async def async_vision_check(
+        self, image_b64: str, alarm_id: str | None = None
+    ) -> dict[str, object]:
+        """Verify a selfie shows the user awake. Returns {awake, latency_ms, error?}.
+
+        Resilient: a circuit breaker skips calls while the provider is failing,
+        each call is time-boxed and retried with backoff, and the temp image is
+        always cleaned up. A failure returns ``awake: False`` so the alarm keeps
+        ringing (and the card degrades to a simpler mission).
+        """
+        if not self._vision_breaker.allow(time.monotonic()):
+            return {"awake": False, "error": "circuit_open"}
+        alarm = self._get_alarm(alarm_id) if alarm_id else self._active_alarm
+        options = (
+            self._effective_options(alarm)
+            if alarm
+            else dict(self.config_entry.options)
+        )
+        prompt = DEFAULT_VISION_PROMPT
+        if alarm and alarm.features.mission.vision_prompt:
+            prompt = alarm.features.mission.vision_prompt
+        try:
+            raw = base64.b64decode(image_b64.split(",")[-1])
+        except (ValueError, TypeError):
+            return {"awake": False, "error": "bad_image"}
+
+        rel = f"aurora/selfie_{alarm_id or 'now'}.jpg"
+        path = self.hass.config.path("media", rel)
+        media_uri = f"media-source://media_source/local/{rel}"
+
+        def _write() -> None:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as handle:
+                handle.write(raw)
+
+        try:
+            await self.hass.async_add_executor_job(_write)
+        except OSError:
+            return {"awake": False, "error": "write_failed"}
+
+        text = ""
+        ok = False
+        start = time.monotonic()
+        for attempt in range(VISION_MAX_ATTEMPTS):
+            try:
+                async with asyncio.timeout(VISION_TIMEOUT_S):
+                    text = await self._async_vision_infer(
+                        path, media_uri, prompt, options
+                    )
+                ok = True
+                break
+            except Exception:  # noqa: BLE001 - any provider/timeout failure → retry/degrade
+                _LOGGER.warning(
+                    "Aurora vision: inference attempt %s failed", attempt + 1, exc_info=True
+                )
+                if attempt + 1 < VISION_MAX_ATTEMPTS:
+                    backoff = min(VISION_BACKOFF_BASE_S * (2**attempt), VISION_BACKOFF_CAP_S)
+                    await asyncio.sleep(backoff)
+        latency_ms = round((time.monotonic() - start) * 1000)
+        self._vision_breaker.record(ok, time.monotonic())
+        if ok:
+            self._vision_latency.add(latency_ms)
+            self._publish()  # refresh the latency sensor
+
+        def _cleanup() -> None:
+            if os.path.exists(path):
+                os.remove(path)
+
+        with contextlib.suppress(OSError):
+            await self.hass.async_add_executor_job(_cleanup)
+
+        if not ok:
+            return {"awake": False, "error": "inference_failed", "latency_ms": latency_ms}
+        return {"awake": parse_verdict(text), "latency_ms": latency_ms}
+
+    async def async_vision_benchmark(self, samples: int) -> dict[str, object]:
+        """Run ``samples`` timed inferences on a generated image; report stats."""
+        try:
+            from PIL import Image  # noqa: PLC0415 - optional, only for benchmarking
+        except ImportError:
+            raise HomeAssistantError("Pillow is required for the vision benchmark")
+
+        def _sample_image() -> str:
+            import io
+
+            buf = io.BytesIO()
+            Image.new("RGB", (320, 320), (96, 96, 120)).save(buf, format="JPEG")
+            return base64.b64encode(buf.getvalue()).decode()
+
+        image_b64 = await self.hass.async_add_executor_job(_sample_image)
+        latencies: list[float] = []
+        succeeded = 0
+        for _ in range(samples):
+            result = await self.async_vision_check(image_b64, None)
+            if result.get("error") is None:
+                succeeded += 1
+            lat = result.get("latency_ms")
+            if isinstance(lat, (int, float)) and result.get("error") in (None, "inference_failed"):
+                latencies.append(float(lat))
+        return {
+            "samples": samples,
+            "succeeded": succeeded,
+            "failed": samples - succeeded,
+            "latency_ms": {
+                "min": round(min(latencies)) if latencies else None,
+                "avg": round(sum(latencies) / len(latencies)) if latencies else None,
+                "max": round(max(latencies)) if latencies else None,
+            },
+        }

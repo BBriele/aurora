@@ -90,5 +90,5 @@ class AuroraVisionLatencySensor(AuroraEntity, SensorEntity):
 
     @property
     def native_value(self) -> float | None:
-        """Return the average vision latency in ms (None until measured)."""
-        return None
+        """Return the rolling average vision latency in ms (None until measured)."""
+        return self.coordinator.vision_latency_ms
