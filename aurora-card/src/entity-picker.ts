@@ -53,8 +53,8 @@ export class AuroraEntityPicker extends LitElement {
         gap: 8px;
         padding: 7px 8px 7px 13px;
         border-radius: 999px;
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         font-size: 0.85rem;
         font-weight: 600;
         max-width: 100%;
@@ -71,8 +71,8 @@ export class AuroraEntityPicker extends LitElement {
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.25);
-        color: #fff;
+        background: color-mix(in srgb, var(--aurora-on-accent) 22%, transparent);
+        color: var(--aurora-on-accent);
         font-size: 13px;
         line-height: 1;
         flex: none;

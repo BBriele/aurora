@@ -91,8 +91,8 @@ export class AuroraGlobalsView extends LitElement {
         color: var(--aurora-dim);
       }
       .chip.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         border-color: transparent;
       }
       .none {

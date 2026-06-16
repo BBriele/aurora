@@ -180,7 +180,7 @@ export class AuroraAlarmDialog extends LitElement {
         margin: 0 0 4px;
         font-size: 1.25rem;
       }
-      .big-time {
+      input.big-time {
         width: 100%;
         font-size: 3.2rem;
         text-align: center;
@@ -216,8 +216,8 @@ export class AuroraAlarmDialog extends LitElement {
         background: transparent;
       }
       .seg button.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
       }
       .block {
         margin-top: 18px;
@@ -241,9 +241,9 @@ export class AuroraAlarmDialog extends LitElement {
         background: transparent;
       }
       .chips button.on {
-        color: #fff;
+        color: var(--aurora-on-accent);
         border-color: transparent;
-        background: var(--aurora-grad);
+        background: var(--aurora-accent-grad);
       }
       .togglerow {
         display: flex;

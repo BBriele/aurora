@@ -123,13 +123,24 @@ const ringAction = (hass, service) => hass.callService("aurora", service, {});
  */
 const auroraStyles = i$3 `
   :host {
+    /* Signature "Dawn" sunrise — reserved for brand/hero moments (title, card
+       hero, ring overlay, avatar). Everything interactive follows the HA theme. */
     --aurora-grad: linear-gradient(135deg, #232554 0%, #5b3f9d 44%, #e89a4b 100%);
+    --aurora-accent: var(--primary-color, #6d4aa7);
+    /* Interactive accent derived from the active theme's primary colour so
+       toggles/chips/buttons feel native in any light or dark HA theme. */
+    --aurora-accent-grad: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--aurora-accent) 90%, #fff),
+      color-mix(in srgb, var(--aurora-accent) 76%, #000)
+    );
+    /* Readable text/icon colour ON an accent fill (the theme's "on-primary"). */
+    --aurora-on-accent: var(--text-primary-color, #fff);
     --aurora-grad-soft: linear-gradient(
       135deg,
-      rgba(91, 63, 157, 0.16),
-      rgba(232, 154, 75, 0.14)
+      color-mix(in srgb, var(--aurora-accent) 16%, transparent),
+      color-mix(in srgb, var(--aurora-accent) 8%, transparent)
     );
-    --aurora-accent: var(--primary-color, #6d4aa7);
     --aurora-text: var(--primary-text-color, #1b1b27);
     --aurora-dim: var(--secondary-text-color, #6c6c82);
     --aurora-surface: var(--card-background-color, var(--ha-card-background, #fff));
@@ -189,8 +200,8 @@ const auroraStyles = i$3 `
     transform: scale(0.96);
   }
   .btn.primary {
-    color: #fff;
-    background: var(--aurora-grad);
+    color: var(--aurora-on-accent);
+    background: var(--aurora-accent-grad);
     box-shadow: var(--aurora-shadow);
   }
   .btn.ghost {
@@ -257,7 +268,7 @@ const auroraStyles = i$3 `
     flex: none;
   }
   .switch[aria-checked="true"] {
-    background: var(--aurora-grad);
+    background: var(--aurora-accent-grad);
   }
   .switch::after {
     content: "";
@@ -382,8 +393,8 @@ AuroraWeekdayChips.styles = [
         transform: scale(0.9);
       }
       .chip.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         box-shadow: var(--aurora-shadow);
       }
     `,
@@ -731,7 +742,7 @@ AuroraAlarmDialog.styles = [
         margin: 0 0 4px;
         font-size: 1.25rem;
       }
-      .big-time {
+      input.big-time {
         width: 100%;
         font-size: 3.2rem;
         text-align: center;
@@ -767,8 +778,8 @@ AuroraAlarmDialog.styles = [
         background: transparent;
       }
       .seg button.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
       }
       .block {
         margin-top: 18px;
@@ -792,9 +803,9 @@ AuroraAlarmDialog.styles = [
         background: transparent;
       }
       .chips button.on {
-        color: #fff;
+        color: var(--aurora-on-accent);
         border-color: transparent;
-        background: var(--aurora-grad);
+        background: var(--aurora-accent-grad);
       }
       .togglerow {
         display: flex;
@@ -1516,8 +1527,8 @@ AuroraEntityPicker.styles = [
         gap: 8px;
         padding: 7px 8px 7px 13px;
         border-radius: 999px;
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         font-size: 0.85rem;
         font-weight: 600;
         max-width: 100%;
@@ -1534,8 +1545,8 @@ AuroraEntityPicker.styles = [
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.25);
-        color: #fff;
+        background: color-mix(in srgb, var(--aurora-on-accent) 22%, transparent);
+        color: var(--aurora-on-accent);
         font-size: 13px;
         line-height: 1;
         flex: none;
@@ -1893,8 +1904,8 @@ AuroraGlobalsView.styles = [
         color: var(--aurora-dim);
       }
       .chip.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         border-color: transparent;
       }
       .none {

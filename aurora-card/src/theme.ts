@@ -7,13 +7,24 @@ import { css } from "lit";
  */
 export const auroraStyles = css`
   :host {
+    /* Signature "Dawn" sunrise — reserved for brand/hero moments (title, card
+       hero, ring overlay, avatar). Everything interactive follows the HA theme. */
     --aurora-grad: linear-gradient(135deg, #232554 0%, #5b3f9d 44%, #e89a4b 100%);
+    --aurora-accent: var(--primary-color, #6d4aa7);
+    /* Interactive accent derived from the active theme's primary colour so
+       toggles/chips/buttons feel native in any light or dark HA theme. */
+    --aurora-accent-grad: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--aurora-accent) 90%, #fff),
+      color-mix(in srgb, var(--aurora-accent) 76%, #000)
+    );
+    /* Readable text/icon colour ON an accent fill (the theme's "on-primary"). */
+    --aurora-on-accent: var(--text-primary-color, #fff);
     --aurora-grad-soft: linear-gradient(
       135deg,
-      rgba(91, 63, 157, 0.16),
-      rgba(232, 154, 75, 0.14)
+      color-mix(in srgb, var(--aurora-accent) 16%, transparent),
+      color-mix(in srgb, var(--aurora-accent) 8%, transparent)
     );
-    --aurora-accent: var(--primary-color, #6d4aa7);
     --aurora-text: var(--primary-text-color, #1b1b27);
     --aurora-dim: var(--secondary-text-color, #6c6c82);
     --aurora-surface: var(--card-background-color, var(--ha-card-background, #fff));
@@ -73,8 +84,8 @@ export const auroraStyles = css`
     transform: scale(0.96);
   }
   .btn.primary {
-    color: #fff;
-    background: var(--aurora-grad);
+    color: var(--aurora-on-accent);
+    background: var(--aurora-accent-grad);
     box-shadow: var(--aurora-shadow);
   }
   .btn.ghost {
@@ -141,7 +152,7 @@ export const auroraStyles = css`
     flex: none;
   }
   .switch[aria-checked="true"] {
-    background: var(--aurora-grad);
+    background: var(--aurora-accent-grad);
   }
   .switch::after {
     content: "";

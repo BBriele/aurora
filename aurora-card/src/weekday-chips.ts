@@ -33,8 +33,8 @@ export class AuroraWeekdayChips extends LitElement {
         transform: scale(0.9);
       }
       .chip.on {
-        color: #fff;
-        background: var(--aurora-grad);
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
         box-shadow: var(--aurora-shadow);
       }
     `,
