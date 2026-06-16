@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.7.0 - 2026-06-16
+
+### Added
+- Assist (voice) intents: `AuroraSnooze`, `AuroraDismiss`, `AuroraSkipNext`,
+  `AuroraNextAlarm`, and `AuroraSetAlarm` (with a `time` slot). Spoken responses
+  are localized. README documents sentence examples for the sentence-based agent.
+
 ## 0.6.1 - 2026-06-16
 
 ### Added

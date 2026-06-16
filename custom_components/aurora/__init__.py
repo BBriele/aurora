@@ -18,6 +18,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import CARD_FILENAME, CARD_URL, CARD_URL_BASE, DOMAIN
 from .coordinator import AuroraConfigEntry, AuroraCoordinator, AuroraRuntimeData
+from .intents import async_setup_intents
 from .services import async_setup_services
 from .storage import async_create_alarm_collection
 from .websocket import async_setup_websocket
@@ -27,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # manifest.json version, appended to the card URL for cache-busting.
-_CARD_VERSION = "0.6.1"
+_CARD_VERSION = "0.7.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -37,6 +38,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     async_setup_services(hass)
     async_setup_websocket(hass)
+    async_setup_intents(hass)
     await _async_register_frontend(hass)
     return True
 

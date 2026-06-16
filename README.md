@@ -125,6 +125,33 @@ All actions live under the `aurora.` domain:
 
 > Day-to-day you won't call these — the app does it for you. They exist for automations and power users.
 
+## Voice control (Assist)
+
+Aurora registers Assist intents: `AuroraSnooze`, `AuroraDismiss`, `AuroraSkipNext`,
+`AuroraNextAlarm`, and `AuroraSetAlarm` (a `time` slot). With an LLM-based Assist
+pipeline they are exposed automatically. For the sentence-based agent, add phrases
+in `config/custom_sentences/en/aurora.yaml` (and `it/` for Italian), e.g.:
+
+```yaml
+language: en
+intents:
+  AuroraSnooze:
+    data:
+      - sentences: ["snooze [the] alarm"]
+  AuroraDismiss:
+    data:
+      - sentences: ["stop [the] alarm", "dismiss [the] alarm"]
+  AuroraNextAlarm:
+    data:
+      - sentences: ["when is my next alarm"]
+  AuroraSkipNext:
+    data:
+      - sentences: ["skip [my] next alarm"]
+  AuroraSetAlarm:
+    data:
+      - sentences: ["set [an] alarm for {time}"]
+```
+
 ## Use cases & examples
 
 - **Phone-only** — bind the Companion app as a Notification channel; alarms notify and snooze from your phone.
@@ -194,7 +221,7 @@ Clean MVC, three decoupled pieces:
 - ✅ **Phase 2 — Modularity:** ringtones, volume fade-in, sleep-aware smart wake, skip-next + calendar/holiday auto-skip, TTS briefing.
 - ✅ **Phase 4 — View & multi-user:** Lit card + sidebar app, per-user alarms & device profiles, shared settings, full **i18n** (English-first).
 - ⏳ **Phase 3 — Advanced missions:** open-door, AI selfie vision (provider/model/prompt + benchmark), math/QR/shake, graceful Vision → Tap/math.
-- ⏳ **Phase 4 (rest) — Voice:** Assist intents, ring channels, post-wake routines.
+- ✅ **Phase 4 (voice) — Assist:** snooze/dismiss/skip/next-alarm/set-alarm intents.
 - ⏳ **Phase 5 — Packaging & quality:** brands submission, test coverage, strict typing, hassfest/HACS CI.
 
 ## Repository layout
