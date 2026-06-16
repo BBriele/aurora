@@ -25,7 +25,7 @@ rules:
   docs-installation-instructions: done
   docs-removal-instructions: done
   docs-actions: done
-  brands: todo  # submit icon/logo to home-assistant/brands
+  brands: todo  # assets ready in /brands; submit PR to home-assistant/brands (see brands/README.md)
 
   # --- Silver ---
   action-exceptions: done
