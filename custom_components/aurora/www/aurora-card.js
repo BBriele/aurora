@@ -276,6 +276,12 @@ const STRINGS = {
         "presets.add_media": "+ Browse media",
         "presets.save": "Save preset",
         "presets.untitled": "Untitled preset",
+        "presets.playback": "Playback",
+        "presets.shuffle": "Shuffle",
+        "presets.loop": "Loop",
+        "presets.volume_end": "Restore volume when it stops",
+        "presets.volume_end_desc": "Set the speaker to this volume after the ring ends",
+        "presets.drag": "Drag to reorder",
         // media browser
         "browser.title": "Choose media",
         "browser.root": "Library",
@@ -445,6 +451,12 @@ const STRINGS = {
         "presets.add_media": "+ Sfoglia media",
         "presets.save": "Salva preset",
         "presets.untitled": "Preset senza nome",
+        "presets.playback": "Riproduzione",
+        "presets.shuffle": "Casuale",
+        "presets.loop": "Ripeti",
+        "presets.volume_end": "Ripristina volume allo stop",
+        "presets.volume_end_desc": "Imposta lo speaker a questo volume dopo la suoneria",
+        "presets.drag": "Trascina per riordinare",
         "browser.title": "Scegli media",
         "browser.root": "Libreria",
         "browser.empty": "Niente qui.",
@@ -2923,6 +2935,7 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
             media_content_id: node.media_content_id,
             media_content_type: node.media_content_type,
             title: node.title,
+            thumbnail: node.thumbnail ?? null,
         };
         if (!this.multiple) {
             this._emitSelect([item]);
@@ -3290,13 +3303,16 @@ AuroraMediaBrowser = __decorate([
 function genId() {
     return "p_" + Math.random().toString(36).slice(2, 10);
 }
+const DEFAULT_END_VOLUME = 30;
 /**
  * Per-profile audio preset manager, embedded in the Setup Audio card.
  *
  * A preset is a named, reusable sound or ordered playlist built from Home
- * Assistant media (via aurora-media-browser) or pasted URIs. Presets are stored
- * under options.profiles[userId].audio_presets and referenced by an alarm's
- * audio source as "aurora_preset:<id>".
+ * Assistant media (via aurora-media-browser) or pasted URIs, with
+ * media-player-style playback behaviour: drag-to-reorder tracks, shuffle, loop,
+ * and an end-of-ring volume to restore on the speaker. Presets are stored under
+ * options.profiles[userId].audio_presets and referenced by an alarm's audio
+ * source as "aurora_preset:<id>".
  */
 let AuroraAudioPresets = class AuroraAudioPresets extends i {
     constructor() {
@@ -3309,6 +3325,8 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         this._editing = null;
         this._browserOpen = false;
         this._saving = false;
+        this._dragIndex = null;
+        this._dragOver = null;
         this._loadedFor = "";
     }
     updated() {
@@ -3349,10 +3367,13 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         }
     }
     _new() {
-        this._editing = { id: genId(), name: "", items: [] };
+        this._editing = { id: genId(), name: "", items: [], shuffle: false, loop: false, volume_end: null };
     }
     _edit(preset) {
-        this._editing = { ...preset, items: preset.items.map((i) => ({ ...i })) };
+        this._editing = {
+            ...preset,
+            items: preset.items.map((i) => ({ ...i })),
+        };
     }
     async _delete(preset) {
         await this._persist(this._presets.filter((p) => p.id !== preset.id));
@@ -3374,17 +3395,51 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
             items: this._editing.items.filter((_, i) => i !== index),
         };
     }
-    _move(index, dir) {
-        if (!this._editing) {
+    // --- Drag & drop reordering --------------------------------------------
+    _dragStart(index) {
+        this._dragIndex = index;
+    }
+    _dragEnter(index) {
+        if (this._dragIndex !== null && index !== this._dragOver) {
+            this._dragOver = index;
+        }
+    }
+    _drop(index) {
+        const from = this._dragIndex;
+        if (from === null || !this._editing || from === index) {
+            this._dragIndex = null;
+            this._dragOver = null;
             return;
         }
         const items = [...this._editing.items];
-        const to = index + dir;
-        if (to < 0 || to >= items.length) {
-            return;
-        }
-        [items[index], items[to]] = [items[to], items[index]];
+        const [moved] = items.splice(from, 1);
+        items.splice(index, 0, moved);
         this._editing = { ...this._editing, items };
+        this._dragIndex = null;
+        this._dragOver = null;
+    }
+    _dragEnd() {
+        this._dragIndex = null;
+        this._dragOver = null;
+    }
+    // --- Playback behaviour ------------------------------------------------
+    _toggleShuffle() {
+        if (this._editing)
+            this._editing = { ...this._editing, shuffle: !this._editing.shuffle };
+    }
+    _toggleLoop() {
+        if (this._editing)
+            this._editing = { ...this._editing, loop: !this._editing.loop };
+    }
+    _toggleVolumeEnd() {
+        if (!this._editing)
+            return;
+        const on = this._editing.volume_end != null;
+        this._editing = { ...this._editing, volume_end: on ? null : DEFAULT_END_VOLUME };
+    }
+    _setVolumeEnd(v) {
+        if (this._editing)
+            this._editing = { ...this._editing, volume_end: Number(v ?? 0) };
     }
     async _saveEditing() {
         if (!this._editing) {
@@ -3435,14 +3490,24 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         return b `<div class="plist">
       ${this._presets.map((p) => b `<div class="prow">
           <span class="nm">${p.name}</span>
-          <span class="ct">${localize(lang, "presets.count", { n: p.items.length })}</span>
-          <button class="iconbtn" title=${localize(lang, "presets.edit")} @click=${() => this._edit(p)}>✎</button>
-          <button class="iconbtn" title=${localize(lang, "common.delete")} ?disabled=${this._saving} @click=${() => this._delete(p)}>🗑</button>
+          <span class="badges">
+            ${p.shuffle ? b `<ha-icon icon="mdi:shuffle-variant" title=${localize(lang, "presets.shuffle")}></ha-icon>` : A}
+            ${p.loop ? b `<ha-icon icon="mdi:repeat" title=${localize(lang, "presets.loop")}></ha-icon>` : A}
+            ${p.volume_end != null ? b `<ha-icon icon="mdi:volume-medium" title=${localize(lang, "presets.volume_end")}></ha-icon>` : A}
+            <span class="ct">${localize(lang, "presets.count", { n: p.items.length })}</span>
+          </span>
+          <button class="iconbtn" title=${localize(lang, "presets.edit")} @click=${() => this._edit(p)}>
+            <ha-icon icon="mdi:pencil"></ha-icon>
+          </button>
+          <button class="iconbtn" title=${localize(lang, "common.delete")} ?disabled=${this._saving} @click=${() => this._delete(p)}>
+            <ha-icon icon="mdi:delete-outline"></ha-icon>
+          </button>
         </div>`)}
     </div>`;
     }
     _renderEditor(lang) {
         const ed = this._editing;
+        const volOn = ed.volume_end != null;
         return b `<div class="editor">
       <ha-selector
         .hass=${this.hass}
@@ -3454,12 +3519,7 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
 
       ${ed.items.length
             ? b `<div class="items">
-            ${ed.items.map((it, i) => b `<div class="item">
-                <span class="t" title=${it.media_content_id}>${it.title}</span>
-                <button class="iconbtn" ?disabled=${i === 0} @click=${() => this._move(i, -1)}>↑</button>
-                <button class="iconbtn" ?disabled=${i === ed.items.length - 1} @click=${() => this._move(i, 1)}>↓</button>
-                <button class="iconbtn" @click=${() => this._removeItem(i)}>✕</button>
-              </div>`)}
+            ${ed.items.map((it, i) => this._renderItem(it, i))}
           </div>`
             : b `<div class="empty">${localize(lang, "presets.no_items")}</div>`}
 
@@ -3467,6 +3527,53 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         <ha-button appearance="outlined" size="small" @click=${() => (this._browserOpen = true)}>
           ${localize(lang, "presets.add_media")}
         </ha-button>
+      </div>
+
+      <div class="behaviour">
+        <div class="barlabel">${localize(lang, "presets.playback")}</div>
+        <div class="controls">
+          <button
+            class="ctrl ${ed.shuffle ? "on" : ""}"
+            title=${localize(lang, "presets.shuffle")}
+            aria-pressed=${ed.shuffle ? "true" : "false"}
+            @click=${this._toggleShuffle}
+          >
+            <ha-icon icon="mdi:shuffle-variant"></ha-icon>
+          </button>
+          <button
+            class="ctrl ${ed.loop ? "on" : ""}"
+            title=${localize(lang, "presets.loop")}
+            aria-pressed=${ed.loop ? "true" : "false"}
+            @click=${this._toggleLoop}
+          >
+            <ha-icon icon="mdi:repeat"></ha-icon>
+          </button>
+        </div>
+
+        <div class="vol">
+          <div class="volhead">
+            <ha-icon icon=${volOn ? "mdi:volume-high" : "mdi:volume-off"}></ha-icon>
+            <div class="vt">
+              <div>${localize(lang, "presets.volume_end")}</div>
+              <div class="sub">${localize(lang, "presets.volume_end_desc")}</div>
+            </div>
+            <ha-switch
+              .checked=${volOn}
+              @change=${this._toggleVolumeEnd}
+            ></ha-switch>
+          </div>
+          ${volOn
+            ? b `<div class="volslider">
+                <ha-selector
+                  .hass=${this.hass}
+                  .selector=${{ number: { min: 0, max: 100, step: 1, mode: "slider" } }}
+                  .value=${ed.volume_end ?? DEFAULT_END_VOLUME}
+                  @value-changed=${(e) => this._setVolumeEnd(e.detail.value)}
+                ></ha-selector>
+                <span class="pct">${ed.volume_end ?? DEFAULT_END_VOLUME}%</span>
+              </div>`
+            : A}
+        </div>
       </div>
 
       <div class="edfoot">
@@ -3479,12 +3586,42 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
       </div>
     </div>`;
     }
+    _renderItem(it, i) {
+        const cls = ["item", this._dragIndex === i ? "dragging" : "", this._dragOver === i ? "over" : ""]
+            .filter(Boolean)
+            .join(" ");
+        const thumb = it.thumbnail ? `background-image:url("${it.thumbnail}")` : "";
+        return b `<div
+      class=${cls}
+      draggable="true"
+      @dragstart=${() => this._dragStart(i)}
+      @dragenter=${() => this._dragEnter(i)}
+      @dragover=${(e) => e.preventDefault()}
+      @drop=${() => this._drop(i)}
+      @dragend=${this._dragEnd}
+    >
+      <span class="handle" title=${localize(this.hass?.language, "presets.drag")}>
+        <ha-icon icon="mdi:drag-vertical"></ha-icon>
+      </span>
+      <span class="thumb" style=${thumb}>
+        ${it.thumbnail ? A : b `<ha-icon icon="mdi:music-note"></ha-icon>`}
+      </span>
+      <span class="t" title=${it.media_content_id}>${it.title}</span>
+      <span class="num">${i + 1}</span>
+      <button class="iconbtn" @click=${() => this._removeItem(i)} title=${localize(this.hass?.language, "common.delete")}>
+        <ha-icon icon="mdi:close"></ha-icon>
+      </button>
+    </div>`;
+    }
 };
 AuroraAudioPresets.styles = [
     auroraStyles,
     i$3 `
       :host {
         display: block;
+      }
+      ha-icon {
+        --mdc-icon-size: 20px;
       }
       .ptop {
         display: flex;
@@ -3521,9 +3658,17 @@ AuroraAudioPresets.styles = [
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .prow .ct {
-        font-size: 0.78rem;
+      .badges {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         color: var(--aurora-dim);
+      }
+      .badges ha-icon {
+        --mdc-icon-size: 17px;
+      }
+      .badges .ct {
+        font-size: 0.78rem;
       }
       .iconbtn {
         appearance: none;
@@ -3531,11 +3676,15 @@ AuroraAudioPresets.styles = [
         background: transparent;
         cursor: pointer;
         border-radius: 9px;
-        width: 32px;
-        height: 32px;
-        font-size: 15px;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
         color: var(--aurora-text);
         flex: none;
+      }
+      .iconbtn:hover {
+        background: color-mix(in srgb, var(--aurora-dim) 10%, transparent);
       }
       .iconbtn:disabled {
         opacity: 0.35;
@@ -3549,24 +3698,53 @@ AuroraAudioPresets.styles = [
       }
       .editor {
         border: 1px solid var(--aurora-divider);
-        border-radius: 12px;
-        padding: 12px;
+        border-radius: 14px;
+        padding: 14px;
         background: color-mix(in srgb, var(--aurora-dim) 5%, transparent);
       }
       .items {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        margin: 10px 0;
+        margin: 12px 0;
       }
       .item {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         padding: 6px 8px;
-        border-radius: 9px;
+        border-radius: 10px;
         background: var(--aurora-surface);
         border: 1px solid var(--aurora-divider);
+      }
+      .item.dragging {
+        opacity: 0.45;
+      }
+      .item.over {
+        border-color: var(--aurora-accent);
+        box-shadow: inset 0 2px 0 var(--aurora-accent);
+      }
+      .item .handle {
+        cursor: grab;
+        color: var(--aurora-dim);
+        display: grid;
+        place-items: center;
+        flex: none;
+      }
+      .item .handle:active {
+        cursor: grabbing;
+      }
+      .item .thumb {
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+        flex: none;
+        background: var(--aurora-grad-soft);
+        background-size: cover;
+        background-position: center;
+        display: grid;
+        place-items: center;
+        color: var(--aurora-dim);
       }
       .item .t {
         flex: 1;
@@ -3575,16 +3753,95 @@ AuroraAudioPresets.styles = [
         white-space: nowrap;
         font-size: 0.85rem;
       }
+      .item .num {
+        font-size: 0.72rem;
+        color: var(--aurora-dim);
+        width: 16px;
+        text-align: right;
+        flex: none;
+      }
       .addrow {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
       }
+      /* Media-player-style behaviour bar */
+      .behaviour {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--aurora-divider);
+      }
+      .barlabel {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--aurora-dim);
+        margin-bottom: 8px;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .ctrl {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        background: transparent;
+        cursor: pointer;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--aurora-text);
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .ctrl ha-icon {
+        --mdc-icon-size: 22px;
+      }
+      .ctrl.on {
+        background: var(--aurora-accent-grad);
+        color: var(--aurora-on-accent);
+        border-color: transparent;
+      }
+      .ctrl .lbl {
+        display: none;
+      }
+      .vol {
+        margin-top: 14px;
+      }
+      .volhead {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .volhead .vt {
+        flex: 1;
+      }
+      .volhead .vt .sub {
+        font-size: 0.76rem;
+        color: var(--aurora-dim);
+      }
+      .volslider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .volslider ha-selector {
+        flex: 1;
+      }
+      .volslider .pct {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        width: 44px;
+        text-align: right;
+      }
       .edfoot {
         display: flex;
         justify-content: flex-end;
         gap: 8px;
-        margin-top: 12px;
+        margin-top: 16px;
       }
     `,
 ];
@@ -3612,6 +3869,12 @@ __decorate([
 __decorate([
     r()
 ], AuroraAudioPresets.prototype, "_saving", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_dragIndex", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_dragOver", void 0);
 AuroraAudioPresets = __decorate([
     t("aurora-audio-presets")
 ], AuroraAudioPresets);

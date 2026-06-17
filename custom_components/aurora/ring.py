@@ -7,6 +7,7 @@ adapter never breaks the others (or the alarm).
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 import logging
 from typing import Any
 
@@ -50,13 +51,34 @@ def _profile_presets(alarm: AuroraAlarm, options: Mapping[str, Any]) -> list[dic
     return presets if isinstance(presets, list) else []
 
 
-def _resolve_audio_items(
-    source: str, alarm: AuroraAlarm, options: Mapping[str, Any]
-) -> list[AudioItem]:
-    """Expand an alarm's audio source into playable (content_id, type) entries.
+def _coerce_volume(value: Any) -> float | None:
+    """Coerce a stored 0–100 end-of-ring volume to a 0–1 level (None if unset)."""
+    if value in (None, ""):
+        return None
+    try:
+        return max(0.0, min(float(value) / 100.0, 1.0))
+    except (TypeError, ValueError):
+        return None
 
-    A plain source is a single entry; an ``aurora_preset:<id>`` reference is
-    resolved against the owner profile's presets into its ordered item list.
+
+@dataclass(slots=True)
+class AudioPlayback:
+    """A resolved audio source: the items to play plus playback behaviour."""
+
+    items: list[AudioItem]
+    shuffle: bool = False
+    loop: bool = False
+    volume_end: float | None = None
+
+
+def _resolve_audio(
+    source: str, alarm: AuroraAlarm, options: Mapping[str, Any]
+) -> AudioPlayback:
+    """Expand an alarm's audio source into items + playback behaviour.
+
+    A plain source is a single entry with default behaviour; an
+    ``aurora_preset:<id>`` reference is resolved against the owner profile's
+    presets into its ordered item list and its shuffle/loop/end-volume options.
     """
     if source.startswith(PRESET_SOURCE_PREFIX):
         preset_id = source[len(PRESET_SOURCE_PREFIX) :]
@@ -71,9 +93,14 @@ def _resolve_audio_items(
                         items.append(
                             (str(content_id), str(entry.get("media_content_type") or ""))
                         )
-                return items
-        return []
-    return [(source, "")]
+                return AudioPlayback(
+                    items=items,
+                    shuffle=bool(preset.get("shuffle")),
+                    loop=bool(preset.get("loop")),
+                    volume_end=_coerce_volume(preset.get("volume_end")),
+                )
+        return AudioPlayback(items=[])
+    return AudioPlayback(items=[(source, "")])
 
 
 class RingController:
@@ -97,15 +124,18 @@ class RingController:
         audio = alarm.features.audio
         audio_target = audio.target or options.get(ROLE_AUDIO_SINK)
         if audio.enabled and audio_target and audio.source:
-            items = _resolve_audio_items(audio.source, alarm, options)
-            if items:
+            playback = _resolve_audio(audio.source, alarm, options)
+            if playback.items:
                 adapters.append(
                     AudioSinkAdapter(
                         self._hass,
                         audio_target,
-                        items,
+                        playback.items,
                         fade_in=audio.volume_profile is VolumeProfile.FADE_IN,
                         volume_max=audio.volume_max,
+                        shuffle=playback.shuffle,
+                        loop=playback.loop,
+                        volume_end=playback.volume_end,
                     )
                 )
 

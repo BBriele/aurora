@@ -77,6 +77,7 @@ export class AuroraMediaBrowser extends LitElement {
       media_content_id: node.media_content_id,
       media_content_type: node.media_content_type,
       title: node.title,
+      thumbnail: node.thumbnail ?? null,
     };
     if (!this.multiple) {
       this._emitSelect([item]);

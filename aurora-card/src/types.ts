@@ -37,13 +37,21 @@ export interface PresetItem {
   media_content_id: string;
   media_content_type: string;
   title: string;
+  thumbnail?: string | null;
 }
 
-/** A named, reusable audio source: a single sound or an ordered playlist. */
+/**
+ * A named, reusable audio source: a single sound or an ordered playlist, with
+ * media-player-style playback behaviour (shuffle, loop, end-of-ring volume).
+ */
 export interface AudioPreset {
   id: string;
   name: string;
   items: PresetItem[];
+  shuffle?: boolean;
+  loop?: boolean;
+  /** Volume (0–100) to restore on the speaker when the ring stops; null = off. */
+  volume_end?: number | null;
 }
 
 /** A per-person profile: a display name, device role bindings + audio presets. */

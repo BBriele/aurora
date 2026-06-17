@@ -152,6 +152,12 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "presets.add_media": "+ Browse media",
     "presets.save": "Save preset",
     "presets.untitled": "Untitled preset",
+    "presets.playback": "Playback",
+    "presets.shuffle": "Shuffle",
+    "presets.loop": "Loop",
+    "presets.volume_end": "Restore volume when it stops",
+    "presets.volume_end_desc": "Set the speaker to this volume after the ring ends",
+    "presets.drag": "Drag to reorder",
 
     // media browser
     "browser.title": "Choose media",
@@ -340,6 +346,12 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "presets.add_media": "+ Sfoglia media",
     "presets.save": "Salva preset",
     "presets.untitled": "Preset senza nome",
+    "presets.playback": "Riproduzione",
+    "presets.shuffle": "Casuale",
+    "presets.loop": "Ripeti",
+    "presets.volume_end": "Ripristina volume allo stop",
+    "presets.volume_end_desc": "Imposta lo speaker a questo volume dopo la suoneria",
+    "presets.drag": "Trascina per riordinare",
 
     "browser.title": "Scegli media",
     "browser.root": "Libreria",

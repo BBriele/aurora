@@ -4,6 +4,20 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.13.0 - 2026-06-17
+
+### Added
+- Audio presets gained media-player-style playback controls in the editor:
+  drag-and-drop track reordering (with album-art thumbnails), a shuffle toggle,
+  a loop toggle, and an optional end-of-ring volume to restore on the speaker
+  once the alarm stops. The preset list shows the active behaviours at a glance.
+
+### Changed
+- A ringing preset now honours its playback behaviour: shuffle randomises the
+  track order, loop repeats the queue while ringing (via the player's repeat
+  mode), and the end-of-ring volume is applied when the ring stops. Each is
+  best-effort and degrades silently on players that don't support it.
+
 ## 0.12.1 - 2026-06-17
 
 ### Fixed
