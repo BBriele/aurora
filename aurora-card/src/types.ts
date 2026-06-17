@@ -100,6 +100,7 @@ export interface AlarmFeatures {
   mission: { type: MissionType; params: Record<string, unknown>; vision_prompt?: string | null };
   snooze: { max: number; duration: number };
   briefing: { enabled: boolean; blocks: string[]; template?: string | null };
+  display: { enabled: boolean; targets: string[] };
 }
 
 export interface Alarm {

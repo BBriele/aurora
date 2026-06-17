@@ -223,6 +223,8 @@ const STRINGS = {
         "dialog.smart_min": "Smart window (min)",
         "dialog.briefing": "Wake-up briefing",
         "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
+        "dialog.display": "Wake overlay (display surface)",
+        "dialog.display_none": "No display surfaces bound in Setup for this profile.",
         "mparam.difficulty": "Difficulty",
         "mparam.easy": "Easy",
         "mparam.medium": "Medium",
@@ -410,6 +412,8 @@ const STRINGS = {
         "dialog.smart_min": "Finestra anticipo (min)",
         "dialog.briefing": "Briefing al risveglio",
         "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
+        "dialog.display": "Overlay risveglio (superficie display)",
+        "dialog.display_none": "Nessuna superficie display associata nel Setup per questo profilo.",
         "mparam.difficulty": "Difficoltà",
         "mparam.easy": "Facile",
         "mparam.medium": "Media",
@@ -863,6 +867,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._briefingBlocks = [...BRIEFING_BLOCKS];
         this._enabled = true;
         this._saving = false;
+        this._display = false;
+        this._displayTargets = [];
+        this._displayOptions = [];
     }
     willUpdate(changed) {
         if (changed.has("open") && this.open) {
@@ -874,15 +881,20 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         const pid = this.alarm?.profile_id ?? this.profileId;
         if (!pid) {
             this._presets = [];
+            this._displayOptions = [];
             return;
         }
         try {
             const settings = await getSettings(this.hass);
             const profiles = settings.options.profiles ?? {};
             this._presets = profiles[pid]?.audio_presets ?? [];
+            const bindings = profiles[pid]?.bindings;
+            const bound = bindings?.["display_surface"];
+            this._displayOptions = Array.isArray(bound) ? bound : bound ? [String(bound)] : [];
         }
         catch {
             this._presets = [];
+            this._displayOptions = [];
         }
     }
     _populate() {
@@ -914,6 +926,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._briefingBlocks = a?.features.briefing.blocks?.length
             ? [...a.features.briefing.blocks]
             : [...BRIEFING_BLOCKS];
+        this._display = a?.features.display?.enabled ?? false;
+        this._displayTargets = [...(a?.features.display?.targets ?? [])];
         this._enabled = a?.enabled ?? true;
         this._saving = false;
     }
@@ -1035,6 +1049,35 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
       </div>
     `;
     }
+    _displayBlock(lang) {
+        return b `
+      <div class="togglerow">
+        <ha-switch
+          .checked=${this._display}
+          @change=${(e) => (this._display = e.target.checked)}
+        ></ha-switch>
+        <div class="spacer">${localize(lang, "dialog.display")}</div>
+      </div>
+      ${this._display
+            ? this._displayOptions.length
+                ? b `<ha-selector
+              .hass=${this.hass}
+              .selector=${{
+                    select: {
+                        multiple: true,
+                        options: this._displayOptions.map((id) => ({
+                            value: id,
+                            label: this.hass.states[id]?.attributes.friendly_name ?? id,
+                        })),
+                    },
+                }}
+              .value=${this._displayTargets}
+              @value-changed=${(e) => (this._displayTargets = e.detail.value)}
+            ></ha-selector>`
+                : b `<div class="hint">${localize(lang, "dialog.display_none")}</div>`
+            : A}
+    `;
+    }
     _slider(value, onChange) {
         return b `<ha-selector
       .hass=${this.hass}
@@ -1088,6 +1131,11 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                     blocks: this._briefing
                         ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
                         : [],
+                },
+                display: {
+                    ...prev?.display,
+                    enabled: this._display,
+                    targets: this._display ? this._displayTargets : [],
                 },
             },
         };
@@ -1183,6 +1231,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         </div>
 
         ${this._volumeBlock(lang)}
+        ${this._displayBlock(lang)}
 
         <div class="togglerow">
           <ha-switch
@@ -1376,6 +1425,12 @@ AuroraAlarmDialog.styles = [
         color: var(--aurora-dim);
         margin-top: 2px;
       }
+      .hint {
+        font-size: 0.82rem;
+        color: var(--aurora-dim);
+        margin-top: 6px;
+        font-style: italic;
+      }
     `,
 ];
 __decorate([
@@ -1459,6 +1514,15 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_saving", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_display", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_displayTargets", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_displayOptions", void 0);
 AuroraAlarmDialog = __decorate([
     t("aurora-alarm-dialog")
 ], AuroraAlarmDialog);

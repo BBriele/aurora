@@ -60,6 +60,9 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _briefingBlocks: string[] = [...BRIEFING_BLOCKS];
   @state() private _enabled = true;
   @state() private _saving = false;
+  @state() private _display = false;
+  @state() private _displayTargets: string[] = [];
+  @state() private _displayOptions: string[] = [];
 
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("open") && this.open) {
@@ -72,14 +75,19 @@ export class AuroraAlarmDialog extends LitElement {
     const pid = this.alarm?.profile_id ?? this.profileId;
     if (!pid) {
       this._presets = [];
+      this._displayOptions = [];
       return;
     }
     try {
       const settings = await getSettings(this.hass);
       const profiles = (settings.options.profiles as Profiles) ?? {};
       this._presets = profiles[pid]?.audio_presets ?? [];
+      const bindings = (profiles[pid]?.bindings as Record<string, unknown> | undefined);
+      const bound = bindings?.["display_surface"];
+      this._displayOptions = Array.isArray(bound) ? (bound as string[]) : bound ? [String(bound)] : [];
     } catch {
       this._presets = [];
+      this._displayOptions = [];
     }
   }
 
@@ -112,6 +120,8 @@ export class AuroraAlarmDialog extends LitElement {
     this._briefingBlocks = a?.features.briefing.blocks?.length
       ? [...a.features.briefing.blocks]
       : [...BRIEFING_BLOCKS];
+    this._display = a?.features.display?.enabled ?? false;
+    this._displayTargets = [...(a?.features.display?.targets ?? [])];
     this._enabled = a?.enabled ?? true;
     this._saving = false;
   }
@@ -285,6 +295,36 @@ export class AuroraAlarmDialog extends LitElement {
     `;
   }
 
+  private _displayBlock(lang?: string): TemplateResult {
+    return html`
+      <div class="togglerow">
+        <ha-switch
+          .checked=${this._display}
+          @change=${(e: Event) => (this._display = (e.target as HTMLInputElement).checked)}
+        ></ha-switch>
+        <div class="spacer">${localize(lang, "dialog.display")}</div>
+      </div>
+      ${this._display
+        ? this._displayOptions.length
+          ? html`<ha-selector
+              .hass=${this.hass}
+              .selector=${{
+                select: {
+                  multiple: true,
+                  options: this._displayOptions.map((id) => ({
+                    value: id,
+                    label: (this.hass.states[id]?.attributes.friendly_name as string | undefined) ?? id,
+                  })),
+                },
+              }}
+              .value=${this._displayTargets}
+              @value-changed=${(e: CustomEvent) => (this._displayTargets = e.detail.value as string[])}
+            ></ha-selector>`
+          : html`<div class="hint">${localize(lang, "dialog.display_none")}</div>`
+        : nothing}
+    `;
+  }
+
   private _slider(value: number, onChange: (v: number) => void): TemplateResult {
     return html`<ha-selector
       .hass=${this.hass}
@@ -340,6 +380,11 @@ export class AuroraAlarmDialog extends LitElement {
           blocks: this._briefing
             ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
             : [],
+        },
+        display: {
+          ...prev?.display,
+          enabled: this._display,
+          targets: this._display ? this._displayTargets : [],
         },
       },
     };
@@ -487,6 +532,12 @@ export class AuroraAlarmDialog extends LitElement {
         color: var(--aurora-dim);
         margin-top: 2px;
       }
+      .hint {
+        font-size: 0.82rem;
+        color: var(--aurora-dim);
+        margin-top: 6px;
+        font-style: italic;
+      }
     `,
   ];
 
@@ -593,6 +644,7 @@ export class AuroraAlarmDialog extends LitElement {
         </div>
 
         ${this._volumeBlock(lang)}
+        ${this._displayBlock(lang)}
 
         <div class="togglerow">
           <ha-switch
