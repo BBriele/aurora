@@ -2732,6 +2732,89 @@ AuroraCard = __decorate([
     t("aurora-card")
 ], AuroraCard);
 
+/**
+ * Info-only wake overlay rendered fullscreen on a pushed display (/aurora/ring).
+ * It shows the time, the alarm label and a sunrise gradient — NO buttons, no
+ * mission, no interaction. It is a software sunrise lamp, not an alarm control.
+ */
+let AuroraRingDisplay = class AuroraRingDisplay extends i {
+    constructor() {
+        super(...arguments);
+        this._now = new Date();
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this._timer = window.setInterval(() => (this._now = new Date()), 1000);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._timer)
+            window.clearInterval(this._timer);
+    }
+    get _sensor() {
+        return Object.values(this.hass?.states ?? {}).find((e) => e.entity_id.startsWith("binary_sensor.aurora"));
+    }
+    get _ringing() {
+        return this._sensor?.state === "on";
+    }
+    get _label() {
+        return this._sensor?.attributes?.["label"] ?? "";
+    }
+    render() {
+        if (!this.hass)
+            return A;
+        const hh = String(this._now.getHours()).padStart(2, "0");
+        const mm = String(this._now.getMinutes()).padStart(2, "0");
+        if (!this._ringing) {
+            return b `<div class="screen"><div class="content">
+        <div class="big clock">${hh}:${mm}</div>
+      </div></div>`;
+        }
+        return b `<div class="screen">
+      <div class="sky"></div>
+      <div class="content">
+        <div class="big clock">${hh}:${mm}</div>
+        <div class="label">${this._label || localize(this.hass?.language, "ring.label")}</div>
+      </div>
+    </div>`;
+    }
+};
+AuroraRingDisplay.styles = [
+    auroraStyles,
+    i$3 `
+      .screen {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        overflow: hidden;
+        background: #14122a;
+      }
+      .sky {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(120% 80% at 50% 118%,
+          #ffd27a 0%, #f0883e 22%, #a44a86 48%, #3a2a6b 72%, #14122a 100%);
+        animation: rise 7s ease-out both;
+      }
+      .content { position: relative; text-align: center; }
+      .big { font-size: clamp(5rem, 22vw, 14rem); text-shadow: 0 6px 40px rgba(0,0,0,.35); }
+      .label { font-size: 1.4rem; letter-spacing: .16em; text-transform: uppercase; opacity: .9; }
+      .idle { opacity: .5; font-size: 1.1rem; }
+      @keyframes rise { from { filter: brightness(.3) saturate(.8); } to { filter: brightness(1); } }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraRingDisplay.prototype, "hass", void 0);
+__decorate([
+    r()
+], AuroraRingDisplay.prototype, "_now", void 0);
+AuroraRingDisplay = __decorate([
+    t("aurora-ring-display")
+], AuroraRingDisplay);
+
 const DAYS = 7;
 /** Local YYYY-MM-DD (not UTC — `on_date` is a local calendar date). */
 function ymd(d) {
@@ -4587,6 +4670,9 @@ let AuroraPanel = class AuroraPanel extends i {
     render() {
         if (!this.hass)
             return b `${A}`;
+        if (this.route?.path === "/ring") {
+            return b `<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
+        }
         const initial = (this._selectedName[0] ?? "A").toUpperCase();
         return b `
       <div class="bar">
@@ -4769,6 +4855,9 @@ AuroraPanel.styles = [
 __decorate([
     n({ attribute: false })
 ], AuroraPanel.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraPanel.prototype, "route", void 0);
 __decorate([
     n({ type: Boolean })
 ], AuroraPanel.prototype, "narrow", void 0);

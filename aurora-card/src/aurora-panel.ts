@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./alarm-list";
+import "./ring-display";
 import "./schedule-card";
 import "./devices-view";
 import "./globals-view";
@@ -16,6 +17,7 @@ const ALL = "__all__";
 @customElement("aurora-panel")
 export class AuroraPanel extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
+  @property({ attribute: false }) route?: { prefix: string; path: string };
   @property({ type: Boolean }) narrow = false;
 
   @state() private _tab: Tab = "alarms";
@@ -167,6 +169,9 @@ export class AuroraPanel extends LitElement {
 
   render(): TemplateResult {
     if (!this.hass) return html`${nothing}`;
+    if (this.route?.path === "/ring") {
+      return html`<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
+    }
     const initial = (this._selectedName[0] ?? "A").toUpperCase();
     return html`
       <div class="bar">
