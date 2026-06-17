@@ -4,6 +4,12 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.12.1 - 2026-06-17
+
+### Fixed
+- The Setup page's save button still read "Save my devices" after the page was
+  renamed from "Devices" to "Setup"; it now reads "Save setup".
+
 ## 0.12.0 - 2026-06-17
 
 ### Added
