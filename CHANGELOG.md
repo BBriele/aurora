@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.2 - 2026-06-17
+
+### Changed
+- The alarm editor's Cancel and Save actions now use Home Assistant's native
+  button component, matching the look of Home Assistant's own dialogs (right
+  aligned, accent text) instead of plain custom buttons.
+
 ## 0.9.1 - 2026-06-17
 
 ### Fixed

@@ -1034,17 +1034,19 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             </div>`
             : A}
 
-        <button class="dlg-btn" slot="footer" @click=${this._close}>
-          ${localize(lang, "common.cancel")}
-        </button>
-        <button
-          class="dlg-btn primary"
-          slot="footer"
-          ?disabled=${this._saving}
-          @click=${this._save}
-        >
-          ${this._saving ? localize(lang, "common.saving") : localize(lang, "common.save")}
-        </button>
+        <div class="footer-actions" slot="footer">
+          <ha-button appearance="plain" @click=${this._close}>
+            ${localize(lang, "common.cancel")}
+          </ha-button>
+          <ha-button
+            appearance="plain"
+            variant="brand"
+            ?disabled=${this._saving}
+            @click=${this._save}
+          >
+            ${this._saving ? localize(lang, "common.saving") : localize(lang, "common.save")}
+          </ha-button>
+        </div>
       </ha-dialog>
     `;
     }
@@ -1059,27 +1061,11 @@ AuroraAlarmDialog.styles = [
         font-size: 1.2rem;
         font-weight: 600;
       }
-      .dlg-btn {
-        appearance: none;
-        border: none;
-        cursor: pointer;
-        font: inherit;
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: var(--secondary-text-color);
-        background: transparent;
-        padding: 10px 16px;
-        border-radius: 8px;
-      }
-      .dlg-btn.primary {
-        color: var(--primary-color, var(--aurora-accent));
-      }
-      .dlg-btn[disabled] {
-        opacity: 0.5;
-        cursor: default;
-      }
-      .dlg-btn:hover {
-        background: color-mix(in srgb, currentColor 12%, transparent);
+      .footer-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 100%;
       }
       /* HA selectors fill the dialog width and theme themselves. */
       ha-selector {
