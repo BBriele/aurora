@@ -51,34 +51,28 @@ def _profile_presets(alarm: AuroraAlarm, options: Mapping[str, Any]) -> list[dic
     return presets if isinstance(presets, list) else []
 
 
-def _coerce_volume(value: Any) -> float | None:
-    """Coerce a stored 0–100 end-of-ring volume to a 0–1 level (None if unset)."""
-    if value in (None, ""):
-        return None
-    try:
-        return max(0.0, min(float(value) / 100.0, 1.0))
-    except (TypeError, ValueError):
-        return None
-
-
 @dataclass(slots=True)
 class AudioPlayback:
-    """A resolved audio source: the items to play plus playback behaviour."""
+    """A resolved audio source: the items to play plus the preset's behaviour.
+
+    Volume behaviour (ring volume + end-of-ring handling) lives on the alarm's
+    audio feature, not here; only the playlist behaviour (shuffle/loop) is a
+    property of the preset.
+    """
 
     items: list[AudioItem]
     shuffle: bool = False
     loop: bool = False
-    volume_end: float | None = None
 
 
 def _resolve_audio(
     source: str, alarm: AuroraAlarm, options: Mapping[str, Any]
 ) -> AudioPlayback:
-    """Expand an alarm's audio source into items + playback behaviour.
+    """Expand an alarm's audio source into items + preset playback behaviour.
 
     A plain source is a single entry with default behaviour; an
     ``aurora_preset:<id>`` reference is resolved against the owner profile's
-    presets into its ordered item list and its shuffle/loop/end-volume options.
+    presets into its ordered item list and its shuffle/loop options.
     """
     if source.startswith(PRESET_SOURCE_PREFIX):
         preset_id = source[len(PRESET_SOURCE_PREFIX) :]
@@ -97,7 +91,6 @@ def _resolve_audio(
                     items=items,
                     shuffle=bool(preset.get("shuffle")),
                     loop=bool(preset.get("loop")),
-                    volume_end=_coerce_volume(preset.get("volume_end")),
                 )
         return AudioPlayback(items=[])
     return AudioPlayback(items=[(source, "")])
@@ -135,7 +128,8 @@ class RingController:
                         volume_max=audio.volume_max,
                         shuffle=playback.shuffle,
                         loop=playback.loop,
-                        volume_end=playback.volume_end,
+                        volume_end_mode=audio.volume_end_mode.value,
+                        volume_end=audio.volume_end,
                     )
                 )
 

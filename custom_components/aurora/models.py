@@ -40,6 +40,14 @@ class VolumeProfile(StrEnum):
     FADE_IN = "fade_in"
 
 
+class VolumeEndMode(StrEnum):
+    """What to do with the speaker volume once the ring stops."""
+
+    NONE = "none"  # leave the speaker at the ring volume
+    RESTORE = "restore"  # restore the volume captured before the ring
+    FIXED = "fixed"  # set a fixed end volume
+
+
 # datetime.weekday(): Monday == 0 ... Sunday == 6
 WEEKDAYS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
 
@@ -118,13 +126,20 @@ class LightFeature:
 
 @dataclass(slots=True)
 class AudioFeature:
-    """Ringtone (AudioSink) behaviour. ``target`` is a role-binding entity_id."""
+    """Ringtone (AudioSink) behaviour. ``target`` is a role-binding entity_id.
+
+    ``volume_max`` is the ring volume. ``volume_end_mode``/``volume_end`` control
+    what happens to the speaker volume once the ring stops (leave as is, restore
+    the level captured before the ring, or set a fixed level).
+    """
 
     enabled: bool = True
     target: str | None = None
     source: str | None = None  # media uri / playlist / radio / tts
     volume_profile: VolumeProfile = VolumeProfile.FADE_IN
     volume_max: float = 0.7
+    volume_end_mode: VolumeEndMode = VolumeEndMode.NONE
+    volume_end: float | None = None  # 0–1, used when volume_end_mode is FIXED
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -134,11 +149,18 @@ class AudioFeature:
             "source": self.source,
             "volume_profile": self.volume_profile.value,
             "volume_max": self.volume_max,
+            "volume_end_mode": self.volume_end_mode.value,
+            "volume_end": self.volume_end,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
         """Deserialise from a stored dict."""
+        try:
+            end_mode = VolumeEndMode(data.get("volume_end_mode", "none"))
+        except ValueError:
+            end_mode = VolumeEndMode.NONE
+        raw_end = data.get("volume_end")
         return cls(
             enabled=bool(data.get("enabled", True)),
             target=data.get("target"),
@@ -147,6 +169,8 @@ class AudioFeature:
                 data.get("volume_profile", VolumeProfile.FADE_IN)
             ),
             volume_max=float(data.get("volume_max", 0.7)),
+            volume_end_mode=end_mode,
+            volume_end=None if raw_end is None else float(raw_end),
         )
 
 

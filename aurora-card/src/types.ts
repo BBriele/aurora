@@ -40,9 +40,12 @@ export interface PresetItem {
   thumbnail?: string | null;
 }
 
+/** What to do with the speaker volume once the ring stops. */
+export type VolumeEndMode = "none" | "restore" | "fixed";
+
 /**
  * A named, reusable audio source: a single sound or an ordered playlist, with
- * media-player-style playback behaviour (shuffle, loop, end-of-ring volume).
+ * playlist behaviour (shuffle, loop). Volume behaviour lives on the alarm.
  */
 export interface AudioPreset {
   id: string;
@@ -50,8 +53,6 @@ export interface AudioPreset {
   items: PresetItem[];
   shuffle?: boolean;
   loop?: boolean;
-  /** Volume (0–100) to restore on the speaker when the ring stops; null = off. */
-  volume_end?: number | null;
 }
 
 /** A per-person profile: a display name, device role bindings + audio presets. */
@@ -92,6 +93,8 @@ export interface AlarmFeatures {
     source?: string | null;
     volume_profile: "fixed" | "fade_in";
     volume_max: number;
+    volume_end_mode?: VolumeEndMode;
+    volume_end?: number | null;
   };
   smart_window: { enabled: boolean; minutes: number; signals: string[] };
   mission: { type: MissionType; params: Record<string, unknown>; vision_prompt?: string | null };

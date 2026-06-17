@@ -15,7 +15,10 @@ import {
   type MissionType,
   type Profiles,
   type RepeatMode,
+  type VolumeEndMode,
 } from "./types";
+
+const VOLUME_END_MODES: VolumeEndMode[] = ["none", "restore", "fixed"];
 
 // Sentinel option values for the sound picker.
 const PRESET_PREFIX = "aurora_preset:";
@@ -46,6 +49,9 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _audioCustom = false;
   @state() private _presets: AudioPreset[] = [];
   @state() private _audioFade = true;
+  @state() private _volume = 70;
+  @state() private _volEndMode: VolumeEndMode = "none";
+  @state() private _volEnd = 30;
   @state() private _light = false;
   @state() private _lightMin = 30;
   @state() private _smart = false;
@@ -92,6 +98,12 @@ export class AuroraAlarmDialog extends LitElement {
     this._audioCustom =
       this._audioSource !== "" && !this._audioSource.startsWith(PRESET_PREFIX);
     this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
+    this._volume = Math.round((a?.features.audio.volume_max ?? 0.7) * 100);
+    this._volEndMode = a?.features.audio.volume_end_mode ?? "none";
+    this._volEnd =
+      a?.features.audio.volume_end != null
+        ? Math.round(a.features.audio.volume_end * 100)
+        : 30;
     this._light = a?.features.light.enabled ?? false;
     this._lightMin = a?.features.light.duration_min ?? 30;
     this._smart = a?.features.smart_window.enabled ?? false;
@@ -239,6 +251,49 @@ export class AuroraAlarmDialog extends LitElement {
     </div>`;
   }
 
+  // Ring volume + what to do with the speaker volume once the alarm stops.
+  private _volumeBlock(lang?: string): TemplateResult {
+    return html`
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.volume")}</label>
+        <div class="sliderrow">
+          <ha-icon icon="mdi:volume-high"></ha-icon>
+          ${this._slider(this._volume, (v) => (this._volume = v))}
+          <span class="pct">${this._volume}%</span>
+        </div>
+      </div>
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.when_stops")}</label>
+        <div class="seg">
+          ${VOLUME_END_MODES.map(
+            (m) => html`<button
+              class=${this._volEndMode === m ? "on" : ""}
+              @click=${() => (this._volEndMode = m)}
+            >
+              ${localize(lang, "dialog.end_" + m)}
+            </button>`
+          )}
+        </div>
+        ${this._volEndMode === "fixed"
+          ? html`<div class="sliderrow">
+              <ha-icon icon="mdi:volume-medium"></ha-icon>
+              ${this._slider(this._volEnd, (v) => (this._volEnd = v))}
+              <span class="pct">${this._volEnd}%</span>
+            </div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  private _slider(value: number, onChange: (v: number) => void): TemplateResult {
+    return html`<ha-selector
+      .hass=${this.hass}
+      .selector=${{ number: { min: 0, max: 100, step: 1, mode: "slider" } }}
+      .value=${value}
+      @value-changed=${(e: CustomEvent) => onChange(Number(e.detail.value ?? 0))}
+    ></ha-selector>`;
+  }
+
   private _onSoundSelect(value: string): void {
     if (value === SOUND_CUSTOM) {
       this._audioCustom = true;
@@ -273,6 +328,9 @@ export class AuroraAlarmDialog extends LitElement {
           enabled: this._audioSource !== "",
           source: this._audioSource || null,
           volume_profile: this._audioFade ? "fade_in" : "fixed",
+          volume_max: this._volume / 100,
+          volume_end_mode: this._volEndMode,
+          volume_end: this._volEndMode === "fixed" ? this._volEnd / 100 : null,
         },
         light: { ...prev?.light, enabled: this._light, duration_min: this._lightMin },
         smart_window: { ...prev?.smart_window, enabled: this._smart, minutes: this._smartMin },
@@ -346,6 +404,27 @@ export class AuroraAlarmDialog extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      .sliderrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .sliderrow ha-selector {
+        flex: 1;
+      }
+      .sliderrow ha-icon {
+        --mdc-icon-size: 22px;
+        color: var(--aurora-dim);
+        flex: none;
+      }
+      .sliderrow .pct {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        width: 44px;
+        text-align: right;
+        color: var(--aurora-dim);
       }
       .seg {
         display: flex;
@@ -512,6 +591,8 @@ export class AuroraAlarmDialog extends LitElement {
           ></ha-switch>
           <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
         </div>
+
+        ${this._volumeBlock(lang)}
 
         <div class="togglerow">
           <ha-switch

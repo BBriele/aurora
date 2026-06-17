@@ -35,9 +35,10 @@ class AudioSinkAdapter:
 
     A single source plays as before; a multi-item playlist plays the first
     entry and *enqueues* the rest (graceful — players that ignore enqueue still
-    ring the first track). Optional ``shuffle`` randomises the order, ``loop``
-    repeats the queue while ringing, and ``volume_end`` restores a comfortable
-    volume on the speaker once the ring stops.
+    ring the first track). Optional ``shuffle`` randomises the order and ``loop``
+    repeats the queue while ringing. ``volume_end_mode`` decides what happens to
+    the speaker volume once the ring stops: leave it ("none"), restore the level
+    captured just before the ring ("restore"), or set ``volume_end`` ("fixed").
     """
 
     def __init__(
@@ -50,6 +51,7 @@ class AudioSinkAdapter:
         volume_max: float,
         shuffle: bool = False,
         loop: bool = False,
+        volume_end_mode: str = "none",
         volume_end: float | None = None,
         fade_seconds: float = 30.0,
     ) -> None:
@@ -61,9 +63,11 @@ class AudioSinkAdapter:
         self._volume_max = max(0.0, min(volume_max, 1.0))
         self._shuffle = shuffle
         self._loop = loop
+        self._volume_end_mode = volume_end_mode
         self._volume_end = (
             None if volume_end is None else max(0.0, min(volume_end, 1.0))
         )
+        self._restore_volume: float | None = None
         self._fade_seconds = fade_seconds
         self._fade_task: asyncio.Task[None] | None = None
 
@@ -74,6 +78,10 @@ class AudioSinkAdapter:
         items = list(self._items)
         if self._shuffle:
             random.shuffle(items)
+        # Capture the speaker's volume *before* we override it, so "restore" can
+        # put it back when the ring stops.
+        if self._volume_end_mode == "restore":
+            self._restore_volume = self._current_volume()
         start_volume = self._volume_max * 0.1 if self._fade_in else self._volume_max
         await self._set_volume(start_volume)
         first, *rest = items
@@ -129,6 +137,14 @@ class AudioSinkAdapter:
                 "Aurora audio: volume_set failed on %s: %s", self._entity_id, err
             )
 
+    def _current_volume(self) -> float | None:
+        """Read the speaker's current volume_level (None if unknown)."""
+        state = self._hass.states.get(self._entity_id)
+        if state is None:
+            return None
+        level = state.attributes.get("volume_level")
+        return float(level) if isinstance(level, (int, float)) else None
+
     async def _set_repeat(self, mode: str) -> None:
         """Set the player's repeat mode ("all"/"off"); ignore unsupported players."""
         with contextlib.suppress(HomeAssistantError):
@@ -153,5 +169,7 @@ class AudioSinkAdapter:
                 {ATTR_ENTITY_ID: self._entity_id},
                 blocking=False,
             )
-        if self._volume_end is not None:
+        if self._volume_end_mode == "fixed" and self._volume_end is not None:
             await self._set_volume(self._volume_end)
+        elif self._volume_end_mode == "restore" and self._restore_volume is not None:
+            await self._set_volume(self._restore_volume)

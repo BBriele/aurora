@@ -4,6 +4,20 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.14.0 - 2026-06-17
+
+### Added
+- The alarm editor now has a **Volume** control (how loud the alarm plays) and a
+  **When it stops** choice: keep the ring volume, restore the speaker level
+  captured just before the alarm, or set a fixed level. Restore/fixed are applied
+  on the speaker when the ring stops; best-effort on players without volume.
+
+### Changed
+- Preset track reordering now uses Home Assistant's sortable, so dragging works
+  with both mouse and touch (the previous drag was desktop-only).
+- Volume behaviour moved off presets and onto the alarm, where it belongs: a
+  preset now only defines the sound/playlist and its shuffle/loop behaviour.
+
 ## 0.13.0 - 2026-06-17
 
 ### Added

@@ -11,17 +11,14 @@ function genId(): string {
   return "p_" + Math.random().toString(36).slice(2, 10);
 }
 
-const DEFAULT_END_VOLUME = 30;
-
 /**
  * Per-profile audio preset manager, embedded in the Setup Audio card.
  *
  * A preset is a named, reusable sound or ordered playlist built from Home
- * Assistant media (via aurora-media-browser) or pasted URIs, with
- * media-player-style playback behaviour: drag-to-reorder tracks, shuffle, loop,
- * and an end-of-ring volume to restore on the speaker. Presets are stored under
- * options.profiles[userId].audio_presets and referenced by an alarm's audio
- * source as "aurora_preset:<id>".
+ * Assistant media (via aurora-media-browser) or pasted URIs, with drag-to-reorder
+ * tracks (mouse + touch), shuffle and loop. Volume behaviour is set per alarm.
+ * Presets are stored under options.profiles[userId].audio_presets and referenced
+ * by an alarm's audio source as "aurora_preset:<id>".
  */
 @customElement("aurora-audio-presets")
 export class AuroraAudioPresets extends LitElement {
@@ -35,8 +32,6 @@ export class AuroraAudioPresets extends LitElement {
   @state() private _editing: AudioPreset | null = null;
   @state() private _browserOpen = false;
   @state() private _saving = false;
-  @state() private _dragIndex: number | null = null;
-  @state() private _dragOver: number | null = null;
   private _loadedFor = "";
 
   updated(): void {
@@ -78,7 +73,7 @@ export class AuroraAudioPresets extends LitElement {
   }
 
   private _new(): void {
-    this._editing = { id: genId(), name: "", items: [], shuffle: false, loop: false, volume_end: null };
+    this._editing = { id: genId(), name: "", items: [], shuffle: false, loop: false };
   }
 
   private _edit(preset: AudioPreset): void {
@@ -111,35 +106,17 @@ export class AuroraAudioPresets extends LitElement {
     };
   }
 
-  // --- Drag & drop reordering --------------------------------------------
-  private _dragStart(index: number): void {
-    this._dragIndex = index;
-  }
-
-  private _dragEnter(index: number): void {
-    if (this._dragIndex !== null && index !== this._dragOver) {
-      this._dragOver = index;
-    }
-  }
-
-  private _drop(index: number): void {
-    const from = this._dragIndex;
-    if (from === null || !this._editing || from === index) {
-      this._dragIndex = null;
-      this._dragOver = null;
+  // --- Drag & drop reordering (ha-sortable: mouse + touch) ---------------
+  private _itemMoved(e: CustomEvent<{ oldIndex: number; newIndex: number }>): void {
+    e.stopPropagation();
+    if (!this._editing) {
       return;
     }
+    const { oldIndex, newIndex } = e.detail;
     const items = [...this._editing.items];
-    const [moved] = items.splice(from, 1);
-    items.splice(index, 0, moved);
+    const [moved] = items.splice(oldIndex, 1);
+    items.splice(newIndex, 0, moved);
     this._editing = { ...this._editing, items };
-    this._dragIndex = null;
-    this._dragOver = null;
-  }
-
-  private _dragEnd(): void {
-    this._dragIndex = null;
-    this._dragOver = null;
   }
 
   // --- Playback behaviour ------------------------------------------------
@@ -149,16 +126,6 @@ export class AuroraAudioPresets extends LitElement {
 
   private _toggleLoop(): void {
     if (this._editing) this._editing = { ...this._editing, loop: !this._editing.loop };
-  }
-
-  private _toggleVolumeEnd(): void {
-    if (!this._editing) return;
-    const on = this._editing.volume_end != null;
-    this._editing = { ...this._editing, volume_end: on ? null : DEFAULT_END_VOLUME };
-  }
-
-  private _setVolumeEnd(v: unknown): void {
-    if (this._editing) this._editing = { ...this._editing, volume_end: Number(v ?? 0) };
   }
 
   private async _saveEditing(): Promise<void> {
@@ -370,36 +337,6 @@ export class AuroraAudioPresets extends LitElement {
       .ctrl .lbl {
         display: none;
       }
-      .vol {
-        margin-top: 14px;
-      }
-      .volhead {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .volhead .vt {
-        flex: 1;
-      }
-      .volhead .vt .sub {
-        font-size: 0.76rem;
-        color: var(--aurora-dim);
-      }
-      .volslider {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 8px;
-      }
-      .volslider ha-selector {
-        flex: 1;
-      }
-      .volslider .pct {
-        font-variant-numeric: tabular-nums;
-        font-weight: 600;
-        width: 44px;
-        text-align: right;
-      }
       .edfoot {
         display: flex;
         justify-content: flex-end;
@@ -448,7 +385,6 @@ export class AuroraAudioPresets extends LitElement {
           <span class="badges">
             ${p.shuffle ? html`<ha-icon icon="mdi:shuffle-variant" title=${localize(lang, "presets.shuffle")}></ha-icon>` : nothing}
             ${p.loop ? html`<ha-icon icon="mdi:repeat" title=${localize(lang, "presets.loop")}></ha-icon>` : nothing}
-            ${p.volume_end != null ? html`<ha-icon icon="mdi:volume-medium" title=${localize(lang, "presets.volume_end")}></ha-icon>` : nothing}
             <span class="ct">${localize(lang, "presets.count", { n: p.items.length })}</span>
           </span>
           <button class="iconbtn" title=${localize(lang, "presets.edit")} @click=${() => this._edit(p)}>
@@ -464,7 +400,6 @@ export class AuroraAudioPresets extends LitElement {
 
   private _renderEditor(lang?: string): TemplateResult {
     const ed = this._editing!;
-    const volOn = ed.volume_end != null;
     return html`<div class="editor">
       <ha-selector
         .hass=${this.hass}
@@ -476,9 +411,11 @@ export class AuroraAudioPresets extends LitElement {
       ></ha-selector>
 
       ${ed.items.length
-        ? html`<div class="items">
-            ${ed.items.map((it, i) => this._renderItem(it, i))}
-          </div>`
+        ? html`<ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
+            <div class="items">
+              ${ed.items.map((it, i) => this._renderItem(it, i))}
+            </div>
+          </ha-sortable>`
         : html`<div class="empty">${localize(lang, "presets.no_items")}</div>`}
 
       <div class="addrow">
@@ -507,31 +444,6 @@ export class AuroraAudioPresets extends LitElement {
             <ha-icon icon="mdi:repeat"></ha-icon>
           </button>
         </div>
-
-        <div class="vol">
-          <div class="volhead">
-            <ha-icon icon=${volOn ? "mdi:volume-high" : "mdi:volume-off"}></ha-icon>
-            <div class="vt">
-              <div>${localize(lang, "presets.volume_end")}</div>
-              <div class="sub">${localize(lang, "presets.volume_end_desc")}</div>
-            </div>
-            <ha-switch
-              .checked=${volOn}
-              @change=${this._toggleVolumeEnd}
-            ></ha-switch>
-          </div>
-          ${volOn
-            ? html`<div class="volslider">
-                <ha-selector
-                  .hass=${this.hass}
-                  .selector=${{ number: { min: 0, max: 100, step: 1, mode: "slider" } }}
-                  .value=${ed.volume_end ?? DEFAULT_END_VOLUME}
-                  @value-changed=${(e: CustomEvent) => this._setVolumeEnd(e.detail.value)}
-                ></ha-selector>
-                <span class="pct">${ed.volume_end ?? DEFAULT_END_VOLUME}%</span>
-              </div>`
-            : nothing}
-        </div>
       </div>
 
       <div class="edfoot">
@@ -546,19 +458,8 @@ export class AuroraAudioPresets extends LitElement {
   }
 
   private _renderItem(it: PresetItem, i: number): TemplateResult {
-    const cls = ["item", this._dragIndex === i ? "dragging" : "", this._dragOver === i ? "over" : ""]
-      .filter(Boolean)
-      .join(" ");
     const thumb = it.thumbnail ? `background-image:url("${it.thumbnail}")` : "";
-    return html`<div
-      class=${cls}
-      draggable="true"
-      @dragstart=${() => this._dragStart(i)}
-      @dragenter=${() => this._dragEnter(i)}
-      @dragover=${(e: DragEvent) => e.preventDefault()}
-      @drop=${() => this._drop(i)}
-      @dragend=${this._dragEnd}
-    >
+    return html`<div class="item">
       <span class="handle" title=${localize(this.hass?.language, "presets.drag")}>
         <ha-icon icon="mdi:drag-vertical"></ha-icon>
       </span>

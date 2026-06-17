@@ -211,6 +211,11 @@ const STRINGS = {
         "dialog.snooze_max": "Max snooze",
         "dialog.snooze_duration": "Snooze length (min)",
         "dialog.fade_in": "Rising volume (fade-in)",
+        "dialog.volume": "Volume",
+        "dialog.when_stops": "When it stops",
+        "dialog.end_none": "Keep",
+        "dialog.end_restore": "Restore",
+        "dialog.end_fixed": "Set to…",
         "dialog.sunrise": "Sunrise (light/screen ramp)",
         "dialog.smart": "Smart wake",
         "dialog.smart_desc": "Ring earlier if I detect you already awake (your profile's signals)",
@@ -279,8 +284,6 @@ const STRINGS = {
         "presets.playback": "Playback",
         "presets.shuffle": "Shuffle",
         "presets.loop": "Loop",
-        "presets.volume_end": "Restore volume when it stops",
-        "presets.volume_end_desc": "Set the speaker to this volume after the ring ends",
         "presets.drag": "Drag to reorder",
         // media browser
         "browser.title": "Choose media",
@@ -392,6 +395,11 @@ const STRINGS = {
         "dialog.snooze_max": "Max snooze",
         "dialog.snooze_duration": "Durata snooze (min)",
         "dialog.fade_in": "Volume crescente (fade-in)",
+        "dialog.volume": "Volume",
+        "dialog.when_stops": "Quando si ferma",
+        "dialog.end_none": "Invariato",
+        "dialog.end_restore": "Ripristina",
+        "dialog.end_fixed": "Imposta…",
         "dialog.sunrise": "Alba (rampa luce/schermo)",
         "dialog.smart": "Risveglio intelligente",
         "dialog.smart_desc": "Suona prima se ti rilevo già sveglio (segnali del tuo profilo)",
@@ -454,8 +462,6 @@ const STRINGS = {
         "presets.playback": "Riproduzione",
         "presets.shuffle": "Casuale",
         "presets.loop": "Ripeti",
-        "presets.volume_end": "Ripristina volume allo stop",
-        "presets.volume_end_desc": "Imposta lo speaker a questo volume dopo la suoneria",
         "presets.drag": "Trascina per riordinare",
         "browser.title": "Scegli media",
         "browser.root": "Libreria",
@@ -815,6 +821,7 @@ const MISSION_TYPES = [
     "vision",
 ];
 
+const VOLUME_END_MODES = ["none", "restore", "fixed"];
 // Sentinel option values for the sound picker.
 const PRESET_PREFIX = "aurora_preset:";
 const SOUND_CUSTOM = "__custom__";
@@ -839,6 +846,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._audioCustom = false;
         this._presets = [];
         this._audioFade = true;
+        this._volume = 70;
+        this._volEndMode = "none";
+        this._volEnd = 30;
         this._light = false;
         this._lightMin = 30;
         this._smart = false;
@@ -884,6 +894,12 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._audioCustom =
             this._audioSource !== "" && !this._audioSource.startsWith(PRESET_PREFIX);
         this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
+        this._volume = Math.round((a?.features.audio.volume_max ?? 0.7) * 100);
+        this._volEndMode = a?.features.audio.volume_end_mode ?? "none";
+        this._volEnd =
+            a?.features.audio.volume_end != null
+                ? Math.round(a.features.audio.volume_end * 100)
+                : 30;
         this._light = a?.features.light.enabled ?? false;
         this._lightMin = a?.features.light.duration_min ?? 30;
         this._smart = a?.features.smart_window.enabled ?? false;
@@ -982,6 +998,45 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             : A}
     </div>`;
     }
+    // Ring volume + what to do with the speaker volume once the alarm stops.
+    _volumeBlock(lang) {
+        return b `
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.volume")}</label>
+        <div class="sliderrow">
+          <ha-icon icon="mdi:volume-high"></ha-icon>
+          ${this._slider(this._volume, (v) => (this._volume = v))}
+          <span class="pct">${this._volume}%</span>
+        </div>
+      </div>
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.when_stops")}</label>
+        <div class="seg">
+          ${VOLUME_END_MODES.map((m) => b `<button
+              class=${this._volEndMode === m ? "on" : ""}
+              @click=${() => (this._volEndMode = m)}
+            >
+              ${localize(lang, "dialog.end_" + m)}
+            </button>`)}
+        </div>
+        ${this._volEndMode === "fixed"
+            ? b `<div class="sliderrow">
+              <ha-icon icon="mdi:volume-medium"></ha-icon>
+              ${this._slider(this._volEnd, (v) => (this._volEnd = v))}
+              <span class="pct">${this._volEnd}%</span>
+            </div>`
+            : A}
+      </div>
+    `;
+    }
+    _slider(value, onChange) {
+        return b `<ha-selector
+      .hass=${this.hass}
+      .selector=${{ number: { min: 0, max: 100, step: 1, mode: "slider" } }}
+      .value=${value}
+      @value-changed=${(e) => onChange(Number(e.detail.value ?? 0))}
+    ></ha-selector>`;
+    }
     _onSoundSelect(value) {
         if (value === SOUND_CUSTOM) {
             this._audioCustom = true;
@@ -1015,6 +1070,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                     enabled: this._audioSource !== "",
                     source: this._audioSource || null,
                     volume_profile: this._audioFade ? "fade_in" : "fixed",
+                    volume_max: this._volume / 100,
+                    volume_end_mode: this._volEndMode,
+                    volume_end: this._volEndMode === "fixed" ? this._volEnd / 100 : null,
                 },
                 light: { ...prev?.light, enabled: this._light, duration_min: this._lightMin },
                 smart_window: { ...prev?.smart_window, enabled: this._smart, minutes: this._smartMin },
@@ -1117,6 +1175,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
           ></ha-switch>
           <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
         </div>
+
+        ${this._volumeBlock(lang)}
 
         <div class="togglerow">
           <ha-switch
@@ -1227,6 +1287,27 @@ AuroraAlarmDialog.styles = [
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      .sliderrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .sliderrow ha-selector {
+        flex: 1;
+      }
+      .sliderrow ha-icon {
+        --mdc-icon-size: 22px;
+        color: var(--aurora-dim);
+        flex: none;
+      }
+      .sliderrow .pct {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        width: 44px;
+        text-align: right;
+        color: var(--aurora-dim);
       }
       .seg {
         display: flex;
@@ -1339,6 +1420,15 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_audioFade", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_volume", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_volEndMode", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_volEnd", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_light", void 0);
@@ -3303,16 +3393,14 @@ AuroraMediaBrowser = __decorate([
 function genId() {
     return "p_" + Math.random().toString(36).slice(2, 10);
 }
-const DEFAULT_END_VOLUME = 30;
 /**
  * Per-profile audio preset manager, embedded in the Setup Audio card.
  *
  * A preset is a named, reusable sound or ordered playlist built from Home
- * Assistant media (via aurora-media-browser) or pasted URIs, with
- * media-player-style playback behaviour: drag-to-reorder tracks, shuffle, loop,
- * and an end-of-ring volume to restore on the speaker. Presets are stored under
- * options.profiles[userId].audio_presets and referenced by an alarm's audio
- * source as "aurora_preset:<id>".
+ * Assistant media (via aurora-media-browser) or pasted URIs, with drag-to-reorder
+ * tracks (mouse + touch), shuffle and loop. Volume behaviour is set per alarm.
+ * Presets are stored under options.profiles[userId].audio_presets and referenced
+ * by an alarm's audio source as "aurora_preset:<id>".
  */
 let AuroraAudioPresets = class AuroraAudioPresets extends i {
     constructor() {
@@ -3325,8 +3413,6 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         this._editing = null;
         this._browserOpen = false;
         this._saving = false;
-        this._dragIndex = null;
-        this._dragOver = null;
         this._loadedFor = "";
     }
     updated() {
@@ -3367,7 +3453,7 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
         }
     }
     _new() {
-        this._editing = { id: genId(), name: "", items: [], shuffle: false, loop: false, volume_end: null };
+        this._editing = { id: genId(), name: "", items: [], shuffle: false, loop: false };
     }
     _edit(preset) {
         this._editing = {
@@ -3395,32 +3481,17 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
             items: this._editing.items.filter((_, i) => i !== index),
         };
     }
-    // --- Drag & drop reordering --------------------------------------------
-    _dragStart(index) {
-        this._dragIndex = index;
-    }
-    _dragEnter(index) {
-        if (this._dragIndex !== null && index !== this._dragOver) {
-            this._dragOver = index;
-        }
-    }
-    _drop(index) {
-        const from = this._dragIndex;
-        if (from === null || !this._editing || from === index) {
-            this._dragIndex = null;
-            this._dragOver = null;
+    // --- Drag & drop reordering (ha-sortable: mouse + touch) ---------------
+    _itemMoved(e) {
+        e.stopPropagation();
+        if (!this._editing) {
             return;
         }
+        const { oldIndex, newIndex } = e.detail;
         const items = [...this._editing.items];
-        const [moved] = items.splice(from, 1);
-        items.splice(index, 0, moved);
+        const [moved] = items.splice(oldIndex, 1);
+        items.splice(newIndex, 0, moved);
         this._editing = { ...this._editing, items };
-        this._dragIndex = null;
-        this._dragOver = null;
-    }
-    _dragEnd() {
-        this._dragIndex = null;
-        this._dragOver = null;
     }
     // --- Playback behaviour ------------------------------------------------
     _toggleShuffle() {
@@ -3430,16 +3501,6 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
     _toggleLoop() {
         if (this._editing)
             this._editing = { ...this._editing, loop: !this._editing.loop };
-    }
-    _toggleVolumeEnd() {
-        if (!this._editing)
-            return;
-        const on = this._editing.volume_end != null;
-        this._editing = { ...this._editing, volume_end: on ? null : DEFAULT_END_VOLUME };
-    }
-    _setVolumeEnd(v) {
-        if (this._editing)
-            this._editing = { ...this._editing, volume_end: Number(v ?? 0) };
     }
     async _saveEditing() {
         if (!this._editing) {
@@ -3493,7 +3554,6 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
           <span class="badges">
             ${p.shuffle ? b `<ha-icon icon="mdi:shuffle-variant" title=${localize(lang, "presets.shuffle")}></ha-icon>` : A}
             ${p.loop ? b `<ha-icon icon="mdi:repeat" title=${localize(lang, "presets.loop")}></ha-icon>` : A}
-            ${p.volume_end != null ? b `<ha-icon icon="mdi:volume-medium" title=${localize(lang, "presets.volume_end")}></ha-icon>` : A}
             <span class="ct">${localize(lang, "presets.count", { n: p.items.length })}</span>
           </span>
           <button class="iconbtn" title=${localize(lang, "presets.edit")} @click=${() => this._edit(p)}>
@@ -3507,7 +3567,6 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
     }
     _renderEditor(lang) {
         const ed = this._editing;
-        const volOn = ed.volume_end != null;
         return b `<div class="editor">
       <ha-selector
         .hass=${this.hass}
@@ -3518,9 +3577,11 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
       ></ha-selector>
 
       ${ed.items.length
-            ? b `<div class="items">
-            ${ed.items.map((it, i) => this._renderItem(it, i))}
-          </div>`
+            ? b `<ha-sortable handle-selector=".handle" @item-moved=${this._itemMoved}>
+            <div class="items">
+              ${ed.items.map((it, i) => this._renderItem(it, i))}
+            </div>
+          </ha-sortable>`
             : b `<div class="empty">${localize(lang, "presets.no_items")}</div>`}
 
       <div class="addrow">
@@ -3549,31 +3610,6 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
             <ha-icon icon="mdi:repeat"></ha-icon>
           </button>
         </div>
-
-        <div class="vol">
-          <div class="volhead">
-            <ha-icon icon=${volOn ? "mdi:volume-high" : "mdi:volume-off"}></ha-icon>
-            <div class="vt">
-              <div>${localize(lang, "presets.volume_end")}</div>
-              <div class="sub">${localize(lang, "presets.volume_end_desc")}</div>
-            </div>
-            <ha-switch
-              .checked=${volOn}
-              @change=${this._toggleVolumeEnd}
-            ></ha-switch>
-          </div>
-          ${volOn
-            ? b `<div class="volslider">
-                <ha-selector
-                  .hass=${this.hass}
-                  .selector=${{ number: { min: 0, max: 100, step: 1, mode: "slider" } }}
-                  .value=${ed.volume_end ?? DEFAULT_END_VOLUME}
-                  @value-changed=${(e) => this._setVolumeEnd(e.detail.value)}
-                ></ha-selector>
-                <span class="pct">${ed.volume_end ?? DEFAULT_END_VOLUME}%</span>
-              </div>`
-            : A}
-        </div>
       </div>
 
       <div class="edfoot">
@@ -3587,19 +3623,8 @@ let AuroraAudioPresets = class AuroraAudioPresets extends i {
     </div>`;
     }
     _renderItem(it, i) {
-        const cls = ["item", this._dragIndex === i ? "dragging" : "", this._dragOver === i ? "over" : ""]
-            .filter(Boolean)
-            .join(" ");
         const thumb = it.thumbnail ? `background-image:url("${it.thumbnail}")` : "";
-        return b `<div
-      class=${cls}
-      draggable="true"
-      @dragstart=${() => this._dragStart(i)}
-      @dragenter=${() => this._dragEnter(i)}
-      @dragover=${(e) => e.preventDefault()}
-      @drop=${() => this._drop(i)}
-      @dragend=${this._dragEnd}
-    >
+        return b `<div class="item">
       <span class="handle" title=${localize(this.hass?.language, "presets.drag")}>
         <ha-icon icon="mdi:drag-vertical"></ha-icon>
       </span>
@@ -3807,36 +3832,6 @@ AuroraAudioPresets.styles = [
       .ctrl .lbl {
         display: none;
       }
-      .vol {
-        margin-top: 14px;
-      }
-      .volhead {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .volhead .vt {
-        flex: 1;
-      }
-      .volhead .vt .sub {
-        font-size: 0.76rem;
-        color: var(--aurora-dim);
-      }
-      .volslider {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 8px;
-      }
-      .volslider ha-selector {
-        flex: 1;
-      }
-      .volslider .pct {
-        font-variant-numeric: tabular-nums;
-        font-weight: 600;
-        width: 44px;
-        text-align: right;
-      }
       .edfoot {
         display: flex;
         justify-content: flex-end;
@@ -3869,12 +3864,6 @@ __decorate([
 __decorate([
     r()
 ], AuroraAudioPresets.prototype, "_saving", void 0);
-__decorate([
-    r()
-], AuroraAudioPresets.prototype, "_dragIndex", void 0);
-__decorate([
-    r()
-], AuroraAudioPresets.prototype, "_dragOver", void 0);
 AuroraAudioPresets = __decorate([
     t("aurora-audio-presets")
 ], AuroraAudioPresets);
