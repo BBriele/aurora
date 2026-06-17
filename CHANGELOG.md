@@ -4,6 +4,17 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.0 - 2026-06-17
+
+### Changed
+- The alarm create/edit modal is now a native Home Assistant dialog
+  (`ha-dialog`) with the standard header and close button, matching the look and
+  behaviour of Home Assistant's own card/entity detail dialogs.
+- Fields inside the editor now use native Home Assistant form components —
+  `ha-textfield`, `ha-select`, `ha-switch` and the Home Assistant entity picker
+  (for the open-door mission sensor) — so they follow the active theme and HA's
+  input conventions. The large time field is kept as the one custom element.
+
 ## 0.8.0 - 2026-06-17
 
 ### Added

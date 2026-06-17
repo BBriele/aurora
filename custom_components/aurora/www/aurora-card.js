@@ -737,6 +737,8 @@ const MISSION_TYPES = [
 ];
 
 const REPEATS = ["once", "daily", "weekly"];
+// mdi:close — inlined so the bundle needs no mdi import.
+const MDI_CLOSE = "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
 let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     constructor() {
         super(...arguments);
@@ -791,6 +793,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._saving = false;
     }
     _close() {
+        if (!this.open) {
+            return;
+        }
         this.open = false;
         this.dispatchEvent(new CustomEvent("closed"));
     }
@@ -821,36 +826,36 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         }
         if (this._mission === "shake") {
             return b `<div class="block">
-        <label class="field">${localize(lang, "mparam.shake_count")}</label>
-        <input
+        <ha-textfield
           type="number"
           min="3"
           max="50"
+          .label=${localize(lang, "mparam.shake_count")}
           .value=${String(p["count"] ?? 12)}
           @input=${(e) => this._setParam("count", Number(e.target.value))}
-        />
+        ></ha-textfield>
       </div>`;
         }
         if (this._mission === "qr") {
             return b `<div class="block">
-        <label class="field">${localize(lang, "mparam.qr_value")}</label>
-        <input
-          type="text"
+        <ha-textfield
+          .label=${localize(lang, "mparam.qr_value")}
           placeholder=${localize(lang, "common.optional")}
           .value=${String(p["value"] ?? "")}
           @input=${(e) => this._setParam("value", e.target.value)}
-        />
+        ></ha-textfield>
       </div>`;
         }
         if (this._mission === "open_door") {
             return b `<div class="block">
-        <label class="field">${localize(lang, "mparam.door_entity")}</label>
-        <input
-          type="text"
-          placeholder="binary_sensor.front_door"
+        <ha-entity-picker
+          .hass=${this.hass}
+          .label=${localize(lang, "mparam.door_entity")}
           .value=${String(p["entity_id"] ?? "")}
-          @input=${(e) => this._setParam("entity_id", e.target.value)}
-        />
+          .includeDomains=${["binary_sensor"]}
+          allow-custom-entity
+          @value-changed=${(e) => this._setParam("entity_id", e.detail.value)}
+        ></ha-entity-picker>
       </div>`;
         }
         return A;
@@ -900,234 +905,240 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         }
         catch (err) {
             this._saving = false;
-            // eslint-disable-next-line no-alert
             this.dispatchEvent(new CustomEvent("error", { detail: String(err), bubbles: true, composed: true }));
         }
+    }
+    _renderHeading() {
+        const title = this.alarm
+            ? localize(this.hass?.language, "dialog.edit_title")
+            : localize(this.hass?.language, "dialog.new_title");
+        return b `<span class="header_title">
+      <span class="title">${title}</span>
+      <ha-icon-button
+        .label=${localize(this.hass?.language, "common.cancel")}
+        .path=${MDI_CLOSE}
+        dialogAction="close"
+        class="header_button"
+      ></ha-icon-button>
+    </span>`;
     }
     render() {
         if (!this.open) {
             return A;
         }
+        const lang = this.hass?.language;
         return b `
-      <div class="backdrop" @click=${(e) => e.target === e.currentTarget && this._close()}>
-        <div class="sheet">
-          <div class="grip"></div>
-          <h2>${this.alarm ? localize(this.hass?.language, "dialog.edit_title") : localize(this.hass?.language, "dialog.new_title")}</h2>
-          <input
-            class="big-time clock"
-            type="time"
-            .value=${this._time}
-            @input=${(e) => (this._time = e.target.value)}
-          />
+      <ha-dialog open .heading=${this._renderHeading()} @closed=${this._close}>
+        <input
+          class="big-time clock"
+          type="time"
+          .value=${this._time}
+          @input=${(e) => (this._time = e.target.value)}
+        />
 
-          <label class="field">${localize(this.hass?.language, "dialog.label")}</label>
-          <input
-            type="text"
-            placeholder=${localize(this.hass?.language, "dialog.label_placeholder")}
-            .value=${this._label}
-            @input=${(e) => (this._label = e.target.value)}
-          />
+        <ha-textfield
+          class="block"
+          .label=${localize(lang, "dialog.label")}
+          placeholder=${localize(lang, "dialog.label_placeholder")}
+          .value=${this._label}
+          @input=${(e) => (this._label = e.target.value)}
+        ></ha-textfield>
 
-          <div class="block">
-            <label class="field">${localize(this.hass?.language, "dialog.repeat")}</label>
-            <div class="seg">
-              ${REPEATS.map((r) => b `
-                  <button
-                    class=${this._repeat === r ? "on" : ""}
-                    @click=${() => (this._repeat = r)}
-                  >
-                    ${localize(this.hass?.language, "repeat." + r)}
-                  </button>
-                `)}
-            </div>
+        <div class="block">
+          <label class="field">${localize(lang, "dialog.repeat")}</label>
+          <div class="seg">
+            ${REPEATS.map((r) => b `
+                <button class=${this._repeat === r ? "on" : ""} @click=${() => (this._repeat = r)}>
+                  ${localize(lang, "repeat." + r)}
+                </button>
+              `)}
           </div>
+        </div>
 
-          ${this._repeat === "weekly"
+        ${this._repeat === "weekly"
             ? b `<div class="block">
-                <label class="field">${localize(this.hass?.language, "dialog.days")}</label>
-                <aurora-weekday-chips
-                  .value=${this._days}
-                  .language=${this.hass?.language}
-                  @change=${(e) => (this._days = e.detail)}
-                ></aurora-weekday-chips>
-              </div>`
+              <label class="field">${localize(lang, "dialog.days")}</label>
+              <aurora-weekday-chips
+                .value=${this._days}
+                .language=${lang}
+                @change=${(e) => (this._days = e.detail)}
+              ></aurora-weekday-chips>
+            </div>`
             : A}
 
-          <div class="block grid2">
-            <div>
-              <label class="field">${localize(this.hass?.language, "dialog.mission")}</label>
-              <select
-                .value=${this._mission}
-                @change=${(e) => (this._mission = e.target.value)}
-              >
-                ${MISSION_TYPES.map((m) => b `<option value=${m} ?selected=${m === this._mission}>
-                    ${localize(this.hass?.language, "mission." + m)}
-                  </option>`)}
-              </select>
-            </div>
-            <div>
-              <label class="field">${localize(this.hass?.language, "dialog.sound")}</label>
-              <input
-                type="text"
-                placeholder=${localize(this.hass?.language, "common.optional")}
-                .value=${this._audioSource}
-                @input=${(e) => (this._audioSource = e.target.value)}
-              />
-            </div>
-          </div>
+        <div class="block grid2">
+          <ha-select
+            .label=${localize(lang, "dialog.mission")}
+            .value=${this._mission}
+            fixedMenuPosition
+            naturalMenuWidth
+            @selected=${(e) => (this._mission = e.target.value)}
+            @closed=${(e) => e.stopPropagation()}
+          >
+            ${MISSION_TYPES.map((m) => b `<ha-list-item .value=${m}>${localize(lang, "mission." + m)}</ha-list-item>`)}
+          </ha-select>
+          <ha-textfield
+            .label=${localize(lang, "dialog.sound")}
+            placeholder=${localize(lang, "common.optional")}
+            .value=${this._audioSource}
+            @input=${(e) => (this._audioSource = e.target.value)}
+          ></ha-textfield>
+        </div>
 
-          ${this._missionParamsBlock()}
+        ${this._missionParamsBlock()}
 
-          <div class="block grid2">
-            <div>
-              <label class="field">${localize(this.hass?.language, "dialog.snooze_max")}</label>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                .value=${String(this._snoozeMax)}
-                @input=${(e) => (this._snoozeMax = Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label class="field">${localize(this.hass?.language, "dialog.snooze_duration")}</label>
-              <input
+        <div class="block grid2">
+          <ha-textfield
+            type="number"
+            min="0"
+            max="10"
+            .label=${localize(lang, "dialog.snooze_max")}
+            .value=${String(this._snoozeMax)}
+            @input=${(e) => (this._snoozeMax = Number(e.target.value))}
+          ></ha-textfield>
+          <ha-textfield
+            type="number"
+            min="1"
+            max="60"
+            .label=${localize(lang, "dialog.snooze_duration")}
+            .value=${String(this._snoozeMin)}
+            @input=${(e) => (this._snoozeMin = Number(e.target.value))}
+          ></ha-textfield>
+        </div>
+
+        <div class="togglerow">
+          <ha-switch
+            .checked=${this._audioFade}
+            @change=${(e) => (this._audioFade = e.target.checked)}
+          ></ha-switch>
+          <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
+        </div>
+
+        <div class="togglerow">
+          <ha-switch
+            .checked=${this._light}
+            @change=${(e) => (this._light = e.target.checked)}
+          ></ha-switch>
+          <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
+          ${this._light
+            ? b `<ha-textfield
+                style="width:96px"
                 type="number"
                 min="1"
                 max="60"
-                .value=${String(this._snoozeMin)}
-                @input=${(e) => (this._snoozeMin = Number(e.target.value))}
-              />
-            </div>
-          </div>
+                .value=${String(this._lightMin)}
+                @input=${(e) => (this._lightMin = Number(e.target.value))}
+              ></ha-textfield>`
+            : A}
+        </div>
 
-          <div class="togglerow">
-            <div
-              class="switch"
-              role="switch"
-              aria-checked=${this._audioFade ? "true" : "false"}
-              @click=${() => (this._audioFade = !this._audioFade)}
-            ></div>
-            <div>${localize(this.hass?.language, "dialog.fade_in")}</div>
+        <div class="togglerow">
+          <ha-switch
+            .checked=${this._smart}
+            @change=${(e) => (this._smart = e.target.checked)}
+          ></ha-switch>
+          <div class="spacer">
+            ${localize(lang, "dialog.smart")}
+            <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
           </div>
-          <div class="togglerow">
-            <div
-              class="switch"
-              role="switch"
-              aria-checked=${this._light ? "true" : "false"}
-              @click=${() => (this._light = !this._light)}
-            ></div>
-            <div class="spacer">${localize(this.hass?.language, "dialog.sunrise")}</div>
-            ${this._light
-            ? b `<input
-                  style="width:90px"
-                  type="number"
-                  min="1"
-                  max="60"
-                  .value=${String(this._lightMin)}
-                  @input=${(e) => (this._lightMin = Number(e.target.value))}
-                />`
+          ${this._smart
+            ? b `<ha-textfield
+                style="width:96px"
+                type="number"
+                min="5"
+                max="60"
+                .value=${String(this._smartMin)}
+                @input=${(e) => (this._smartMin = Number(e.target.value))}
+              ></ha-textfield>`
             : A}
-          </div>
-          <div class="togglerow">
-            <div
-              class="switch"
-              role="switch"
-              aria-checked=${this._smart ? "true" : "false"}
-              @click=${() => (this._smart = !this._smart)}
-            ></div>
-            <div class="spacer">
-              ${localize(this.hass?.language, "dialog.smart")}
-              <div class="sub">${localize(this.hass?.language, "dialog.smart_desc")}</div>
-            </div>
-            ${this._smart
-            ? b `<input
-                  style="width:90px"
-                  type="number"
-                  min="5"
-                  max="60"
-                  .value=${String(this._smartMin)}
-                  @input=${(e) => (this._smartMin = Number(e.target.value))}
-                />`
-            : A}
-          </div>
-          <div class="togglerow">
-            <div
-              class="switch"
-              role="switch"
-              aria-checked=${this._briefing ? "true" : "false"}
-              @click=${() => (this._briefing = !this._briefing)}
-            ></div>
-            <div class="spacer">
-              ${localize(this.hass?.language, "dialog.briefing")}
-              <div class="sub">${localize(this.hass?.language, "dialog.briefing_desc")}</div>
-            </div>
-          </div>
-          ${this._briefing
-            ? b `<div class="chips">
-                ${BRIEFING_BLOCKS.map((b$1) => b `<button
-                    class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
-                    @click=${() => this._toggleBlock(b$1)}
-                  >
-                    ${localize(this.hass?.language, "briefing.block." + b$1)}
-                  </button>`)}
-              </div>`
-            : A}
+        </div>
 
-          <div class="actions">
-            <button class="btn ghost" @click=${this._close}>${localize(this.hass?.language, "common.cancel")}</button>
-            <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-              ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "common.save")}
-            </button>
+        <div class="togglerow">
+          <ha-switch
+            .checked=${this._briefing}
+            @change=${(e) => (this._briefing = e.target.checked)}
+          ></ha-switch>
+          <div class="spacer">
+            ${localize(lang, "dialog.briefing")}
+            <div class="sub">${localize(lang, "dialog.briefing_desc")}</div>
           </div>
         </div>
-      </div>
+        ${this._briefing
+            ? b `<div class="chips">
+              ${BRIEFING_BLOCKS.map((b$1) => b `<button
+                  class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
+                  @click=${() => this._toggleBlock(b$1)}
+                >
+                  ${localize(lang, "briefing.block." + b$1)}
+                </button>`)}
+            </div>`
+            : A}
+
+        <button class="dlg-btn" slot="secondaryAction" dialogAction="cancel">
+          ${localize(lang, "common.cancel")}
+        </button>
+        <button
+          class="dlg-btn"
+          slot="primaryAction"
+          ?disabled=${this._saving}
+          @click=${this._save}
+        >
+          ${this._saving ? localize(lang, "common.saving") : localize(lang, "common.save")}
+        </button>
+      </ha-dialog>
     `;
     }
 };
 AuroraAlarmDialog.styles = [
     auroraStyles,
     i$3 `
-      .backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(20, 18, 40, 0.55);
-        backdrop-filter: blur(4px);
-        display: grid;
-        place-items: end center;
-        z-index: 9;
-        animation: fade 0.2s ease;
+      ha-dialog {
+        --mdc-dialog-min-width: min(560px, 95vw);
+        --mdc-dialog-max-width: 580px;
+        --dialog-content-padding: 4px 24px 16px;
+        --justify-action-buttons: space-between;
       }
-      @media (min-width: 600px) {
-        .backdrop {
-          place-items: center;
-        }
+      .header_title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
-      .sheet {
-        width: min(560px, 100%);
-        max-height: 92vh;
-        overflow: auto;
-        background: var(--aurora-surface);
-        border-radius: 26px 26px 0 0;
-        padding: 8px 22px 22px;
-        box-shadow: 0 -20px 60px -20px rgba(20, 18, 40, 0.6);
-        animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+      .header_title .title {
+        flex: 1;
+        font-size: 1.2rem;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      @media (min-width: 600px) {
-        .sheet {
-          border-radius: 26px;
-        }
+      .header_button {
+        color: var(--secondary-text-color);
       }
-      .grip {
-        width: 42px;
-        height: 5px;
-        border-radius: 3px;
-        background: var(--aurora-divider);
-        margin: 8px auto 14px;
+      .dlg-btn {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--primary-color, var(--aurora-accent));
+        background: transparent;
+        padding: 10px 14px;
+        border-radius: 8px;
       }
-      h2 {
-        margin: 0 0 4px;
-        font-size: 1.25rem;
+      .dlg-btn[disabled] {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .dlg-btn:hover {
+        background: color-mix(in srgb, var(--primary-color, var(--aurora-accent)) 12%, transparent);
+      }
+      /* HA form components fill the dialog width and theme themselves. */
+      ha-textfield,
+      ha-select,
+      ha-entity-picker {
+        display: block;
+        width: 100%;
       }
       input.big-time {
         width: 100%;
@@ -1135,7 +1146,8 @@ AuroraAlarmDialog.styles = [
         text-align: center;
         border: none;
         background: transparent;
-        padding: 4px 0 10px;
+        padding: 4px 0 14px;
+        color: var(--primary-text-color, var(--aurora-text));
       }
       .big-time:focus {
         outline: none;
@@ -1144,6 +1156,7 @@ AuroraAlarmDialog.styles = [
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 14px;
+        align-items: start;
       }
       .seg {
         display: flex;
@@ -1205,26 +1218,6 @@ AuroraAlarmDialog.styles = [
         font-size: 0.78rem;
         color: var(--aurora-dim);
         margin-top: 2px;
-      }
-      .actions {
-        display: flex;
-        gap: 12px;
-        margin-top: 22px;
-      }
-      .actions .btn {
-        flex: 1;
-        padding: 14px;
-      }
-      @keyframes fade {
-        from {
-          opacity: 0;
-        }
-      }
-      @keyframes rise {
-        from {
-          transform: translateY(40px);
-          opacity: 0;
-        }
       }
     `,
 ];
