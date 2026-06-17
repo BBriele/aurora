@@ -3,14 +3,18 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./alarm-list";
 import "./ring-overlay";
+import "./aurora-card-editor";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HassEntity, HomeAssistant } from "./types";
 
-interface AuroraCardConfig {
+export interface AuroraCardConfig {
   type: string;
   title?: string;
   compact?: boolean;
+  /** Make this card a ring screen: show the fullscreen alarm view when ringing.
+   * Off by default — enable only on the device you dedicate to the alarm. */
+  ring_screen?: boolean;
 }
 
 @customElement("aurora-card")
@@ -27,7 +31,11 @@ export class AuroraCard extends LitElement {
   }
 
   static getStubConfig(): Partial<AuroraCardConfig> {
-    return { title: "Aurora" };
+    return { title: "Aurora", ring_screen: false };
+  }
+
+  static getConfigElement(): HTMLElement {
+    return document.createElement("aurora-card-editor");
   }
 
   /**
@@ -163,7 +171,9 @@ export class AuroraCard extends LitElement {
           </div>
         </div>
       </ha-card>
-      <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
+      ${this._config.ring_screen
+        ? html`<aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>`
+        : nothing}
     `;
   }
 }

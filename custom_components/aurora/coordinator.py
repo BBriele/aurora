@@ -30,6 +30,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
+    async_track_state_change_event,
     async_track_time_change,
     async_track_time_interval,
 )
@@ -70,7 +71,7 @@ from .const import (
     VISION_MAX_ATTEMPTS,
     VISION_TIMEOUT_S,
 )
-from .models import AuroraAlarm
+from .models import AuroraAlarm, MissionType
 from .ring import RingController
 from .scheduler import next_occurrence
 from .sleep import SleepFusion, fuse, interpret_signal
@@ -228,6 +229,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_timer: CALLBACK_TYPE | None = None
         self._unsub_watchdog: CALLBACK_TYPE | None = None
         self._unsub_snooze: CALLBACK_TYPE | None = None
+        self._unsub_mission: CALLBACK_TYPE | None = None
         self._unsub_prewake_start: CALLBACK_TYPE | None = None
         self._unsub_prewake_eval: CALLBACK_TYPE | None = None
         self._fusion: SleepFusion | None = None
@@ -314,6 +316,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             self._unsub_timer()
             self._unsub_timer = None
         self._cancel_ring_timers()
+        self._cancel_mission_watch()
         self._cancel_prewake()
         while self._unsub_listeners:
             self._unsub_listeners.pop()()
@@ -327,6 +330,51 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         if self._unsub_snooze is not None:
             self._unsub_snooze()
             self._unsub_snooze = None
+
+    # --- Physical (sensor) anti-snooze mission ------------------------------
+
+    @callback
+    def _cancel_mission_watch(self) -> None:
+        """Stop watching the active alarm's physical mission sensor (if any)."""
+        if self._unsub_mission is not None:
+            self._unsub_mission()
+            self._unsub_mission = None
+
+    @callback
+    def _setup_mission_watch(self, alarm: AuroraAlarm) -> None:
+        """Watch a sensor-based mission so the physical act dismisses the alarm.
+
+        The ``open_door`` mission is satisfied by opening the bound binary_sensor
+        (an off→on transition) — no screen required. Screen-based missions
+        (math/QR/shake/selfie) still need a DisplaySurface and are handled by the
+        card overlay.
+        """
+        self._cancel_mission_watch()
+        mission = alarm.features.mission
+        if mission.type is not MissionType.OPEN_DOOR:
+            return
+        entity_id = mission.params.get("entity_id")
+        if not isinstance(entity_id, str) or not entity_id:
+            return
+        self._unsub_mission = async_track_state_change_event(
+            self.hass, [entity_id], self._on_mission_event
+        )
+
+    @callback
+    def _on_mission_event(self, event: Event) -> None:
+        """Dismiss the alarm on a fresh off→on transition of the door sensor."""
+        if self._active_alarm is None:
+            return
+        new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
+        if new_state is None or new_state.state != "on":
+            return
+        if old_state is not None and old_state.state == "on":
+            return  # already open before the ring — require a real transition
+        _LOGGER.info("Aurora: open-door mission satisfied; dismissing")
+        self.config_entry.async_create_task(
+            self.hass, self.async_dismiss(), "aurora_mission_dismiss"
+        )
 
     @callback
     def _get_alarm(self, alarm_id: str) -> AuroraAlarm | None:
@@ -608,6 +656,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._active_alarm = alarm
         self._active_alarm_id = alarm.id
         self._state = AuroraState.RINGING
+        self._setup_mission_watch(alarm)
         options = self._effective_options(alarm)
         self.config_entry.async_create_task(
             self.hass,
@@ -659,6 +708,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         if self._state is AuroraState.POST_WAKE:
             return
         self._cancel_ring_timers()
+        self._cancel_mission_watch()
         await self._ring.async_stop()
         alarm = self._active_alarm
         self._active_alarm = None

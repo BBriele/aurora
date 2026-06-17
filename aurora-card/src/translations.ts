@@ -119,6 +119,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "card.next_alarm": "Next alarm",
     "card.no_alarm": "No alarm scheduled",
     "card.open_app": "Open the Aurora app →",
+    "carded.title": "Title",
+    "carded.ring_screen": "Use as ring screen",
+    "carded.ring_screen_desc":
+      "Show the fullscreen alarm view on this card when an alarm rings. Off by default — turn it on only on the device you dedicate to the alarm (e.g. a bedside tablet).",
     "rel.now": "now",
     "rel.in_min": "in {n} min",
     "rel.in_hm": "in {h}h {m}m",
@@ -319,6 +323,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "card.next_alarm": "Prossima sveglia",
     "card.no_alarm": "Nessuna sveglia programmata",
     "card.open_app": "Apri l'app Aurora →",
+    "carded.title": "Titolo",
+    "carded.ring_screen": "Usa come schermo sveglia",
+    "carded.ring_screen_desc":
+      "Mostra la schermata sveglia a tutto schermo su questa card quando suona. Disattivato di default — attivalo solo sul dispositivo che dedichi alla sveglia (es. un tablet sul comodino).",
     "rel.now": "ora",
     "rel.in_min": "tra {n} min",
     "rel.in_hm": "tra {h}h {m}m",

@@ -5,7 +5,6 @@ import "./alarm-list";
 import "./schedule-card";
 import "./devices-view";
 import "./globals-view";
-import "./ring-overlay";
 import { getSettings } from "./api";
 import { auroraStyles } from "./theme";
 import { localize } from "./localize";
@@ -212,7 +211,6 @@ export class AuroraPanel extends LitElement {
                 <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
               </div>`}
       </div>
-      <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
     `;
   }
 

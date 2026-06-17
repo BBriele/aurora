@@ -4,6 +4,22 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.15.0 - 2026-06-17
+
+### Added
+- The open-door anti-snooze mission is now satisfied physically: while an alarm
+  is active, Aurora watches the bound door `binary_sensor` and dismisses on an
+  off→on transition — no screen or Stop button needed.
+- A visual editor for the dashboard card, with a title field and a "Use as ring
+  screen" toggle.
+
+### Changed
+- The fullscreen ring screen no longer appears in the Aurora management app. The
+  dashboard card shows it only when its new "Use as ring screen" option is on
+  (off by default) — enable it on the device you dedicate to the alarm. The
+  management UI never acts as the alarm surface, and with no ring screen set up
+  nothing pops over your dashboards.
+
 ## 0.14.0 - 2026-06-17
 
 ### Added

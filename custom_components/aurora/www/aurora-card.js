@@ -246,6 +246,9 @@ const STRINGS = {
         "card.next_alarm": "Next alarm",
         "card.no_alarm": "No alarm scheduled",
         "card.open_app": "Open the Aurora app →",
+        "carded.title": "Title",
+        "carded.ring_screen": "Use as ring screen",
+        "carded.ring_screen_desc": "Show the fullscreen alarm view on this card when an alarm rings. Off by default — turn it on only on the device you dedicate to the alarm (e.g. a bedside tablet).",
         "rel.now": "now",
         "rel.in_min": "in {n} min",
         "rel.in_hm": "in {h}h {m}m",
@@ -427,6 +430,9 @@ const STRINGS = {
         "card.next_alarm": "Prossima sveglia",
         "card.no_alarm": "Nessuna sveglia programmata",
         "card.open_app": "Apri l'app Aurora →",
+        "carded.title": "Titolo",
+        "carded.ring_screen": "Usa come schermo sveglia",
+        "carded.ring_screen_desc": "Mostra la schermata sveglia a tutto schermo su questa card quando suona. Disattivato di default — attivalo solo sul dispositivo che dedichi alla sveglia (es. un tablet sul comodino).",
         "rel.now": "ora",
         "rel.in_min": "tra {n} min",
         "rel.in_hm": "tra {h}h {m}m",
@@ -2413,6 +2419,91 @@ AuroraRingOverlay = __decorate([
     t("aurora-ring-overlay")
 ], AuroraRingOverlay);
 
+/**
+ * Visual editor for the Aurora dashboard card. Exposes the card title and the
+ * "ring screen" opt-in: whether this card shows the fullscreen alarm view when
+ * an alarm rings (enable only on the device dedicated to the alarm).
+ */
+let AuroraCardEditor = class AuroraCardEditor extends i {
+    constructor() {
+        super(...arguments);
+        this._config = { type: "custom:aurora-card" };
+    }
+    setConfig(config) {
+        this._config = config;
+    }
+    _emit(patch) {
+        const next = { ...this._config, ...patch };
+        this._config = next;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+            detail: { config: next },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+    render() {
+        if (!this.hass)
+            return A;
+        const lang = this.hass.language;
+        return b `
+      <div class="form">
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ text: {} }}
+          .label=${localize(lang, "carded.title")}
+          .value=${this._config.title ?? ""}
+          @value-changed=${(e) => this._emit({ title: e.detail.value ?? "" })}
+        ></ha-selector>
+
+        <div class="togglerow">
+          <ha-switch
+            .checked=${this._config.ring_screen ?? false}
+            @change=${(e) => this._emit({ ring_screen: e.target.checked })}
+          ></ha-switch>
+          <div class="t">
+            ${localize(lang, "carded.ring_screen")}
+            <div class="sub">${localize(lang, "carded.ring_screen_desc")}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    }
+};
+AuroraCardEditor.styles = [
+    auroraStyles,
+    i$3 `
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 4px 2px;
+      }
+      .togglerow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .togglerow .t {
+        flex: 1;
+      }
+      .togglerow .sub {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraCardEditor.prototype, "hass", void 0);
+__decorate([
+    r()
+], AuroraCardEditor.prototype, "_config", void 0);
+AuroraCardEditor = __decorate([
+    t("aurora-card-editor")
+], AuroraCardEditor);
+
 let AuroraCard = class AuroraCard extends i {
     constructor() {
         super(...arguments);
@@ -2425,7 +2516,10 @@ let AuroraCard = class AuroraCard extends i {
         return 6;
     }
     static getStubConfig() {
-        return { title: "Aurora" };
+        return { title: "Aurora", ring_screen: false };
+    }
+    static getConfigElement() {
+        return document.createElement("aurora-card-editor");
     }
     /**
      * The next-alarm sensor's entity_id is locale-dependent (has_entity_name +
@@ -2496,7 +2590,9 @@ let AuroraCard = class AuroraCard extends i {
           </div>
         </div>
       </ha-card>
-      <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
+      ${this._config.ring_screen
+            ? b `<aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>`
+            : A}
     `;
     }
 };
@@ -4468,7 +4564,6 @@ let AuroraPanel = class AuroraPanel extends i {
                 <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
               </div>`}
       </div>
-      <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
     `;
     }
     _alarmsTab() {
