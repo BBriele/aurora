@@ -69,6 +69,12 @@ export class AuroraAlarmList extends LitElement {
   static styles = [
     auroraStyles,
     css`
+      .card {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        padding: 18px 20px;
+      }
       .head {
         display: flex;
         align-items: center;
@@ -79,10 +85,21 @@ export class AuroraAlarmList extends LitElement {
         font-size: 1.05rem;
         letter-spacing: 0.01em;
       }
+      /* Responsive list: 1 column on mobile, multi-column on wider screens. */
       .list {
-        display: flex;
-        flex-direction: column;
+        display: grid;
         gap: 10px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 720px) {
+        .list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 1100px) {
+        .list {
+          grid-template-columns: repeat(3, 1fr);
+        }
       }
       .item {
         display: flex;
@@ -152,22 +169,26 @@ export class AuroraAlarmList extends LitElement {
   render(): TemplateResult {
     const visible = this._visible;
     return html`
-      <div class="head">
-        <h3>${localize(this.hass?.language, "alarms.title")}</h3>
-        <span class="spacer"></span>
-        <button class="btn primary" @click=${this._add}>${localize(this.hass?.language, "alarms.new")}</button>
-      </div>
+      <div class="card">
+        <div class="head">
+          <h3>${localize(this.hass?.language, "alarms.title")}</h3>
+          <span class="spacer"></span>
+          <button class="btn primary" @click=${this._add}>
+            ${localize(this.hass?.language, "alarms.new")}
+          </button>
+        </div>
 
-      ${!this._loaded
-        ? html`<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
-        : visible.length === 0
-          ? html`<div class="empty">
-              <div class="big">🌙</div>
-              ${localize(this.hass?.language, "alarms.empty")}
-            </div>`
-          : html`<div class="list">
-              ${visible.map((a) => this._row(a))}
-            </div>`}
+        ${!this._loaded
+          ? html`<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
+          : visible.length === 0
+            ? html`<div class="empty">
+                <div class="big">🌙</div>
+                ${localize(this.hass?.language, "alarms.empty")}
+              </div>`
+            : html`<div class="list">
+                ${visible.map((a) => this._row(a))}
+              </div>`}
+      </div>
 
       <aurora-alarm-dialog
         .hass=${this.hass}

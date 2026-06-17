@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./alarm-list";
+import "./schedule-card";
 import "./devices-view";
 import "./globals-view";
 import "./ring-overlay";
@@ -134,6 +135,23 @@ export class AuroraPanel extends LitElement {
         max-width: 760px;
         margin: 0 auto;
         padding: 18px 18px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      /* The Alarms tab uses the full width on tablet/desktop. */
+      .content.wide {
+        width: 100%;
+      }
+      @media (min-width: 900px) {
+        .content.wide {
+          max-width: 1000px;
+        }
+      }
+      @media (min-width: 1200px) {
+        .content.wide {
+          max-width: 1200px;
+        }
       }
       .panel-card {
         background: var(--aurora-surface);
@@ -185,10 +203,29 @@ export class AuroraPanel extends LitElement {
         </button>
       </div>
 
-      <div class="content">
-        <div class="panel-card">${this._tabContent()}</div>
+      <div class="content ${this._tab === "alarms" ? "wide" : ""}">
+        ${this._tab === "alarms"
+          ? this._alarmsTab()
+          : html`<div class="panel-card">${this._tabContent()}</div>`}
       </div>
       <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
+    `;
+  }
+
+  private _alarmsTab(): TemplateResult {
+    const profileId = this._selected === ALL ? null : this._selected;
+    const showAll = this._selected === ALL;
+    return html`
+      <aurora-schedule-card
+        .hass=${this.hass}
+        .profileId=${profileId}
+        .showAll=${showAll}
+      ></aurora-schedule-card>
+      <aurora-alarm-list
+        .hass=${this.hass}
+        .profileId=${profileId}
+        .showAll=${showAll}
+      ></aurora-alarm-list>
     `;
   }
 
@@ -196,21 +233,14 @@ export class AuroraPanel extends LitElement {
     if (this._tab === "globals") {
       return html`<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`;
     }
-    if (this._tab === "devices") {
-      if (this._selected === ALL) {
-        return html`<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
-      }
-      return html`<aurora-devices-view
-        .hass=${this.hass}
-        .userId=${this._selected}
-        .userName=${this._selectedName}
-      ></aurora-devices-view>`;
+    // devices
+    if (this._selected === ALL) {
+      return html`<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
     }
-    // alarms
-    return html`<aurora-alarm-list
+    return html`<aurora-devices-view
       .hass=${this.hass}
-      .profileId=${this._selected === ALL ? null : this._selected}
-      .showAll=${this._selected === ALL}
-    ></aurora-alarm-list>`;
+      .userId=${this._selected}
+      .userName=${this._selectedName}
+    ></aurora-devices-view>`;
   }
 }

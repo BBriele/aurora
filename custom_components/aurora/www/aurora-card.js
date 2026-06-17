@@ -138,6 +138,9 @@ const STRINGS = {
         // weekdays (Mon-first); letters split by "," names by "|"
         "weekday.letters": "M,T,W,T,F,S,S",
         "weekday.names": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
+        "weekday.short": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+        "schedule.title": "This week",
+        "schedule.empty": "No alarms this day",
         // roles
         "role.audio_sink.label": "Speaker",
         "role.audio_sink.desc": "Where the alarm rings",
@@ -289,6 +292,9 @@ const STRINGS = {
         "common.none": "—",
         "weekday.letters": "L,M,M,G,V,S,D",
         "weekday.names": "Lunedì|Martedì|Mercoledì|Giovedì|Venerdì|Sabato|Domenica",
+        "weekday.short": "Lun,Mar,Mer,Gio,Ven,Sab,Dom",
+        "schedule.title": "Questa settimana",
+        "schedule.empty": "Nessuna sveglia questo giorno",
         "role.audio_sink.label": "Altoparlante",
         "role.audio_sink.desc": "Dove suona la sveglia",
         "role.wake_light.label": "Luce / schermo (alba)",
@@ -1288,22 +1294,26 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
     render() {
         const visible = this._visible;
         return b `
-      <div class="head">
-        <h3>${localize(this.hass?.language, "alarms.title")}</h3>
-        <span class="spacer"></span>
-        <button class="btn primary" @click=${this._add}>${localize(this.hass?.language, "alarms.new")}</button>
-      </div>
+      <div class="card">
+        <div class="head">
+          <h3>${localize(this.hass?.language, "alarms.title")}</h3>
+          <span class="spacer"></span>
+          <button class="btn primary" @click=${this._add}>
+            ${localize(this.hass?.language, "alarms.new")}
+          </button>
+        </div>
 
-      ${!this._loaded
+        ${!this._loaded
             ? b `<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
             : visible.length === 0
                 ? b `<div class="empty">
-              <div class="big">🌙</div>
-              ${localize(this.hass?.language, "alarms.empty")}
-            </div>`
+                <div class="big">🌙</div>
+                ${localize(this.hass?.language, "alarms.empty")}
+              </div>`
                 : b `<div class="list">
-              ${visible.map((a) => this._row(a))}
-            </div>`}
+                ${visible.map((a) => this._row(a))}
+              </div>`}
+      </div>
 
       <aurora-alarm-dialog
         .hass=${this.hass}
@@ -1363,6 +1373,12 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
 AuroraAlarmList.styles = [
     auroraStyles,
     i$3 `
+      .card {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        padding: 18px 20px;
+      }
       .head {
         display: flex;
         align-items: center;
@@ -1373,10 +1389,21 @@ AuroraAlarmList.styles = [
         font-size: 1.05rem;
         letter-spacing: 0.01em;
       }
+      /* Responsive list: 1 column on mobile, multi-column on wider screens. */
       .list {
-        display: flex;
-        flex-direction: column;
+        display: grid;
         gap: 10px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 720px) {
+        .list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 1100px) {
+        .list {
+          grid-template-columns: repeat(3, 1fr);
+        }
       }
       .item {
         display: flex;
@@ -2320,6 +2347,249 @@ AuroraCard = __decorate([
     t("aurora-card")
 ], AuroraCard);
 
+const DAYS = 7;
+/** Local YYYY-MM-DD (not UTC — `on_date` is a local calendar date). */
+function ymd(d) {
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
+}
+/** Weekday index with Monday = 0 (Aurora's convention), from a JS Date. */
+function mondayIdx(d) {
+    return (d.getDay() + 6) % 7;
+}
+function firesOn(alarm, date) {
+    if (!alarm.enabled)
+        return false;
+    const s = alarm.schedule;
+    if (s.repeat_mode === "daily")
+        return true;
+    if (s.repeat_mode === "once")
+        return !!s.on_date && s.on_date === ymd(date);
+    return (s.weekdays ?? []).includes(mondayIdx(date));
+}
+let AuroraScheduleCard = class AuroraScheduleCard extends i {
+    constructor() {
+        super(...arguments);
+        /** When set (and not showAll), only show alarms for this profile. */
+        this.profileId = null;
+        this.showAll = false;
+        this._alarms = [];
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this._subscribe();
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._unsub?.then((u) => u()).catch(() => undefined);
+        this._unsub = undefined;
+    }
+    updated() {
+        if (this.hass && !this._unsub)
+            this._subscribe();
+    }
+    _subscribe() {
+        if (!this.hass || this._unsub)
+            return;
+        this._unsub = subscribeAlarms(this.hass, (alarms) => {
+            this._alarms = alarms;
+        });
+    }
+    get _visible() {
+        if (this.showAll || !this.profileId)
+            return this._alarms;
+        return this._alarms.filter((a) => (a.profile_id ?? null) === this.profileId);
+    }
+    /** First day (within a fortnight) an alarm fires — used to flag skip_next. */
+    _firstOccurrence(alarm) {
+        const d = new Date();
+        for (let i = 0; i < 14; i++) {
+            if (firesOn(alarm, d))
+                return ymd(d);
+            d.setDate(d.getDate() + 1);
+        }
+        return null;
+    }
+    get _week() {
+        const alarms = this._visible;
+        const firstByAlarm = new Map(alarms.map((a) => [a.id, a.skip_next ? this._firstOccurrence(a) : null]));
+        const cells = [];
+        const base = new Date();
+        for (let i = 0; i < DAYS; i++) {
+            const date = new Date(base);
+            date.setDate(base.getDate() + i);
+            const key = ymd(date);
+            const entries = alarms
+                .filter((a) => firesOn(a, date))
+                .sort((x, y) => x.time.localeCompare(y.time))
+                .map((a) => ({ alarm: a, skipped: firstByAlarm.get(a.id) === key }));
+            cells.push({ date, today: i === 0, entries });
+        }
+        return cells;
+    }
+    render() {
+        const lang = this.hass?.language;
+        const short = localize(lang, "weekday.short").split(",");
+        return b `
+      <div class="card">
+        <div class="head"><h3>${localize(lang, "schedule.title")}</h3></div>
+        <div class="week">
+          ${this._week.map((cell) => b `
+              <div class="day ${cell.today ? "today" : ""}">
+                <div class="dh">
+                  <span class="dow">${short[mondayIdx(cell.date)]}</span>
+                  <span class="dnum">${cell.date.getDate()}</span>
+                </div>
+                <div class="chips">
+                  ${cell.entries.length === 0
+            ? b `<span class="none">—</span>`
+            : cell.entries.map((e) => b `<span
+                          class="chip ${e.skipped ? "skip" : ""}"
+                          title=${e.alarm.label || ""}
+                        >
+                          <span class="clock">${e.alarm.time}</span>
+                          ${e.alarm.label ? b `<small>${e.alarm.label}</small>` : A}
+                        </span>`)}
+                </div>
+              </div>
+            `)}
+        </div>
+      </div>
+    `;
+    }
+};
+AuroraScheduleCard.styles = [
+    auroraStyles,
+    i$3 `
+      .card {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        padding: 18px 20px;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .head h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        letter-spacing: 0.01em;
+      }
+      .week {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(7, 1fr);
+      }
+      .day {
+        background: var(--aurora-grad-soft);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius-sm);
+        padding: 10px 10px 12px;
+        min-height: 92px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .day.today {
+        border-color: color-mix(in srgb, var(--aurora-accent) 55%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aurora-accent) 35%, transparent);
+      }
+      .dh {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .dow {
+        font-weight: 700;
+        font-size: 0.74rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--aurora-dim);
+      }
+      .day.today .dow {
+        color: var(--aurora-accent);
+      }
+      .dnum {
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .chips {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .chip {
+        align-self: flex-start;
+        background: color-mix(in srgb, var(--aurora-accent) 16%, transparent);
+        color: var(--aurora-accent);
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 3px 9px;
+        border-radius: 8px;
+        white-space: nowrap;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .chip small {
+        color: var(--aurora-dim);
+        font-weight: 600;
+        margin-left: 5px;
+      }
+      .chip.skip {
+        text-decoration: line-through;
+        color: var(--aurora-dim);
+        background: color-mix(in srgb, var(--aurora-dim) 14%, transparent);
+      }
+      .none {
+        color: var(--aurora-dim);
+        opacity: 0.5;
+        font-size: 1.1rem;
+      }
+      /* Mobile: the 7 columns become rows (weekday → row of time chips). */
+      @media (max-width: 640px) {
+        .week {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .day {
+          flex-direction: row;
+          align-items: center;
+          min-height: 0;
+          padding: 10px 12px;
+        }
+        .dh {
+          flex: 0 0 76px;
+          flex-direction: column;
+          gap: 0;
+          align-items: flex-start;
+        }
+        .chips {
+          flex-direction: row;
+          flex-wrap: wrap;
+        }
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraScheduleCard.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraScheduleCard.prototype, "profileId", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraScheduleCard.prototype, "showAll", void 0);
+__decorate([
+    r()
+], AuroraScheduleCard.prototype, "_alarms", void 0);
+AuroraScheduleCard = __decorate([
+    t("aurora-schedule-card")
+], AuroraScheduleCard);
+
 /**
  * Friendly entity picker used for role bindings.
  * - single: a dropdown of friendly names (+ a "none" option).
@@ -2975,32 +3245,43 @@ let AuroraPanel = class AuroraPanel extends i {
         </button>
       </div>
 
-      <div class="content">
-        <div class="panel-card">${this._tabContent()}</div>
+      <div class="content ${this._tab === "alarms" ? "wide" : ""}">
+        ${this._tab === "alarms"
+            ? this._alarmsTab()
+            : b `<div class="panel-card">${this._tabContent()}</div>`}
       </div>
       <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
+    `;
+    }
+    _alarmsTab() {
+        const profileId = this._selected === ALL ? null : this._selected;
+        const showAll = this._selected === ALL;
+        return b `
+      <aurora-schedule-card
+        .hass=${this.hass}
+        .profileId=${profileId}
+        .showAll=${showAll}
+      ></aurora-schedule-card>
+      <aurora-alarm-list
+        .hass=${this.hass}
+        .profileId=${profileId}
+        .showAll=${showAll}
+      ></aurora-alarm-list>
     `;
     }
     _tabContent() {
         if (this._tab === "globals") {
             return b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`;
         }
-        if (this._tab === "devices") {
-            if (this._selected === ALL) {
-                return b `<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
-            }
-            return b `<aurora-devices-view
-        .hass=${this.hass}
-        .userId=${this._selected}
-        .userName=${this._selectedName}
-      ></aurora-devices-view>`;
+        // devices
+        if (this._selected === ALL) {
+            return b `<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
         }
-        // alarms
-        return b `<aurora-alarm-list
+        return b `<aurora-devices-view
       .hass=${this.hass}
-      .profileId=${this._selected === ALL ? null : this._selected}
-      .showAll=${this._selected === ALL}
-    ></aurora-alarm-list>`;
+      .userId=${this._selected}
+      .userName=${this._selectedName}
+    ></aurora-devices-view>`;
     }
 };
 AuroraPanel.styles = [
@@ -3080,6 +3361,23 @@ AuroraPanel.styles = [
         max-width: 760px;
         margin: 0 auto;
         padding: 18px 18px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      /* The Alarms tab uses the full width on tablet/desktop. */
+      .content.wide {
+        width: 100%;
+      }
+      @media (min-width: 900px) {
+        .content.wide {
+          max-width: 1000px;
+        }
+      }
+      @media (min-width: 1200px) {
+        .content.wide {
+          max-width: 1200px;
+        }
       }
       .panel-card {
         background: var(--aurora-surface);

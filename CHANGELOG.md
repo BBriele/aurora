@@ -4,6 +4,19 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.0 - 2026-06-17
+
+### Added
+- A weekly schedule card at the top of the Alarms page: a 7-day forward view
+  (today onward) showing, per day, the alarms that will ring as time chips —
+  computed from the alarm list (daily/weekly/once), with today highlighted and
+  the next skipped occurrence struck through.
+
+### Changed
+- The Alarms page now uses a responsive layout: it stays a single readable
+  column on phones and spreads to the full width on tablets and desktops, where
+  the schedule spans the width and the alarm list flows into multiple columns.
+
 ## 0.9.2 - 2026-06-17
 
 ### Changed
