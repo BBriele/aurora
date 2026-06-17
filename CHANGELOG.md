@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.11.0 - 2026-06-17
+
+### Changed
+- Renamed the "Devices" tab to "Setup".
+- The Setup page now uses the same responsive card layout as the Alarms page:
+  device role bindings are grouped into themed cards (Audio, Wake & display,
+  Notifications, Presence & sleep, Voice), spreading to the full width on
+  tablets and desktops and collapsing to a single column on phones.
+
 ## 0.10.0 - 2026-06-17
 
 ### Added

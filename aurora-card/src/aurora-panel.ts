@@ -203,10 +203,14 @@ export class AuroraPanel extends LitElement {
         </button>
       </div>
 
-      <div class="content ${this._tab === "alarms" ? "wide" : ""}">
+      <div class="content ${this._tab === "globals" ? "" : "wide"}">
         ${this._tab === "alarms"
           ? this._alarmsTab()
-          : html`<div class="panel-card">${this._tabContent()}</div>`}
+          : this._tab === "devices"
+            ? this._setupTab()
+            : html`<div class="panel-card">
+                <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
+              </div>`}
       </div>
       <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
     `;
@@ -229,13 +233,11 @@ export class AuroraPanel extends LitElement {
     `;
   }
 
-  private _tabContent(): TemplateResult {
-    if (this._tab === "globals") {
-      return html`<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`;
-    }
-    // devices
+  private _setupTab(): TemplateResult {
     if (this._selected === ALL) {
-      return html`<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
+      return html`<div class="panel-card">
+        <div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>
+      </div>`;
     }
     return html`<aurora-devices-view
       .hass=${this.hass}

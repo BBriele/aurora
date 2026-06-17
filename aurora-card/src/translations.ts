@@ -123,7 +123,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "panel.all": "Everyone",
     "panel.profile": "Profile",
     "panel.tab_alarms": "Alarms",
-    "panel.tab_devices": "Devices",
+    "panel.tab_devices": "Setup",
     "panel.tab_globals": "Shared",
     "panel.select_profile": "Select a profile to configure its devices.",
 
@@ -132,6 +132,11 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "devices.intro": "{name}'s devices — all optional. Search and add only what you need; the exact alarm time is always guaranteed.",
     "devices.this_profile": "this profile",
     "devices.save": "Save my devices",
+    "setup.group.audio": "Audio",
+    "setup.group.wake": "Wake & display",
+    "setup.group.notify": "Notifications",
+    "setup.group.presence": "Presence & sleep",
+    "setup.group.voice": "Voice",
 
     // globals view
     "globals.intro": "Settings shared across the whole installation.",
@@ -285,7 +290,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "panel.all": "Tutti",
     "panel.profile": "Profilo",
     "panel.tab_alarms": "Sveglie",
-    "panel.tab_devices": "Dispositivi",
+    "panel.tab_devices": "Setup",
     "panel.tab_globals": "Globali",
     "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
 
@@ -293,6 +298,11 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
     "devices.this_profile": "questo profilo",
     "devices.save": "Salva i miei dispositivi",
+    "setup.group.audio": "Audio",
+    "setup.group.wake": "Risveglio & display",
+    "setup.group.notify": "Notifiche",
+    "setup.group.presence": "Presenza & sonno",
+    "setup.group.voice": "Voce",
 
     "globals.intro": "Impostazioni condivise da tutta l'installazione.",
     "globals.ring_max": "Durata massima suoneria (min)",

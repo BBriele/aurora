@@ -229,7 +229,7 @@ const STRINGS = {
         "panel.all": "Everyone",
         "panel.profile": "Profile",
         "panel.tab_alarms": "Alarms",
-        "panel.tab_devices": "Devices",
+        "panel.tab_devices": "Setup",
         "panel.tab_globals": "Shared",
         "panel.select_profile": "Select a profile to configure its devices.",
         // devices view
@@ -237,6 +237,11 @@ const STRINGS = {
         "devices.intro": "{name}'s devices — all optional. Search and add only what you need; the exact alarm time is always guaranteed.",
         "devices.this_profile": "this profile",
         "devices.save": "Save my devices",
+        "setup.group.audio": "Audio",
+        "setup.group.wake": "Wake & display",
+        "setup.group.notify": "Notifications",
+        "setup.group.presence": "Presence & sleep",
+        "setup.group.voice": "Voice",
         // globals view
         "globals.intro": "Settings shared across the whole installation.",
         "globals.ring_max": "Max ring duration (min)",
@@ -374,13 +379,18 @@ const STRINGS = {
         "panel.all": "Tutti",
         "panel.profile": "Profilo",
         "panel.tab_alarms": "Sveglie",
-        "panel.tab_devices": "Dispositivi",
+        "panel.tab_devices": "Setup",
         "panel.tab_globals": "Globali",
         "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
         "devices.loading": "Caricamento dispositivi…",
         "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
         "devices.this_profile": "questo profilo",
         "devices.save": "Salva i miei dispositivi",
+        "setup.group.audio": "Audio",
+        "setup.group.wake": "Risveglio & display",
+        "setup.group.notify": "Notifiche",
+        "setup.group.presence": "Presenza & sonno",
+        "setup.group.voice": "Voce",
         "globals.intro": "Impostazioni condivise da tutta l'installazione.",
         "globals.ring_max": "Durata massima suoneria (min)",
         "globals.skip_calendars": "Calendari per salto impegni",
@@ -722,19 +732,6 @@ AuroraWeekdayChips = __decorate([
 
 /** Wake-up briefing block keys (labels localized via "briefing.block.<key>"). */
 const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"];
-// Role icons are emoji (not language-dependent). Labels/descriptions are
-// localized via the "role.<key>.label/.desc" keys in translations.ts.
-const ROLE_ICONS = {
-    audio_sink: "🔊",
-    wake_light: "🌅",
-    display_surface: "🖥️",
-    notify_channel: "🔔",
-    sleep_signal: "😴",
-    presence_signal: "🚶",
-    conversation: "🗣️",
-    tts: "📣",
-    vision_provider: "👁️",
-};
 // Mission types in display order. Labels are localized via "mission.<type>".
 const MISSION_TYPES = [
     "none",
@@ -2736,15 +2733,34 @@ AuroraEntityPicker = __decorate([
     t("aurora-entity-picker")
 ], AuroraEntityPicker);
 
-const ROLES = [
-    { key: "audio_sink", multiple: false },
-    { key: "wake_light", multiple: false },
-    { key: "display_surface", multiple: false },
-    { key: "notify_channel", multiple: true },
-    { key: "sleep_signal", multiple: true },
-    { key: "presence_signal", multiple: true },
-    { key: "conversation", multiple: false },
-    { key: "tts", multiple: false },
+// Roles grouped into themed cards (mirrors the Alarms page's card layout).
+const GROUPS = [
+    { key: "audio", icon: "🔊", roles: [{ key: "audio_sink", multiple: false }] },
+    {
+        key: "wake",
+        icon: "🌅",
+        roles: [
+            { key: "wake_light", multiple: false },
+            { key: "display_surface", multiple: false },
+        ],
+    },
+    { key: "notify", icon: "🔔", roles: [{ key: "notify_channel", multiple: true }] },
+    {
+        key: "presence",
+        icon: "😴",
+        roles: [
+            { key: "sleep_signal", multiple: true },
+            { key: "presence_signal", multiple: true },
+        ],
+    },
+    {
+        key: "voice",
+        icon: "🗣️",
+        roles: [
+            { key: "conversation", multiple: false },
+            { key: "tts", multiple: false },
+        ],
+    },
 ];
 /** Per-user device bindings editor. Edits options.profiles[userId].bindings. */
 let AuroraDevicesView = class AuroraDevicesView extends i {
@@ -2796,18 +2812,32 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     }
     render() {
         if (!this._entities) {
-            return b `<div class="intro">${localize(this.hass?.language, "devices.loading")}</div>`;
+            return b `<div class="card intro">${localize(this.hass?.language, "devices.loading")}</div>`;
         }
+        const lang = this.hass?.language;
         return b `
       <p class="intro">
-        ${localize(this.hass?.language, "devices.intro", { name: this.userName || localize(this.hass?.language, "devices.this_profile") })}
+        ${localize(lang, "devices.intro", {
+            name: this.userName || localize(lang, "devices.this_profile"),
+        })}
       </p>
-      ${ROLES.map((role) => this._role(role.key, role.multiple))}
+      <div class="grid">${GROUPS.map((g) => this._card(g))}</div>
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "devices.save")}
+          ${this._saving ? localize(lang, "common.saving") : localize(lang, "devices.save")}
         </button>
-        ${this._saved ? b `<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : A}
+        ${this._saved ? b `<span class="ok">${localize(lang, "common.saved")}</span>` : A}
+      </div>
+    `;
+    }
+    _card(group) {
+        return b `
+      <div class="card">
+        <div class="cardhead">
+          <div class="ic">${group.icon}</div>
+          <h3>${localize(this.hass?.language, "setup.group." + group.key)}</h3>
+        </div>
+        ${group.roles.map((r) => this._role(r.key, r.multiple))}
       </div>
     `;
     }
@@ -2818,13 +2848,8 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
             : (this._bindings[key] ?? "");
         return b `
       <div class="role">
-        <div class="rolehead">
-          <div class="ic">${ROLE_ICONS[key] ?? "•"}</div>
-          <div>
-            <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
-            <div class="desc">${localize(this.hass?.language, "role." + key + ".desc")}</div>
-          </div>
-        </div>
+        <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
+        <div class="desc">${localize(this.hass?.language, "role." + key + ".desc")}</div>
         <aurora-entity-picker
           .hass=${this.hass}
           .options=${options}
@@ -2841,22 +2866,45 @@ AuroraDevicesView.styles = [
     i$3 `
       .intro {
         color: var(--aurora-dim);
-        margin: 0 0 6px;
+        margin: 0 0 16px;
         line-height: 1.5;
       }
       .who {
         font-weight: 700;
         color: var(--aurora-text);
       }
-      .role {
-        padding: 16px 0;
-        border-top: 1px solid var(--aurora-divider);
+      /* Responsive card grid: 1 column on mobile, more on wider screens. */
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr;
       }
-      .rolehead {
+      @media (min-width: 720px) {
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 1200px) {
+        .grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .card {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        padding: 18px 20px;
+      }
+      .cardhead {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 6px;
+      }
+      .cardhead h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        letter-spacing: 0.01em;
       }
       .ic {
         width: 38px;
@@ -2868,12 +2916,22 @@ AuroraDevicesView.styles = [
         background: var(--aurora-grad-soft);
         flex: none;
       }
-      .rolehead .name {
-        font-weight: 700;
+      .role {
+        padding: 14px 0 2px;
+        border-top: 1px solid var(--aurora-divider);
+        margin-top: 12px;
       }
-      .rolehead .desc {
-        font-size: 0.82rem;
+      .role:first-of-type {
+        border-top: none;
+        margin-top: 6px;
+      }
+      .role .name {
+        font-weight: 600;
+      }
+      .role .desc {
+        font-size: 0.8rem;
         color: var(--aurora-dim);
+        margin-bottom: 10px;
       }
       .savebar {
         position: sticky;
@@ -2881,9 +2939,9 @@ AuroraDevicesView.styles = [
         display: flex;
         align-items: center;
         gap: 12px;
-        padding-top: 18px;
-        margin-top: 8px;
-        background: linear-gradient(transparent, var(--aurora-surface) 40%);
+        padding: 16px 2px 4px;
+        margin-top: 4px;
+        background: linear-gradient(transparent, var(--primary-background-color) 45%);
       }
       .ok {
         color: var(--aurora-accent);
@@ -3245,10 +3303,14 @@ let AuroraPanel = class AuroraPanel extends i {
         </button>
       </div>
 
-      <div class="content ${this._tab === "alarms" ? "wide" : ""}">
+      <div class="content ${this._tab === "globals" ? "" : "wide"}">
         ${this._tab === "alarms"
             ? this._alarmsTab()
-            : b `<div class="panel-card">${this._tabContent()}</div>`}
+            : this._tab === "devices"
+                ? this._setupTab()
+                : b `<div class="panel-card">
+                <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
+              </div>`}
       </div>
       <aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>
     `;
@@ -3269,13 +3331,11 @@ let AuroraPanel = class AuroraPanel extends i {
       ></aurora-alarm-list>
     `;
     }
-    _tabContent() {
-        if (this._tab === "globals") {
-            return b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`;
-        }
-        // devices
+    _setupTab() {
         if (this._selected === ALL) {
-            return b `<div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>`;
+            return b `<div class="panel-card">
+        <div class="hint">${localize(this.hass?.language, "panel.select_profile")}</div>
+      </div>`;
         }
         return b `<aurora-devices-view
       .hass=${this.hass}
