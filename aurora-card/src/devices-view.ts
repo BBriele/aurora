@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { getRoleEntities, getSettings, setSettings } from "./api";
 import "./entity-picker";
+import "./audio-presets";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import {
@@ -96,9 +97,15 @@ export class AuroraDevicesView extends LitElement {
           ([, v]) => v !== "" && v !== null && !(Array.isArray(v) && v.length === 0)
         )
       );
-      const profiles: Profiles = {
-        ...this._profiles,
-        [this.userId]: { name: this.userName || this.userId, bindings },
+      // Re-read settings first so we preserve fields this view doesn't edit
+      // (notably the profile's audio_presets, owned by the presets manager).
+      const fresh = await getSettings(this.hass);
+      const profiles = (fresh.options.profiles as Profiles) ?? {};
+      const existing = profiles[this.userId];
+      profiles[this.userId] = {
+        ...existing,
+        name: this.userName || existing?.name || this.userId,
+        bindings,
       };
       const res = await setSettings(this.hass, { profiles });
       this._profiles = (res.options.profiles as Profiles) ?? profiles;
@@ -226,6 +233,22 @@ export class AuroraDevicesView extends LitElement {
           <h3>${localize(this.hass?.language, "setup.group." + group.key)}</h3>
         </div>
         ${group.roles.map((r) => this._role(r.key, r.multiple))}
+        ${group.key === "audio" ? this._audioPresets() : nothing}
+      </div>
+    `;
+  }
+
+  private _audioPresets(): TemplateResult {
+    const sink = this._bindings["audio_sink"];
+    const entityId = typeof sink === "string" && sink ? sink : null;
+    return html`
+      <div class="role">
+        <aurora-audio-presets
+          .hass=${this.hass}
+          .userId=${this.userId}
+          .userName=${this.userName}
+          .entityId=${entityId}
+        ></aurora-audio-presets>
       </div>
     `;
   }

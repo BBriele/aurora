@@ -12,11 +12,18 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from .adapters.audio import AudioSinkAdapter
+from .adapters.audio import AudioItem, AudioSinkAdapter
 from .adapters.base import OutputAdapter
 from .adapters.light import WakeLightAdapter
 from .adapters.notify import NotifyChannelAdapter
-from .const import ROLE_AUDIO_SINK, ROLE_NOTIFY_CHANNEL, ROLE_WAKE_LIGHT
+from .const import (
+    CONF_AUDIO_PRESETS,
+    CONF_PROFILES,
+    PRESET_SOURCE_PREFIX,
+    ROLE_AUDIO_SINK,
+    ROLE_NOTIFY_CHANNEL,
+    ROLE_WAKE_LIGHT,
+)
 from .models import AuroraAlarm, VolumeProfile
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,6 +36,44 @@ def _as_list(value: Any) -> list[str]:
     if isinstance(value, str):
         return [value]
     return list(value)
+
+
+def _profile_presets(alarm: AuroraAlarm, options: Mapping[str, Any]) -> list[dict]:
+    """Return the owner profile's saved audio presets (empty if none)."""
+    profiles = options.get(CONF_PROFILES)
+    if not isinstance(profiles, dict):
+        return []
+    profile = profiles.get(alarm.profile_id or "")
+    if not isinstance(profile, dict):
+        return []
+    presets = profile.get(CONF_AUDIO_PRESETS)
+    return presets if isinstance(presets, list) else []
+
+
+def _resolve_audio_items(
+    source: str, alarm: AuroraAlarm, options: Mapping[str, Any]
+) -> list[AudioItem]:
+    """Expand an alarm's audio source into playable (content_id, type) entries.
+
+    A plain source is a single entry; an ``aurora_preset:<id>`` reference is
+    resolved against the owner profile's presets into its ordered item list.
+    """
+    if source.startswith(PRESET_SOURCE_PREFIX):
+        preset_id = source[len(PRESET_SOURCE_PREFIX) :]
+        for preset in _profile_presets(alarm, options):
+            if isinstance(preset, dict) and preset.get("id") == preset_id:
+                items: list[AudioItem] = []
+                for entry in preset.get("items") or []:
+                    if not isinstance(entry, dict):
+                        continue
+                    content_id = entry.get("media_content_id")
+                    if content_id:
+                        items.append(
+                            (str(content_id), str(entry.get("media_content_type") or ""))
+                        )
+                return items
+        return []
+    return [(source, "")]
 
 
 class RingController:
@@ -52,15 +97,17 @@ class RingController:
         audio = alarm.features.audio
         audio_target = audio.target or options.get(ROLE_AUDIO_SINK)
         if audio.enabled and audio_target and audio.source:
-            adapters.append(
-                AudioSinkAdapter(
-                    self._hass,
-                    audio_target,
-                    audio.source,
-                    fade_in=audio.volume_profile is VolumeProfile.FADE_IN,
-                    volume_max=audio.volume_max,
+            items = _resolve_audio_items(audio.source, alarm, options)
+            if items:
+                adapters.append(
+                    AudioSinkAdapter(
+                        self._hass,
+                        audio_target,
+                        items,
+                        fade_in=audio.volume_profile is VolumeProfile.FADE_IN,
+                        volume_max=audio.volume_max,
+                    )
                 )
-            )
 
         light = alarm.features.light
         light_target = light.target or options.get(ROLE_WAKE_LIGHT)

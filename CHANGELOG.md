@@ -4,6 +4,22 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.12.0 - 2026-06-17
+
+### Added
+- Audio presets: reusable sounds and playlists, managed per profile in the
+  Setup → Audio card. Build a preset from Home Assistant media (a new themed
+  media browser that walks the bound speaker's full source tree, or the
+  installation's media sources) or from a pasted URI, reorder the tracks, and
+  reuse it across alarms.
+- The alarm editor's Sound field is now a preset picker — choose one of the
+  profile's saved presets or enter a custom URI/playlist.
+
+### Changed
+- A ringing alarm whose sound is a multi-track preset now plays the first track
+  and enqueues the rest, so a preset can ring a whole playlist (players that
+  ignore enqueue still ring the first track).
+
 ## 0.11.0 - 2026-06-17
 
 ### Changed

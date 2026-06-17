@@ -75,6 +75,45 @@ export function getRoleEntities(hass: HomeAssistant): Promise<RoleEntities> {
 export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss" | "trigger_now") =>
   hass.callService("aurora", service, {});
 
+/** A node in Home Assistant's media-browse tree (player or media-source). */
+export interface BrowseMedia {
+  title: string;
+  media_class: string;
+  media_content_type: string;
+  media_content_id: string;
+  can_play: boolean;
+  can_expand: boolean;
+  thumbnail?: string | null;
+  children_media_class?: string | null;
+  children?: BrowseMedia[];
+}
+
+/**
+ * Browse Home Assistant media. With an `entityId` the player's own tree is used
+ * (richest — includes its providers and the media sources it can play); without
+ * one, the installation's media sources are browsed. `contentId`/`contentType`
+ * navigate into a folder; omit them for the root.
+ */
+export function browseMedia(
+  hass: HomeAssistant,
+  entityId: string | null,
+  contentId?: string,
+  contentType?: string
+): Promise<BrowseMedia> {
+  if (entityId) {
+    return hass.callWS<BrowseMedia>({
+      type: "media_player/browse_media",
+      entity_id: entityId,
+      ...(contentId ? { media_content_id: contentId } : {}),
+      ...(contentType ? { media_content_type: contentType } : {}),
+    });
+  }
+  return hass.callWS<BrowseMedia>({
+    type: "media_source/browse_media",
+    ...(contentId ? { media_content_id: contentId } : {}),
+  });
+}
+
 export interface VisionResult {
   awake: boolean;
   latency_ms?: number;

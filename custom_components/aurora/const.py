@@ -55,6 +55,11 @@ CONF_ROLE_BINDINGS: Final = "role_bindings"
 CONF_PROFILES: Final = "profiles"
 CONF_PROFILE_BINDINGS: Final = "bindings"
 CONF_PROFILE_NAME: Final = "name"
+# Per-profile audio presets live under options["profiles"][id]["audio_presets"]:
+# a list of {id, name, items:[{media_content_id, media_content_type, title}]}.
+# An alarm's audio source can reference one as "aurora_preset:<id>".
+CONF_AUDIO_PRESETS: Final = "audio_presets"
+PRESET_SOURCE_PREFIX: Final = "aurora_preset:"
 CONF_SKIP_CALENDARS: Final = "skip_calendars"
 CONF_HOLIDAY_CALENDARS: Final = "holiday_calendars"
 CONF_RING_MAX_DURATION: Final = "ring_max_duration"

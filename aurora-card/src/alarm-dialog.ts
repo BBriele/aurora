@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { createAlarm, updateAlarm } from "./api";
+import { createAlarm, getSettings, updateAlarm } from "./api";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import "./weekday-chips";
@@ -9,11 +9,17 @@ import {
   BRIEFING_BLOCKS,
   MISSION_TYPES,
   type Alarm,
+  type AudioPreset,
   type BriefingBlock,
   type HomeAssistant,
   type MissionType,
+  type Profiles,
   type RepeatMode,
 } from "./types";
+
+// Sentinel option values for the sound picker.
+const PRESET_PREFIX = "aurora_preset:";
+const SOUND_CUSTOM = "__custom__";
 
 const REPEATS: RepeatMode[] = ["once", "daily", "weekly"];
 
@@ -37,6 +43,8 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _snoozeMax = 3;
   @state() private _snoozeMin = 9;
   @state() private _audioSource = "";
+  @state() private _audioCustom = false;
+  @state() private _presets: AudioPreset[] = [];
   @state() private _audioFade = true;
   @state() private _light = false;
   @state() private _lightMin = 30;
@@ -50,6 +58,22 @@ export class AuroraAlarmDialog extends LitElement {
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("open") && this.open) {
       this._populate();
+      void this._loadPresets();
+    }
+  }
+
+  private async _loadPresets(): Promise<void> {
+    const pid = this.alarm?.profile_id ?? this.profileId;
+    if (!pid) {
+      this._presets = [];
+      return;
+    }
+    try {
+      const settings = await getSettings(this.hass);
+      const profiles = (settings.options.profiles as Profiles) ?? {};
+      this._presets = profiles[pid]?.audio_presets ?? [];
+    } catch {
+      this._presets = [];
     }
   }
 
@@ -64,6 +88,9 @@ export class AuroraAlarmDialog extends LitElement {
     this._snoozeMax = a?.features.snooze.max ?? 3;
     this._snoozeMin = a ? Math.round((a.features.snooze.duration ?? 540) / 60) : 9;
     this._audioSource = a?.features.audio.source ?? "";
+    // A raw (non-preset) source means the user typed a custom URI/playlist.
+    this._audioCustom =
+      this._audioSource !== "" && !this._audioSource.startsWith(PRESET_PREFIX);
     this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
     this._light = a?.features.light.enabled ?? false;
     this._lightMin = a?.features.light.duration_min ?? 30;
@@ -173,6 +200,57 @@ export class AuroraAlarmDialog extends LitElement {
     return nothing;
   }
 
+  // The sound is either one of the profile's saved audio presets or a custom
+  // URI/playlist. With no presets we keep the plain text field (back-compat).
+  private _soundField(lang?: string): TemplateResult {
+    if (!this._presets.length) {
+      return this._selector(
+        { text: {} },
+        localize(lang, "dialog.sound"),
+        this._audioSource,
+        (v) => (this._audioSource = (v as string) ?? ""),
+        ""
+      );
+    }
+    const isPreset = this._audioSource.startsWith(PRESET_PREFIX);
+    const value = this._audioCustom ? SOUND_CUSTOM : isPreset ? this._audioSource : "";
+    const options = [
+      { value: "", label: localize(lang, "picker.empty_option") },
+      ...this._presets.map((p) => ({ value: PRESET_PREFIX + p.id, label: "🎵 " + p.name })),
+      { value: SOUND_CUSTOM, label: localize(lang, "dialog.sound_custom") },
+    ];
+    return html`<div class="soundwrap">
+      ${this._selector(
+        { select: { mode: "dropdown", options } },
+        localize(lang, "dialog.sound"),
+        value,
+        (v) => this._onSoundSelect((v as string) ?? ""),
+        ""
+      )}
+      ${this._audioCustom
+        ? this._selector(
+            { text: {} },
+            localize(lang, "dialog.sound_uri"),
+            this._audioSource.startsWith(PRESET_PREFIX) ? "" : this._audioSource,
+            (v) => (this._audioSource = (v as string) ?? ""),
+            ""
+          )
+        : nothing}
+    </div>`;
+  }
+
+  private _onSoundSelect(value: string): void {
+    if (value === SOUND_CUSTOM) {
+      this._audioCustom = true;
+      if (this._audioSource.startsWith(PRESET_PREFIX)) {
+        this._audioSource = "";
+      }
+      return;
+    }
+    this._audioCustom = false;
+    this._audioSource = value;
+  }
+
   private async _save(): Promise<void> {
     this._saving = true;
     // The backend replaces the whole `features` dict on update, so we spread the
@@ -263,6 +341,11 @@ export class AuroraAlarmDialog extends LitElement {
       }
       .grid2 ha-selector {
         margin: 0;
+      }
+      .soundwrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
       .seg {
         display: flex;
@@ -400,13 +483,7 @@ export class AuroraAlarmDialog extends LitElement {
             (v) => (this._mission = (v as MissionType) ?? "tap"),
             ""
           )}
-          ${this._selector(
-            { text: {} },
-            localize(lang, "dialog.sound"),
-            this._audioSource,
-            (v) => (this._audioSource = (v as string) ?? ""),
-            ""
-          )}
+          ${this._soundField(lang)}
         </div>
 
         ${this._missionParamsBlock()}

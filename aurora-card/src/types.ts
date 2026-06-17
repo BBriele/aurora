@@ -32,10 +32,25 @@ export interface HomeAssistant {
   ): Promise<unknown>;
 }
 
-/** A per-person profile: a display name + that person's device role bindings. */
+/** One playable entry in an audio preset (a single track, station or folder). */
+export interface PresetItem {
+  media_content_id: string;
+  media_content_type: string;
+  title: string;
+}
+
+/** A named, reusable audio source: a single sound or an ordered playlist. */
+export interface AudioPreset {
+  id: string;
+  name: string;
+  items: PresetItem[];
+}
+
+/** A per-person profile: a display name, device role bindings + audio presets. */
 export interface Profile {
   name: string;
   bindings: Record<string, unknown>;
+  audio_presets?: AudioPreset[];
 }
 export type Profiles = Record<string, Profile>;
 

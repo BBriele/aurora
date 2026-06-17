@@ -115,6 +115,26 @@ function getRoleEntities(hass) {
     return hass.callWS({ type: "aurora/options/entities" });
 }
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
+/**
+ * Browse Home Assistant media. With an `entityId` the player's own tree is used
+ * (richest — includes its providers and the media sources it can play); without
+ * one, the installation's media sources are browsed. `contentId`/`contentType`
+ * navigate into a folder; omit them for the root.
+ */
+function browseMedia(hass, entityId, contentId, contentType) {
+    if (entityId) {
+        return hass.callWS({
+            type: "media_player/browse_media",
+            entity_id: entityId,
+            ...(contentId ? { media_content_id: contentId } : {}),
+            ...(contentType ? { media_content_type: contentType } : {}),
+        });
+    }
+    return hass.callWS({
+        type: "media_source/browse_media",
+        ...(contentId ? { media_content_id: contentId } : {}),
+    });
+}
 /** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
 function visionCheck(hass, image, alarmId) {
     return hass.callWS({
@@ -185,7 +205,9 @@ const STRINGS = {
         "dialog.repeat": "Repeat",
         "dialog.days": "Days",
         "dialog.mission": "Anti-snooze mission",
-        "dialog.sound": "Sound (URI/playlist)",
+        "dialog.sound": "Sound",
+        "dialog.sound_custom": "Custom URI…",
+        "dialog.sound_uri": "Sound URI / playlist",
         "dialog.snooze_max": "Max snooze",
         "dialog.snooze_duration": "Snooze length (min)",
         "dialog.fade_in": "Rising volume (fade-in)",
@@ -242,6 +264,25 @@ const STRINGS = {
         "setup.group.notify": "Notifications",
         "setup.group.presence": "Presence & sleep",
         "setup.group.voice": "Voice",
+        // audio presets
+        "presets.title": "Audio presets",
+        "presets.desc": "Reusable sounds and playlists for {name}'s alarms.",
+        "presets.new": "+ New",
+        "presets.empty": "No presets yet — create one to reuse it in any alarm.",
+        "presets.count": "{n} items",
+        "presets.edit": "Edit",
+        "presets.name": "Preset name",
+        "presets.no_items": "No tracks yet — browse media to add some.",
+        "presets.add_media": "+ Browse media",
+        "presets.save": "Save preset",
+        "presets.untitled": "Untitled preset",
+        // media browser
+        "browser.title": "Choose media",
+        "browser.root": "Library",
+        "browser.empty": "Nothing here.",
+        "browser.paste": "Paste a media URI",
+        "browser.paste_add": "Add",
+        "browser.add_selected": "Add {n}",
         // globals view
         "globals.intro": "Settings shared across the whole installation.",
         "globals.ring_max": "Max ring duration (min)",
@@ -339,7 +380,9 @@ const STRINGS = {
         "dialog.repeat": "Ripetizione",
         "dialog.days": "Giorni",
         "dialog.mission": "Missione anti-snooze",
-        "dialog.sound": "Suono (URI/playlist)",
+        "dialog.sound": "Suono",
+        "dialog.sound_custom": "URI personalizzato…",
+        "dialog.sound_uri": "URI suono / playlist",
         "dialog.snooze_max": "Max snooze",
         "dialog.snooze_duration": "Durata snooze (min)",
         "dialog.fade_in": "Volume crescente (fade-in)",
@@ -391,6 +434,23 @@ const STRINGS = {
         "setup.group.notify": "Notifiche",
         "setup.group.presence": "Presenza & sonno",
         "setup.group.voice": "Voce",
+        "presets.title": "Preset audio",
+        "presets.desc": "Suoni e playlist riutilizzabili per le sveglie di {name}.",
+        "presets.new": "+ Nuovo",
+        "presets.empty": "Ancora nessun preset — creane uno per riusarlo in ogni sveglia.",
+        "presets.count": "{n} elementi",
+        "presets.edit": "Modifica",
+        "presets.name": "Nome preset",
+        "presets.no_items": "Nessun brano — sfoglia i media per aggiungerne.",
+        "presets.add_media": "+ Sfoglia media",
+        "presets.save": "Salva preset",
+        "presets.untitled": "Preset senza nome",
+        "browser.title": "Scegli media",
+        "browser.root": "Libreria",
+        "browser.empty": "Niente qui.",
+        "browser.paste": "Incolla un URI media",
+        "browser.paste_add": "Aggiungi",
+        "browser.add_selected": "Aggiungi {n}",
         "globals.intro": "Impostazioni condivise da tutta l'installazione.",
         "globals.ring_max": "Durata massima suoneria (min)",
         "globals.skip_calendars": "Calendari per salto impegni",
@@ -743,6 +803,9 @@ const MISSION_TYPES = [
     "vision",
 ];
 
+// Sentinel option values for the sound picker.
+const PRESET_PREFIX = "aurora_preset:";
+const SOUND_CUSTOM = "__custom__";
 const REPEATS = ["once", "daily", "weekly"];
 // mdi:close — inlined so the bundle needs no mdi import.
 const MDI_CLOSE = "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
@@ -761,6 +824,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._snoozeMax = 3;
         this._snoozeMin = 9;
         this._audioSource = "";
+        this._audioCustom = false;
+        this._presets = [];
         this._audioFade = true;
         this._light = false;
         this._lightMin = 30;
@@ -774,6 +839,22 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     willUpdate(changed) {
         if (changed.has("open") && this.open) {
             this._populate();
+            void this._loadPresets();
+        }
+    }
+    async _loadPresets() {
+        const pid = this.alarm?.profile_id ?? this.profileId;
+        if (!pid) {
+            this._presets = [];
+            return;
+        }
+        try {
+            const settings = await getSettings(this.hass);
+            const profiles = settings.options.profiles ?? {};
+            this._presets = profiles[pid]?.audio_presets ?? [];
+        }
+        catch {
+            this._presets = [];
         }
     }
     _populate() {
@@ -787,6 +868,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._snoozeMax = a?.features.snooze.max ?? 3;
         this._snoozeMin = a ? Math.round((a.features.snooze.duration ?? 540) / 60) : 9;
         this._audioSource = a?.features.audio.source ?? "";
+        // A raw (non-preset) source means the user typed a custom URI/playlist.
+        this._audioCustom =
+            this._audioSource !== "" && !this._audioSource.startsWith(PRESET_PREFIX);
         this._audioFade = a ? a.features.audio.volume_profile === "fade_in" : true;
         this._light = a?.features.light.enabled ?? false;
         this._lightMin = a?.features.light.duration_min ?? 30;
@@ -865,6 +949,37 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             return this._selector({ entity: { filter: [{ domain: "binary_sensor" }] } }, localize(lang, "mparam.door_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
         }
         return A;
+    }
+    // The sound is either one of the profile's saved audio presets or a custom
+    // URI/playlist. With no presets we keep the plain text field (back-compat).
+    _soundField(lang) {
+        if (!this._presets.length) {
+            return this._selector({ text: {} }, localize(lang, "dialog.sound"), this._audioSource, (v) => (this._audioSource = v ?? ""), "");
+        }
+        const isPreset = this._audioSource.startsWith(PRESET_PREFIX);
+        const value = this._audioCustom ? SOUND_CUSTOM : isPreset ? this._audioSource : "";
+        const options = [
+            { value: "", label: localize(lang, "picker.empty_option") },
+            ...this._presets.map((p) => ({ value: PRESET_PREFIX + p.id, label: "🎵 " + p.name })),
+            { value: SOUND_CUSTOM, label: localize(lang, "dialog.sound_custom") },
+        ];
+        return b `<div class="soundwrap">
+      ${this._selector({ select: { mode: "dropdown", options } }, localize(lang, "dialog.sound"), value, (v) => this._onSoundSelect(v ?? ""), "")}
+      ${this._audioCustom
+            ? this._selector({ text: {} }, localize(lang, "dialog.sound_uri"), this._audioSource.startsWith(PRESET_PREFIX) ? "" : this._audioSource, (v) => (this._audioSource = v ?? ""), "")
+            : A}
+    </div>`;
+    }
+    _onSoundSelect(value) {
+        if (value === SOUND_CUSTOM) {
+            this._audioCustom = true;
+            if (this._audioSource.startsWith(PRESET_PREFIX)) {
+                this._audioSource = "";
+            }
+            return;
+        }
+        this._audioCustom = false;
+        this._audioSource = value;
     }
     async _save() {
         this._saving = true;
@@ -973,7 +1088,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 })),
             },
         }, localize(lang, "dialog.mission"), this._mission, (v) => (this._mission = v ?? "tap"), "")}
-          ${this._selector({ text: {} }, localize(lang, "dialog.sound"), this._audioSource, (v) => (this._audioSource = v ?? ""), "")}
+          ${this._soundField(lang)}
         </div>
 
         ${this._missionParamsBlock()}
@@ -1096,6 +1211,11 @@ AuroraAlarmDialog.styles = [
       .grid2 ha-selector {
         margin: 0;
       }
+      .soundwrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
       .seg {
         display: flex;
         background: color-mix(in srgb, var(--aurora-dim) 10%, transparent);
@@ -1198,6 +1318,12 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_audioSource", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_audioCustom", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_presets", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_audioFade", void 0);
@@ -2733,6 +2859,763 @@ AuroraEntityPicker = __decorate([
     t("aurora-entity-picker")
 ], AuroraEntityPicker);
 
+/**
+ * A themed media picker overlay over Home Assistant's media-browse tree.
+ *
+ * Navigates folders, adds playable entries, and accepts a pasted URI. With
+ * `multiple` it builds a selection tray (for playlists); otherwise the first
+ * pick closes immediately. Emits `select` with `{ items: PresetItem[] }`, or
+ * `closed` when dismissed. It is a self-contained overlay (no nested dialog).
+ */
+let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
+    constructor() {
+        super(...arguments);
+        /** Bind a player for its full source tree; null browses media sources only. */
+        this.entityId = null;
+        this.open = false;
+        this.multiple = false;
+        this._stack = [];
+        this._loading = false;
+        this._error = "";
+        this._selected = [];
+        this._uri = "";
+        this._opened = false;
+    }
+    willUpdate(changed) {
+        if (changed.has("open")) {
+            if (this.open && !this._opened) {
+                this._opened = true;
+                this._stack = [];
+                this._selected = [];
+                this._uri = "";
+                this._error = "";
+                void this._browse();
+            }
+            else if (!this.open) {
+                this._opened = false;
+            }
+        }
+    }
+    get _current() {
+        return this._stack[this._stack.length - 1];
+    }
+    async _browse(node) {
+        this._loading = true;
+        this._error = "";
+        try {
+            const result = await browseMedia(this.hass, this.entityId, node?.media_content_id, node?.media_content_type);
+            this._stack = node ? [...this._stack, result] : [result];
+        }
+        catch (err) {
+            this._error = String(err);
+        }
+        finally {
+            this._loading = false;
+        }
+    }
+    _up(toIndex) {
+        if (toIndex < this._stack.length - 1) {
+            this._stack = this._stack.slice(0, toIndex + 1);
+        }
+    }
+    _add(node) {
+        const item = {
+            media_content_id: node.media_content_id,
+            media_content_type: node.media_content_type,
+            title: node.title,
+        };
+        if (!this.multiple) {
+            this._emitSelect([item]);
+            return;
+        }
+        if (!this._selected.some((s) => s.media_content_id === item.media_content_id)) {
+            this._selected = [...this._selected, item];
+        }
+    }
+    _removeSelected(id) {
+        this._selected = this._selected.filter((s) => s.media_content_id !== id);
+    }
+    _addUri() {
+        const uri = this._uri.trim();
+        if (!uri) {
+            return;
+        }
+        const item = {
+            media_content_id: uri,
+            media_content_type: "music",
+            title: uri,
+        };
+        if (!this.multiple) {
+            this._emitSelect([item]);
+            return;
+        }
+        if (!this._selected.some((s) => s.media_content_id === uri)) {
+            this._selected = [...this._selected, item];
+        }
+        this._uri = "";
+    }
+    _confirm() {
+        if (this._selected.length) {
+            this._emitSelect(this._selected);
+        }
+    }
+    _emitSelect(items) {
+        this.dispatchEvent(new CustomEvent("select", { detail: { items } }));
+        this._close();
+    }
+    _close() {
+        this.open = false;
+        this._opened = false;
+        this.dispatchEvent(new CustomEvent("closed"));
+    }
+    render() {
+        if (!this.open) {
+            return A;
+        }
+        const lang = this.hass?.language;
+        const cur = this._current;
+        const children = cur?.children ?? [];
+        return b `
+      <div class="scrim" @click=${(e) => e.target === e.currentTarget && this._close()}>
+        <div class="sheet">
+          <div class="head">
+            <h3>${localize(lang, "browser.title")}</h3>
+            <button class="x" @click=${this._close} aria-label=${localize(lang, "common.cancel")}>✕</button>
+          </div>
+
+          ${this._stack.length
+            ? b `<div class="crumbs">
+                ${this._stack.map((node, i) => i === this._stack.length - 1
+                ? b `<span>${this._crumb(node, lang)}</span>`
+                : b `<button @click=${() => this._up(i)}>${this._crumb(node, lang)}</button><span class="sep">›</span>`)}
+              </div>`
+            : A}
+
+          <div class="list">
+            ${this._loading
+            ? b `<div class="state">${localize(lang, "common.loading")}</div>`
+            : this._error
+                ? b `<div class="state">${this._error}</div>`
+                : children.length
+                    ? children.map((c) => this._row(c))
+                    : b `<div class="state">${localize(lang, "browser.empty")}</div>`}
+          </div>
+
+          ${this.multiple && this._selected.length
+            ? b `<div class="tray">
+                ${this._selected.map((s) => b `<span class="pill" title=${s.media_content_id}>
+                    <span>${s.title}</span>
+                    <button @click=${() => this._removeSelected(s.media_content_id)}>✕</button>
+                  </span>`)}
+              </div>`
+            : A}
+
+          <div class="uri">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ text: {} }}
+              .label=${localize(lang, "browser.paste")}
+              .value=${this._uri}
+              @value-changed=${(e) => (this._uri = e.detail.value ?? "")}
+            ></ha-selector>
+            <ha-button appearance="outlined" ?disabled=${!this._uri.trim()} @click=${this._addUri}>
+              ${localize(lang, "browser.paste_add")}
+            </ha-button>
+          </div>
+
+          <div class="foot">
+            <ha-button appearance="plain" @click=${this._close}>
+              ${localize(lang, "common.cancel")}
+            </ha-button>
+            ${this.multiple
+            ? b `<ha-button
+                  appearance="plain"
+                  variant="brand"
+                  ?disabled=${!this._selected.length}
+                  @click=${this._confirm}
+                >
+                  ${localize(lang, "browser.add_selected", { n: this._selected.length })}
+                </ha-button>`
+            : A}
+          </div>
+        </div>
+      </div>
+    `;
+    }
+    _crumb(node, lang) {
+        return node.media_content_id ? node.title : localize(lang, "browser.root");
+    }
+    _row(node) {
+        const thumb = node.thumbnail
+            ? `background-image:url("${node.thumbnail}")`
+            : "";
+        const icon = node.can_expand ? "📁" : "🎵";
+        const onRow = node.can_expand
+            ? () => this._browse(node)
+            : node.can_play
+                ? () => this._add(node)
+                : undefined;
+        return b `
+      <button class="row" @click=${onRow} ?disabled=${!onRow}>
+        <span class="ic" style=${thumb}>${thumb ? "" : icon}</span>
+        <span class="t" title=${node.media_content_id}>${node.title}</span>
+        ${node.can_play && node.can_expand
+            ? b `<span
+              class="addbtn"
+              role="button"
+              @click=${(e) => {
+                e.stopPropagation();
+                this._add(node);
+            }}
+              >＋</span
+            >`
+            : A}
+        ${node.can_expand ? b `<span class="chev">›</span>` : A}
+      </button>
+    `;
+    }
+};
+AuroraMediaBrowser.styles = [
+    auroraStyles,
+    i$3 `
+      .scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.45);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+      }
+      .sheet {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        box-shadow: var(--aurora-shadow);
+        width: min(560px, 100%);
+        max-height: 86vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 18px 10px;
+      }
+      .head h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        flex: 1;
+      }
+      .x {
+        appearance: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--aurora-dim);
+        font-size: 20px;
+        line-height: 1;
+        padding: 4px;
+      }
+      .crumbs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 0 18px 8px;
+        font-size: 0.82rem;
+        color: var(--aurora-dim);
+      }
+      .crumbs button {
+        appearance: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--aurora-accent);
+        font: inherit;
+        padding: 0;
+      }
+      .crumbs .sep {
+        opacity: 0.5;
+      }
+      .list {
+        overflow-y: auto;
+        padding: 4px 10px;
+        flex: 1;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 10px 8px;
+        border-radius: 12px;
+        cursor: pointer;
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--aurora-text);
+        font: inherit;
+        text-align: left;
+      }
+      .row:hover {
+        background: color-mix(in srgb, var(--aurora-dim) 10%, transparent);
+      }
+      .row .ic {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+        background: var(--aurora-grad-soft);
+        flex: none;
+        background-size: cover;
+        background-position: center;
+      }
+      .row .t {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row .addbtn {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--aurora-accent-grad);
+        color: var(--aurora-on-accent);
+        font-size: 17px;
+        line-height: 1;
+        flex: none;
+      }
+      .row .chev {
+        color: var(--aurora-dim);
+        flex: none;
+      }
+      .uri {
+        display: flex;
+        gap: 8px;
+        padding: 10px 18px;
+        border-top: 1px solid var(--aurora-divider);
+      }
+      .uri input {
+        flex: 1;
+      }
+      .tray {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px 18px 0;
+      }
+      .tray .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px 5px 11px;
+        border-radius: 999px;
+        background: var(--aurora-accent-grad);
+        color: var(--aurora-on-accent);
+        font-size: 0.8rem;
+        font-weight: 600;
+        max-width: 100%;
+      }
+      .tray .pill span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tray .pill button {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--aurora-on-accent) 22%, transparent);
+        color: var(--aurora-on-accent);
+        font-size: 12px;
+        line-height: 1;
+        flex: none;
+      }
+      .foot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 12px 18px 16px;
+      }
+      .state {
+        padding: 24px 18px;
+        text-align: center;
+        color: var(--aurora-dim);
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraMediaBrowser.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraMediaBrowser.prototype, "entityId", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraMediaBrowser.prototype, "open", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraMediaBrowser.prototype, "multiple", void 0);
+__decorate([
+    r()
+], AuroraMediaBrowser.prototype, "_stack", void 0);
+__decorate([
+    r()
+], AuroraMediaBrowser.prototype, "_loading", void 0);
+__decorate([
+    r()
+], AuroraMediaBrowser.prototype, "_error", void 0);
+__decorate([
+    r()
+], AuroraMediaBrowser.prototype, "_selected", void 0);
+__decorate([
+    r()
+], AuroraMediaBrowser.prototype, "_uri", void 0);
+AuroraMediaBrowser = __decorate([
+    t("aurora-media-browser")
+], AuroraMediaBrowser);
+
+function genId() {
+    return "p_" + Math.random().toString(36).slice(2, 10);
+}
+/**
+ * Per-profile audio preset manager, embedded in the Setup Audio card.
+ *
+ * A preset is a named, reusable sound or ordered playlist built from Home
+ * Assistant media (via aurora-media-browser) or pasted URIs. Presets are stored
+ * under options.profiles[userId].audio_presets and referenced by an alarm's
+ * audio source as "aurora_preset:<id>".
+ */
+let AuroraAudioPresets = class AuroraAudioPresets extends i {
+    constructor() {
+        super(...arguments);
+        this.userId = "";
+        this.userName = "";
+        /** The profile's bound speaker — gives the media browser its richest tree. */
+        this.entityId = null;
+        this._presets = [];
+        this._editing = null;
+        this._browserOpen = false;
+        this._saving = false;
+        this._loadedFor = "";
+    }
+    updated() {
+        if (this.hass && this.userId && this._loadedFor !== this.userId) {
+            this._loadedFor = this.userId;
+            void this._load();
+        }
+    }
+    async _load() {
+        try {
+            const settings = await getSettings(this.hass);
+            const profiles = settings.options.profiles ?? {};
+            this._presets = profiles[this.userId]?.audio_presets ?? [];
+        }
+        catch {
+            this._presets = [];
+        }
+        this._editing = null;
+    }
+    /** Re-read settings before writing so we never clobber the profile bindings. */
+    async _persist(presets) {
+        this._saving = true;
+        try {
+            const settings = await getSettings(this.hass);
+            const profiles = settings.options.profiles ?? {};
+            const existing = profiles[this.userId] ?? { name: this.userName || this.userId, bindings: {} };
+            profiles[this.userId] = {
+                ...existing,
+                name: this.userName || existing.name || this.userId,
+                audio_presets: presets,
+            };
+            const res = await setSettings(this.hass, { profiles });
+            const saved = res.options.profiles ?? profiles;
+            this._presets = saved[this.userId]?.audio_presets ?? presets;
+        }
+        finally {
+            this._saving = false;
+        }
+    }
+    _new() {
+        this._editing = { id: genId(), name: "", items: [] };
+    }
+    _edit(preset) {
+        this._editing = { ...preset, items: preset.items.map((i) => ({ ...i })) };
+    }
+    async _delete(preset) {
+        await this._persist(this._presets.filter((p) => p.id !== preset.id));
+    }
+    _onBrowserSelect(e) {
+        if (!this._editing) {
+            return;
+        }
+        const have = new Set(this._editing.items.map((i) => i.media_content_id));
+        const added = e.detail.items.filter((i) => !have.has(i.media_content_id));
+        this._editing = { ...this._editing, items: [...this._editing.items, ...added] };
+    }
+    _removeItem(index) {
+        if (!this._editing) {
+            return;
+        }
+        this._editing = {
+            ...this._editing,
+            items: this._editing.items.filter((_, i) => i !== index),
+        };
+    }
+    _move(index, dir) {
+        if (!this._editing) {
+            return;
+        }
+        const items = [...this._editing.items];
+        const to = index + dir;
+        if (to < 0 || to >= items.length) {
+            return;
+        }
+        [items[index], items[to]] = [items[to], items[index]];
+        this._editing = { ...this._editing, items };
+    }
+    async _saveEditing() {
+        if (!this._editing) {
+            return;
+        }
+        const editing = {
+            ...this._editing,
+            name: this._editing.name.trim() || localize(this.hass?.language, "presets.untitled"),
+        };
+        const exists = this._presets.some((p) => p.id === editing.id);
+        const next = exists
+            ? this._presets.map((p) => (p.id === editing.id ? editing : p))
+            : [...this._presets, editing];
+        await this._persist(next);
+        this._editing = null;
+    }
+    render() {
+        const lang = this.hass?.language;
+        return b `
+      <div class="ptop">
+        <span class="h">${localize(lang, "presets.title")}</span>
+        ${this._editing
+            ? A
+            : b `<ha-button appearance="outlined" size="small" @click=${this._new}>
+              ${localize(lang, "presets.new")}
+            </ha-button>`}
+      </div>
+      <div class="desc">
+        ${localize(lang, "presets.desc", {
+            name: this.userName || localize(lang, "devices.this_profile"),
+        })}
+      </div>
+      ${this._editing ? this._renderEditor(lang) : this._renderList(lang)}
+      <aurora-media-browser
+        .hass=${this.hass}
+        .entityId=${this.entityId}
+        .open=${this._browserOpen}
+        .multiple=${true}
+        @select=${this._onBrowserSelect}
+        @closed=${() => (this._browserOpen = false)}
+      ></aurora-media-browser>
+    `;
+    }
+    _renderList(lang) {
+        if (!this._presets.length) {
+            return b `<div class="empty">${localize(lang, "presets.empty")}</div>`;
+        }
+        return b `<div class="plist">
+      ${this._presets.map((p) => b `<div class="prow">
+          <span class="nm">${p.name}</span>
+          <span class="ct">${localize(lang, "presets.count", { n: p.items.length })}</span>
+          <button class="iconbtn" title=${localize(lang, "presets.edit")} @click=${() => this._edit(p)}>✎</button>
+          <button class="iconbtn" title=${localize(lang, "common.delete")} ?disabled=${this._saving} @click=${() => this._delete(p)}>🗑</button>
+        </div>`)}
+    </div>`;
+    }
+    _renderEditor(lang) {
+        const ed = this._editing;
+        return b `<div class="editor">
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ text: {} }}
+        .label=${localize(lang, "presets.name")}
+        .value=${ed.name}
+        @value-changed=${(e) => (this._editing = { ...ed, name: e.detail.value ?? "" })}
+      ></ha-selector>
+
+      ${ed.items.length
+            ? b `<div class="items">
+            ${ed.items.map((it, i) => b `<div class="item">
+                <span class="t" title=${it.media_content_id}>${it.title}</span>
+                <button class="iconbtn" ?disabled=${i === 0} @click=${() => this._move(i, -1)}>↑</button>
+                <button class="iconbtn" ?disabled=${i === ed.items.length - 1} @click=${() => this._move(i, 1)}>↓</button>
+                <button class="iconbtn" @click=${() => this._removeItem(i)}>✕</button>
+              </div>`)}
+          </div>`
+            : b `<div class="empty">${localize(lang, "presets.no_items")}</div>`}
+
+      <div class="addrow">
+        <ha-button appearance="outlined" size="small" @click=${() => (this._browserOpen = true)}>
+          ${localize(lang, "presets.add_media")}
+        </ha-button>
+      </div>
+
+      <div class="edfoot">
+        <ha-button appearance="plain" @click=${() => (this._editing = null)}>
+          ${localize(lang, "common.cancel")}
+        </ha-button>
+        <ha-button appearance="plain" variant="brand" ?disabled=${this._saving} @click=${this._saveEditing}>
+          ${this._saving ? localize(lang, "common.saving") : localize(lang, "presets.save")}
+        </ha-button>
+      </div>
+    </div>`;
+    }
+};
+AuroraAudioPresets.styles = [
+    auroraStyles,
+    i$3 `
+      :host {
+        display: block;
+      }
+      .ptop {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .ptop .h {
+        font-weight: 600;
+        flex: 1;
+      }
+      .desc {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin: 2px 0 10px;
+      }
+      .plist {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .prow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--aurora-divider);
+        border-radius: 12px;
+      }
+      .prow .nm {
+        font-weight: 600;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prow .ct {
+        font-size: 0.78rem;
+        color: var(--aurora-dim);
+      }
+      .iconbtn {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        background: transparent;
+        cursor: pointer;
+        border-radius: 9px;
+        width: 32px;
+        height: 32px;
+        font-size: 15px;
+        color: var(--aurora-text);
+        flex: none;
+      }
+      .iconbtn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .empty {
+        font-size: 0.82rem;
+        color: var(--aurora-dim);
+        font-style: italic;
+        padding: 4px 0;
+      }
+      .editor {
+        border: 1px solid var(--aurora-divider);
+        border-radius: 12px;
+        padding: 12px;
+        background: color-mix(in srgb, var(--aurora-dim) 5%, transparent);
+      }
+      .items {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 10px 0;
+      }
+      .item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 9px;
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+      }
+      .item .t {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.85rem;
+      }
+      .addrow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .edfoot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 12px;
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraAudioPresets.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraAudioPresets.prototype, "userId", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraAudioPresets.prototype, "userName", void 0);
+__decorate([
+    n({ attribute: false })
+], AuroraAudioPresets.prototype, "entityId", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_presets", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_editing", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_browserOpen", void 0);
+__decorate([
+    r()
+], AuroraAudioPresets.prototype, "_saving", void 0);
+AuroraAudioPresets = __decorate([
+    t("aurora-audio-presets")
+], AuroraAudioPresets);
+
 // Roles grouped into themed cards (mirrors the Alarms page's card layout).
 const GROUPS = [
     { key: "audio", icon: "🔊", roles: [{ key: "audio_sink", multiple: false }] },
@@ -2798,9 +3681,15 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         this._saving = true;
         try {
             const bindings = Object.fromEntries(Object.entries(this._bindings).filter(([, v]) => v !== "" && v !== null && !(Array.isArray(v) && v.length === 0)));
-            const profiles = {
-                ...this._profiles,
-                [this.userId]: { name: this.userName || this.userId, bindings },
+            // Re-read settings first so we preserve fields this view doesn't edit
+            // (notably the profile's audio_presets, owned by the presets manager).
+            const fresh = await getSettings(this.hass);
+            const profiles = fresh.options.profiles ?? {};
+            const existing = profiles[this.userId];
+            profiles[this.userId] = {
+                ...existing,
+                name: this.userName || existing?.name || this.userId,
+                bindings,
             };
             const res = await setSettings(this.hass, { profiles });
             this._profiles = res.options.profiles ?? profiles;
@@ -2838,6 +3727,21 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
           <h3>${localize(this.hass?.language, "setup.group." + group.key)}</h3>
         </div>
         ${group.roles.map((r) => this._role(r.key, r.multiple))}
+        ${group.key === "audio" ? this._audioPresets() : A}
+      </div>
+    `;
+    }
+    _audioPresets() {
+        const sink = this._bindings["audio_sink"];
+        const entityId = typeof sink === "string" && sink ? sink : null;
+        return b `
+      <div class="role">
+        <aurora-audio-presets
+          .hass=${this.hass}
+          .userId=${this.userId}
+          .userName=${this.userName}
+          .entityId=${entityId}
+        ></aurora-audio-presets>
       </div>
     `;
     }
