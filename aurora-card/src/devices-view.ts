@@ -30,7 +30,7 @@ const GROUPS: GroupDef[] = [
     icon: "🌅",
     roles: [
       { key: "wake_light", multiple: false },
-      { key: "display_surface", multiple: false },
+      { key: "display_surface", multiple: true },
     ],
   },
   { key: "notify", icon: "🔔", roles: [{ key: "notify_channel", multiple: true }] },
