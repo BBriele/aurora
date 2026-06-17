@@ -4,6 +4,17 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.1 - 2026-06-17
+
+### Fixed
+- The alarm editor dialog now renders correctly on current Home Assistant
+  frontends. The 0.9.0 dialog targeted the older Material dialog API; recent
+  Home Assistant builds use a different dialog component, which left the title
+  and the Save/Cancel buttons invisible and the text and number fields blank.
+- Editor fields are now built on Home Assistant's `ha-selector`, which loads the
+  correct input for whatever the running frontend uses, so the label, sound,
+  mission, snooze, sunrise and smart-wake fields render and theme consistently.
+
 ## 0.9.0 - 2026-06-17
 
 ### Changed

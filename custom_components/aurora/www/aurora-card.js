@@ -189,6 +189,8 @@ const STRINGS = {
         "dialog.sunrise": "Sunrise (light/screen ramp)",
         "dialog.smart": "Smart wake",
         "dialog.smart_desc": "Ring earlier if I detect you already awake (your profile's signals)",
+        "dialog.sunrise_min": "Sunrise length (min)",
+        "dialog.smart_min": "Smart window (min)",
         "dialog.briefing": "Wake-up briefing",
         "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
         "mparam.difficulty": "Difficulty",
@@ -333,6 +335,8 @@ const STRINGS = {
         "dialog.sunrise": "Alba (rampa luce/schermo)",
         "dialog.smart": "Risveglio intelligente",
         "dialog.smart_desc": "Suona prima se ti rilevo già sveglio (segnali del tuo profilo)",
+        "dialog.sunrise_min": "Durata alba (min)",
+        "dialog.smart_min": "Finestra anticipo (min)",
         "dialog.briefing": "Briefing al risveglio",
         "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
         "mparam.difficulty": "Difficoltà",
@@ -799,6 +803,16 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this.open = false;
         this.dispatchEvent(new CustomEvent("closed"));
     }
+    // The dialog is a WebAwesome `wa-dialog` under the hood: a scrim/Escape/X
+    // dismissal surfaces as a `wa-hide` event. Inner controls (the mission
+    // dropdown, etc.) can emit their own `wa-hide`; ignore those — only act when
+    // the event retargets to the dialog host itself.
+    _onDialogHide(e) {
+        if (e.target !== e.currentTarget) {
+            return;
+        }
+        this._close();
+    }
     _toggleBlock(block) {
         this._briefingBlocks = this._briefingBlocks.includes(block)
             ? this._briefingBlocks.filter((b) => b !== block)
@@ -806,6 +820,20 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     }
     _setParam(key, value) {
         this._missionParams = { ...this._missionParams, [key]: value };
+    }
+    // Wrap HA's stable `ha-selector` — it self-loads the right input for the
+    // running HA version (today the WebAwesome `wa-input`/`ha-select`), so the
+    // editor stays correct across the frontend's component migrations.
+    _selector(selector, label, value, onChange, cls = "block") {
+        return b `<ha-selector
+      class=${cls}
+      .hass=${this.hass}
+      .selector=${selector}
+      .label=${label}
+      .value=${value ?? ""}
+      .required=${false}
+      @value-changed=${(e) => onChange(e.detail.value)}
+    ></ha-selector>`;
     }
     _missionParamsBlock() {
         const lang = this.hass?.language;
@@ -825,38 +853,13 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
       </div>`;
         }
         if (this._mission === "shake") {
-            return b `<div class="block">
-        <ha-textfield
-          type="number"
-          min="3"
-          max="50"
-          .label=${localize(lang, "mparam.shake_count")}
-          .value=${String(p["count"] ?? 12)}
-          @input=${(e) => this._setParam("count", Number(e.target.value))}
-        ></ha-textfield>
-      </div>`;
+            return this._selector({ number: { min: 3, max: 50, step: 1, mode: "box" } }, localize(lang, "mparam.shake_count"), Number(p["count"] ?? 12), (v) => this._setParam("count", Number(v ?? 0)));
         }
         if (this._mission === "qr") {
-            return b `<div class="block">
-        <ha-textfield
-          .label=${localize(lang, "mparam.qr_value")}
-          placeholder=${localize(lang, "common.optional")}
-          .value=${String(p["value"] ?? "")}
-          @input=${(e) => this._setParam("value", e.target.value)}
-        ></ha-textfield>
-      </div>`;
+            return this._selector({ text: {} }, localize(lang, "mparam.qr_value"), String(p["value"] ?? ""), (v) => this._setParam("value", v ?? ""));
         }
         if (this._mission === "open_door") {
-            return b `<div class="block">
-        <ha-entity-picker
-          .hass=${this.hass}
-          .label=${localize(lang, "mparam.door_entity")}
-          .value=${String(p["entity_id"] ?? "")}
-          .includeDomains=${["binary_sensor"]}
-          allow-custom-entity
-          @value-changed=${(e) => this._setParam("entity_id", e.detail.value)}
-        ></ha-entity-picker>
-      </div>`;
+            return this._selector({ entity: { filter: [{ domain: "binary_sensor" }] } }, localize(lang, "mparam.door_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
         }
         return A;
     }
@@ -908,27 +911,24 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             this.dispatchEvent(new CustomEvent("error", { detail: String(err), bubbles: true, composed: true }));
         }
     }
-    _renderHeading() {
-        const title = this.alarm
-            ? localize(this.hass?.language, "dialog.edit_title")
-            : localize(this.hass?.language, "dialog.new_title");
-        return b `<span class="header_title">
-      <span class="title">${title}</span>
-      <ha-icon-button
-        .label=${localize(this.hass?.language, "common.cancel")}
-        .path=${MDI_CLOSE}
-        dialogAction="close"
-        class="header_button"
-      ></ha-icon-button>
-    </span>`;
-    }
     render() {
         if (!this.open) {
             return A;
         }
         const lang = this.hass?.language;
+        const title = this.alarm
+            ? localize(lang, "dialog.edit_title")
+            : localize(lang, "dialog.new_title");
         return b `
-      <ha-dialog open .heading=${this._renderHeading()} @closed=${this._close}>
+      <ha-dialog open @wa-hide=${this._onDialogHide}>
+        <ha-icon-button
+          slot="headerNavigationIcon"
+          .label=${localize(lang, "common.cancel")}
+          .path=${MDI_CLOSE}
+          @click=${this._close}
+        ></ha-icon-button>
+        <span slot="headerTitle" class="dlg-title">${title}</span>
+
         <input
           class="big-time clock"
           type="time"
@@ -936,13 +936,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
           @input=${(e) => (this._time = e.target.value)}
         />
 
-        <ha-textfield
-          class="block"
-          .label=${localize(lang, "dialog.label")}
-          placeholder=${localize(lang, "dialog.label_placeholder")}
-          .value=${this._label}
-          @input=${(e) => (this._label = e.target.value)}
-        ></ha-textfield>
+        ${this._selector({ text: {} }, localize(lang, "dialog.label"), this._label, (v) => (this._label = v ?? ""))}
 
         <div class="block">
           <label class="field">${localize(lang, "dialog.repeat")}</label>
@@ -967,43 +961,23 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             : A}
 
         <div class="block grid2">
-          <ha-select
-            .label=${localize(lang, "dialog.mission")}
-            .value=${this._mission}
-            fixedMenuPosition
-            naturalMenuWidth
-            @selected=${(e) => (this._mission = e.target.value)}
-            @closed=${(e) => e.stopPropagation()}
-          >
-            ${MISSION_TYPES.map((m) => b `<ha-list-item .value=${m}>${localize(lang, "mission." + m)}</ha-list-item>`)}
-          </ha-select>
-          <ha-textfield
-            .label=${localize(lang, "dialog.sound")}
-            placeholder=${localize(lang, "common.optional")}
-            .value=${this._audioSource}
-            @input=${(e) => (this._audioSource = e.target.value)}
-          ></ha-textfield>
+          ${this._selector({
+            select: {
+                mode: "dropdown",
+                options: MISSION_TYPES.map((m) => ({
+                    value: m,
+                    label: localize(lang, "mission." + m),
+                })),
+            },
+        }, localize(lang, "dialog.mission"), this._mission, (v) => (this._mission = v ?? "tap"), "")}
+          ${this._selector({ text: {} }, localize(lang, "dialog.sound"), this._audioSource, (v) => (this._audioSource = v ?? ""), "")}
         </div>
 
         ${this._missionParamsBlock()}
 
         <div class="block grid2">
-          <ha-textfield
-            type="number"
-            min="0"
-            max="10"
-            .label=${localize(lang, "dialog.snooze_max")}
-            .value=${String(this._snoozeMax)}
-            @input=${(e) => (this._snoozeMax = Number(e.target.value))}
-          ></ha-textfield>
-          <ha-textfield
-            type="number"
-            min="1"
-            max="60"
-            .label=${localize(lang, "dialog.snooze_duration")}
-            .value=${String(this._snoozeMin)}
-            @input=${(e) => (this._snoozeMin = Number(e.target.value))}
-          ></ha-textfield>
+          ${this._selector({ number: { min: 0, max: 10, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_max"), this._snoozeMax, (v) => (this._snoozeMax = Number(v ?? 0)), "")}
+          ${this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_duration"), this._snoozeMin, (v) => (this._snoozeMin = Number(v ?? 0)), "")}
         </div>
 
         <div class="togglerow">
@@ -1020,17 +994,10 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             @change=${(e) => (this._light = e.target.checked)}
           ></ha-switch>
           <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
-          ${this._light
-            ? b `<ha-textfield
-                style="width:96px"
-                type="number"
-                min="1"
-                max="60"
-                .value=${String(this._lightMin)}
-                @input=${(e) => (this._lightMin = Number(e.target.value))}
-              ></ha-textfield>`
-            : A}
         </div>
+        ${this._light
+            ? this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.sunrise_min"), this._lightMin, (v) => (this._lightMin = Number(v ?? 0)))
+            : A}
 
         <div class="togglerow">
           <ha-switch
@@ -1041,17 +1008,10 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             ${localize(lang, "dialog.smart")}
             <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
           </div>
-          ${this._smart
-            ? b `<ha-textfield
-                style="width:96px"
-                type="number"
-                min="5"
-                max="60"
-                .value=${String(this._smartMin)}
-                @input=${(e) => (this._smartMin = Number(e.target.value))}
-              ></ha-textfield>`
-            : A}
         </div>
+        ${this._smart
+            ? this._selector({ number: { min: 5, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.smart_min"), this._smartMin, (v) => (this._smartMin = Number(v ?? 0)))
+            : A}
 
         <div class="togglerow">
           <ha-switch
@@ -1074,12 +1034,12 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             </div>`
             : A}
 
-        <button class="dlg-btn" slot="secondaryAction" dialogAction="cancel">
+        <button class="dlg-btn" slot="footer" @click=${this._close}>
           ${localize(lang, "common.cancel")}
         </button>
         <button
-          class="dlg-btn"
-          slot="primaryAction"
+          class="dlg-btn primary"
+          slot="footer"
           ?disabled=${this._saving}
           @click=${this._save}
         >
@@ -1093,26 +1053,11 @@ AuroraAlarmDialog.styles = [
     auroraStyles,
     i$3 `
       ha-dialog {
-        --mdc-dialog-min-width: min(560px, 95vw);
-        --mdc-dialog-max-width: 580px;
         --dialog-content-padding: 4px 24px 16px;
-        --justify-action-buttons: space-between;
       }
-      .header_title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .header_title .title {
-        flex: 1;
+      .dlg-title {
         font-size: 1.2rem;
         font-weight: 600;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .header_button {
-        color: var(--secondary-text-color);
       }
       .dlg-btn {
         appearance: none;
@@ -1121,22 +1066,23 @@ AuroraAlarmDialog.styles = [
         font: inherit;
         font-weight: 600;
         font-size: 0.95rem;
-        color: var(--primary-color, var(--aurora-accent));
+        color: var(--secondary-text-color);
         background: transparent;
-        padding: 10px 14px;
+        padding: 10px 16px;
         border-radius: 8px;
+      }
+      .dlg-btn.primary {
+        color: var(--primary-color, var(--aurora-accent));
       }
       .dlg-btn[disabled] {
         opacity: 0.5;
         cursor: default;
       }
       .dlg-btn:hover {
-        background: color-mix(in srgb, var(--primary-color, var(--aurora-accent)) 12%, transparent);
+        background: color-mix(in srgb, currentColor 12%, transparent);
       }
-      /* HA form components fill the dialog width and theme themselves. */
-      ha-textfield,
-      ha-select,
-      ha-entity-picker {
+      /* HA selectors fill the dialog width and theme themselves. */
+      ha-selector {
         display: block;
         width: 100%;
       }
@@ -1157,6 +1103,9 @@ AuroraAlarmDialog.styles = [
         grid-template-columns: 1fr 1fr;
         gap: 14px;
         align-items: start;
+      }
+      .grid2 ha-selector {
+        margin: 0;
       }
       .seg {
         display: flex;
