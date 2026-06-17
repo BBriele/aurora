@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from .adapters.audio import AudioItem, AudioSinkAdapter
 from .adapters.base import OutputAdapter
+from .adapters.display import DisplaySurfaceAdapter
 from .adapters.light import WakeLightAdapter
 from .adapters.notify import NotifyChannelAdapter
 from .const import (
@@ -22,6 +23,7 @@ from .const import (
     CONF_PROFILES,
     PRESET_SOURCE_PREFIX,
     ROLE_AUDIO_SINK,
+    ROLE_DISPLAY_SURFACE,
     ROLE_NOTIFY_CHANNEL,
     ROLE_WAKE_LIGHT,
 )
@@ -145,6 +147,20 @@ class RingController:
                     color_temp_kelvin=light.color_temp_kelvin,
                 )
             )
+
+        display = alarm.features.display
+        display_targets = display.targets or _as_list(options.get(ROLE_DISPLAY_SURFACE))
+        if display.enabled and display_targets:
+            for target in display_targets:
+                adapters.append(
+                    DisplaySurfaceAdapter(
+                        self._hass,
+                        target,
+                        color_temp_kelvin=light.color_temp_kelvin,
+                        duration_min=light.duration_min,
+                        label=alarm.label,
+                    )
+                )
 
         # NotifyChannel is always present (persistent_notification = Tier-0 floor).
         adapters.append(
