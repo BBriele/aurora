@@ -125,6 +125,31 @@ class LightFeature:
 
 
 @dataclass(slots=True)
+class DisplayFeature:
+    """Wake-overlay on screen-controllable displays.
+
+    ``targets`` are ``display_surface`` role entity_ids (the kiosk's media_player
+    entity). Empty means "use every bound display_surface target", mirroring how
+    the audio feature falls back to the role binding. The overlay's colour/ramp
+    reuse the alarm's LightFeature settings, so there is nothing else to store.
+    """
+
+    enabled: bool = False
+    targets: list[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        """Serialise to a JSON-safe dict."""
+        return {"enabled": self.enabled, "targets": list(self.targets)}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Deserialise from a stored dict, dropping empty/invalid targets."""
+        raw = data.get("targets") or []
+        targets = [str(t) for t in raw if t]
+        return cls(enabled=bool(data.get("enabled", False)), targets=targets)
+
+
+@dataclass(slots=True)
 class AudioFeature:
     """Ringtone (AudioSink) behaviour. ``target`` is a role-binding entity_id.
 
@@ -282,6 +307,7 @@ class AlarmFeatures:
     mission: MissionFeature = field(default_factory=MissionFeature)
     snooze: SnoozeFeature = field(default_factory=SnoozeFeature)
     briefing: BriefingFeature = field(default_factory=BriefingFeature)
+    display: DisplayFeature = field(default_factory=DisplayFeature)
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -292,6 +318,7 @@ class AlarmFeatures:
             "mission": self.mission.as_dict(),
             "snooze": self.snooze.as_dict(),
             "briefing": self.briefing.as_dict(),
+            "display": self.display.as_dict(),
         }
 
     @classmethod
@@ -305,6 +332,7 @@ class AlarmFeatures:
             mission=MissionFeature.from_dict(data.get("mission", {})),
             snooze=SnoozeFeature.from_dict(data.get("snooze", {})),
             briefing=BriefingFeature.from_dict(data.get("briefing", {})),
+            display=DisplayFeature.from_dict(data.get("display", {})),
         )
 
 
