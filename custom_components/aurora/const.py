@@ -106,3 +106,14 @@ CARD_URL: Final = f"{CARD_URL_BASE}/{CARD_FILENAME}"
 DOMAIN_LLM_VISION: Final = "llmvision"
 DOMAIN_FULLY_KIOSK: Final = "fully_kiosk"
 DOMAIN_BROWSER_MOD: Final = "browser_mod"
+
+# Fully Kiosk display control. translation_keys are locale-independent, so the
+# DisplaySurfaceAdapter resolves the device's control entities by these keys via
+# the entity registry — never by a localized entity_id.
+FK_LOAD_URL_SERVICE: Final = "load_url"
+FK_TK_SCREEN_ON: Final = "screen_on"          # switch
+FK_TK_SCREENSAVER: Final = "screensaver"      # switch
+FK_TK_SCREEN_BRIGHTNESS: Final = "screen_brightness"  # number
+FK_TK_LOAD_START_URL: Final = "load_start_url"  # button (restore)
+FK_TK_TO_FOREGROUND: Final = "to_foreground"    # button
+RING_ROUTE_PATH: Final = "/aurora/ring"
