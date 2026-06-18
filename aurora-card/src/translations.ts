@@ -185,7 +185,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.add_selected": "Add {n}",
 
     // globals view
-    "globals.intro": "Installation-wide settings, shared by every profile. Admins only.",
+    "globals.intro": "Installation-wide settings that apply to every profile. Admins only.",
     "globals.card_ring": "Ring",
     "globals.card_calendar": "Calendar",
     "globals.card_briefing": "Briefing",
@@ -413,7 +413,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.paste_add": "Aggiungi",
     "browser.add_selected": "Aggiungi {n}",
 
-    "globals.intro": "Impostazioni dell'intera installazione, condivise da ogni profilo. Solo amministratori.",
+    "globals.intro": "Impostazioni dell'intera installazione applicate a ogni profilo. Solo amministratori.",
     "globals.card_ring": "Suoneria",
     "globals.card_calendar": "Calendario",
     "globals.card_briefing": "Briefing",
