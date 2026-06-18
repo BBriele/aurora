@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.8 - 2026-06-18
+
+### Changed
+- Internal cleanup with no functional change: table-driven capability probes,
+  removal of dead code and unused config, and small simplifications across the
+  integration and card.
+
 ## 0.16.7 - 2026-06-18
 
 ### Changed
