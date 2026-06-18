@@ -8,8 +8,8 @@ import type { HomeAssistant } from "./types";
 
 /**
  * Visual editor for the Aurora dashboard card. Exposes the card title and the
- * "ring screen" opt-in: whether this card shows the fullscreen alarm view when
- * an alarm rings (enable only on the device dedicated to the alarm).
+ * "ring animation" opt-in: whether this card shows the in-card ringing
+ * animation when an alarm rings (off by default).
  */
 @customElement("aurora-card-editor")
 export class AuroraCardEditor extends LitElement {
@@ -73,13 +73,13 @@ export class AuroraCardEditor extends LitElement {
 
         <div class="togglerow">
           <ha-switch
-            .checked=${this._config.ring_screen ?? false}
+            .checked=${this._config.ring_animation ?? this._config.ring_screen ?? false}
             @change=${(e: Event) =>
-              this._emit({ ring_screen: (e.target as HTMLInputElement).checked })}
+              this._emit({ ring_animation: (e.target as HTMLInputElement).checked })}
           ></ha-switch>
           <div class="t">
-            ${localize(lang, "carded.ring_screen")}
-            <div class="sub">${localize(lang, "carded.ring_screen_desc")}</div>
+            ${localize(lang, "carded.ring_animation")}
+            <div class="sub">${localize(lang, "carded.ring_animation_desc")}</div>
           </div>
         </div>
       </div>

@@ -54,9 +54,9 @@ export class AuroraRingOverlay extends LitElement {
     auroraStyles,
     css`
       .overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 20;
+        position: relative;
+        min-height: 360px;
+        border-radius: var(--aurora-radius);
         display: grid;
         place-items: center;
         color: #fff;

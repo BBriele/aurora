@@ -125,6 +125,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "carded.ring_screen": "Use as ring screen",
     "carded.ring_screen_desc":
       "Show the fullscreen alarm view on this card when an alarm rings. Off by default — turn it on only on the device you dedicate to the alarm (e.g. a bedside tablet).",
+    "carded.ring_animation": "Show ring animation in card",
+    "carded.ring_animation_desc":
+      "Play the sunrise alarm animation inside this card when an alarm rings. Off by default — enable on cards where you want an in-card wake-up visual.",
     "rel.now": "now",
     "rel.in_min": "in {n} min",
     "rel.in_hm": "in {h}h {m}m",
@@ -331,6 +334,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "carded.ring_screen": "Usa come schermo sveglia",
     "carded.ring_screen_desc":
       "Mostra la schermata sveglia a tutto schermo su questa card quando suona. Disattivato di default — attivalo solo sul dispositivo che dedichi alla sveglia (es. un tablet sul comodino).",
+    "carded.ring_animation": "Mostra animazione sveglia nella card",
+    "carded.ring_animation_desc":
+      "Avvia l'animazione alba nella card quando suona una sveglia. Disattivato di default — abilitalo nelle card dove vuoi un visuale di risveglio integrato.",
     "rel.now": "ora",
     "rel.in_min": "tra {n} min",
     "rel.in_hm": "tra {h}h {m}m",

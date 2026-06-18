@@ -12,8 +12,10 @@ export interface AuroraCardConfig {
   type: string;
   title?: string;
   compact?: boolean;
-  /** Make this card a ring screen: show the fullscreen alarm view when ringing.
-   * Off by default — enable only on the device you dedicate to the alarm. */
+  /** Show the ringing animation inside this card (opt-in). Legacy key:
+   * ring_screen. Off by default. */
+  ring_animation?: boolean;
+  /** @deprecated use ring_animation */
   ring_screen?: boolean;
 }
 
@@ -31,7 +33,11 @@ export class AuroraCard extends LitElement {
   }
 
   static getStubConfig(): Partial<AuroraCardConfig> {
-    return { title: "Aurora", ring_screen: false };
+    return { title: "Aurora", ring_animation: false };
+  }
+
+  private get _ringAnimation(): boolean {
+    return this._config.ring_animation ?? this._config.ring_screen ?? false;
   }
 
   static getConfigElement(): HTMLElement {
@@ -170,10 +176,10 @@ export class AuroraCard extends LitElement {
             <a class="open" href="/aurora">${localize(this.hass?.language, "card.open_app")}</a>
           </div>
         </div>
+        ${this._ringAnimation
+          ? html`<aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>`
+          : nothing}
       </ha-card>
-      ${this._config.ring_screen
-        ? html`<aurora-ring-overlay .hass=${this.hass}></aurora-ring-overlay>`
-        : nothing}
     `;
   }
 }
