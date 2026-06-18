@@ -201,6 +201,8 @@ const STRINGS = {
         "dialog.new_title": "New alarm",
         "dialog.edit_title": "Edit alarm",
         "dialog.time": "Time",
+        "dialog.hours": "Hours",
+        "dialog.minutes": "Minutes",
         "dialog.label": "Label",
         "dialog.label_placeholder": "e.g. Work alarm",
         "dialog.repeat": "Repeat",
@@ -393,6 +395,8 @@ const STRINGS = {
         "dialog.new_title": "Nuova sveglia",
         "dialog.edit_title": "Modifica sveglia",
         "dialog.time": "Ora",
+        "dialog.hours": "Ore",
+        "dialog.minutes": "Minuti",
         "dialog.label": "Etichetta",
         "dialog.label_placeholder": "Es. Sveglia lavoro",
         "dialog.repeat": "Ripetizione",
@@ -844,28 +848,7 @@ const SOUND_CUSTOM = "__custom__";
 const REPEATS = ["once", "daily", "weekly"];
 // mdi:close — inlined so the bundle needs no mdi import.
 const MDI_CLOSE = "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
-// mdi:clock-outline — inlined.
-const MDI_CLOCK = "M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12.5,7H11V13L15.75,15.85L16.5,14.62L12.5,12.25V7Z";
-// HA's native <input type="time"> renders 12/24h from the OS locale, ignoring
-// HA's own setting. Format the displayed value from hass.locale instead.
-function fmtTime(t, locale) {
-    const [h, m] = t.split(":");
-    const tf = locale?.time_format;
-    if (tf === "24" || !tf)
-        return `${h}:${m}`;
-    const d = new Date(2000, 0, 1, Number(h), Number(m));
-    if (tf === "12")
-        return new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-        }).format(d);
-    // "language" / "system": let the locale decide (Italian → 24h).
-    return new Intl.DateTimeFormat(locale?.language || undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(d);
-}
+const pad = (n) => String(n).padStart(2, "0");
 let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     constructor() {
         super(...arguments);
@@ -984,16 +967,49 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     _setParam(key, value) {
         this._missionParams = { ...this._missionParams, [key]: value };
     }
-    // Open the OS time picker from the hidden native input behind the big display.
-    _openTimePicker(e) {
-        const input = e.currentTarget.parentElement?.querySelector("input.time-native");
-        if (!input)
-            return;
-        // showPicker is the modern path; fall back to focus+click for older engines.
-        if (input.showPicker)
-            input.showPicker();
-        else
-            input.focus(), input.click();
+    // --- Inline time editor (no native picker; it's ugly and froze the renderer).
+    get _h() {
+        return Number(this._time.split(":")[0]);
+    }
+    get _m() {
+        return Number(this._time.split(":")[1]);
+    }
+    get _is12h() {
+        return this.hass?.locale?.time_format === "12";
+    }
+    _setHM(h, m) {
+        this._time = `${pad((h + 24) % 24)}:${pad((m + 60) % 60)}`;
+    }
+    _toggleMeridiem() {
+        this._setHM(this._h + 12, this._m);
+    }
+    _commitHour(e) {
+        const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
+        if (isNaN(n))
+            return void this.requestUpdate();
+        const h = this._is12h
+            ? (Math.min(Math.max(n, 1), 12) % 12) + (this._h >= 12 ? 12 : 0)
+            : Math.min(Math.max(n, 0), 23);
+        this._setHM(h, this._m);
+    }
+    _commitMin(e) {
+        const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
+        if (isNaN(n))
+            return void this.requestUpdate();
+        this._setHM(this._h, Math.min(Math.max(n, 0), 59));
+    }
+    // Wheel / Up-Down arrows nudge the focused segment (wrap-around via _setHM).
+    _stepHour(d) {
+        this._setHM(this._h + d, this._m);
+    }
+    _stepMin(d) {
+        this._setHM(this._h, this._m + d);
+    }
+    _segKey(e, step) {
+        if (e.key === "ArrowUp")
+            (e.preventDefault(), step(1));
+        else if (e.key === "ArrowDown")
+            (e.preventDefault(), step(-1));
     }
     // Wrap HA's stable `ha-selector` — it self-loads the right input for the
     // running HA version (today the WebAwesome `wa-input`/`ha-select`), so the
@@ -1210,24 +1226,35 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         ></ha-icon-button>
         <span slot="headerTitle" class="dlg-title">${title}</span>
 
-        <div class="timepick">
-          <button
-            type="button"
-            class="big-time clock"
-            aria-label=${localize(lang, "dialog.time")}
-            @click=${this._openTimePicker}
-          >
-            ${fmtTime(this._time, this.hass?.locale)}
-            <ha-svg-icon .path=${MDI_CLOCK}></ha-svg-icon>
-          </button>
+        <div class="timepick" role="group" aria-label=${localize(lang, "dialog.time")}>
           <input
-            class="time-native"
-            type="time"
-            tabindex="-1"
-            aria-hidden="true"
-            .value=${this._time}
-            @input=${(e) => (this._time = e.target.value)}
+            class="seg clock"
+            inputmode="numeric"
+            maxlength="2"
+            aria-label=${localize(lang, "dialog.hours")}
+            .value=${this._is12h ? String(this._h % 12 || 12) : pad(this._h)}
+            @change=${this._commitHour}
+            @wheel=${(e) => (e.preventDefault(), this._stepHour(e.deltaY < 0 ? 1 : -1))}
+            @keydown=${(e) => this._segKey(e, (d) => this._stepHour(d))}
+            @focus=${(e) => e.target.select()}
           />
+          <span class="colon">:</span>
+          <input
+            class="seg clock"
+            inputmode="numeric"
+            maxlength="2"
+            aria-label=${localize(lang, "dialog.minutes")}
+            .value=${pad(this._m)}
+            @change=${this._commitMin}
+            @wheel=${(e) => (e.preventDefault(), this._stepMin(e.deltaY < 0 ? 1 : -1))}
+            @keydown=${(e) => this._segKey(e, (d) => this._stepMin(d))}
+            @focus=${(e) => e.target.select()}
+          />
+          ${this._is12h
+            ? b `<button type="button" class="ampm" @click=${this._toggleMeridiem}>
+                ${this._h >= 12 ? "PM" : "AM"}
+              </button>`
+            : A}
         </div>
 
         ${this._selector({ text: {} }, localize(lang, "dialog.label"), this._label, (v) => (this._label = v ?? ""))}
@@ -1394,51 +1421,62 @@ AuroraAlarmDialog.styles = [
         display: block;
         width: 100%;
       }
+      /* Inline time editor: two big segments, scroll/arrow/type to set. */
       .timepick {
         display: flex;
-        justify-content: center;
-        margin: 2px 0 16px;
-      }
-      button.big-time {
-        display: inline-flex;
         align-items: center;
-        gap: 14px;
-        font: 600 3.4rem/1 var(--ha-font-family-body, inherit);
+        justify-content: center;
+        gap: 2px;
+        margin: 6px 0 18px;
+      }
+      .seg {
+        width: 1.7em;
+        font: 600 3.6rem/1 var(--ha-font-family-body, inherit);
+        text-align: center;
         border: none;
-        border-radius: 16px;
+        border-radius: 14px;
         background: transparent;
-        padding: 10px 22px;
         color: var(--primary-text-color, var(--aurora-text));
         font-variant-numeric: tabular-nums;
-        cursor: pointer;
+        padding: 6px 2px;
+        cursor: ns-resize;
         transition: background 0.15s ease, box-shadow 0.15s ease;
+        -moz-appearance: textfield;
       }
-      button.big-time ha-svg-icon {
-        --mdc-icon-size: 2rem;
-        color: var(--aurora-dim);
-        transition: color 0.15s ease;
+      .seg::-webkit-inner-spin-button,
+      .seg::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
       }
-      button.big-time:hover {
-        background: color-mix(in srgb, var(--aurora-accent) 10%, transparent);
+      .seg:hover {
+        background: color-mix(in srgb, var(--aurora-accent) 9%, transparent);
       }
-      button.big-time:hover ha-svg-icon {
-        color: var(--aurora-accent);
-      }
-      button.big-time:focus-visible {
+      .seg:focus {
         outline: none;
-        background: color-mix(in srgb, var(--aurora-accent) 14%, transparent);
+        background: color-mix(in srgb, var(--aurora-accent) 16%, transparent);
         box-shadow: inset 0 0 0 1px
-          color-mix(in srgb, var(--aurora-accent) 40%, transparent);
+          color-mix(in srgb, var(--aurora-accent) 45%, transparent);
       }
-      /* The native picker host — invisible, just provides the OS time dialog. */
-      .time-native {
-        position: absolute;
-        width: 0;
-        height: 0;
-        padding: 0;
-        border: 0;
-        opacity: 0;
-        pointer-events: none;
+      .colon {
+        font: 600 3.4rem/1 var(--ha-font-family-body, inherit);
+        color: var(--aurora-dim);
+        padding-bottom: 8px;
+      }
+      .ampm {
+        margin-left: 10px;
+        border: 1px solid var(--aurora-divider);
+        border-radius: 12px;
+        background: transparent;
+        color: var(--aurora-accent);
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.04em;
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .ampm:hover {
+        background: color-mix(in srgb, var(--aurora-accent) 12%, transparent);
       }
       .grid2 {
         display: grid;

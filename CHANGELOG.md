@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.7 - 2026-06-18
+
+### Changed
+- The alarm editor's time field is now a self-contained inline editor instead of
+  opening the browser's native time picker (which was unstyled and clunky). The
+  large hour and minute segments are edited in place: scroll over a segment,
+  press the up/down arrows, or type a value. A 12-hour install also gets an
+  AM/PM toggle. It still follows Home Assistant's 12/24-hour setting.
+
 ## 0.16.6 - 2026-06-18
 
 ### Fixed
