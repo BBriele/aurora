@@ -26,6 +26,9 @@ export class AuroraPanel extends LitElement {
   private _loaded = false;
 
   updated(): void {
+    // The ring route renders only the info-only overlay; it never reads
+    // profiles, so skip the settings fetch entirely on a pushed display.
+    if (this.route?.path === "/ring") return;
     if (this.hass && !this._loaded) {
       this._loaded = true;
       this._selected = this.hass.user?.id ?? "";

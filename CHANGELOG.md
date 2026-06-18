@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.1 - 2026-06-18
+
+### Fixed
+- Setup → Wake & display: a display bound before the role became multi-target
+  (stored as a single value) is now shown and preserved by the display picker,
+  instead of appearing empty and being dropped on save.
+- The ring route (`/aurora/ring`) no longer makes an unused settings request on
+  the pushed display.
+
 ## 0.16.0 - 2026-06-18
 
 ### Added

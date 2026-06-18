@@ -4266,9 +4266,17 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
     }
     _role(key, multiple) {
         const options = this._entities.roles[key] ?? [];
+        const raw = this._bindings[key];
+        // A multi role may still hold a legacy single-string binding (bound before
+        // it became multiple) — coerce so it renders and round-trips instead of
+        // silently dropping on save.
         const value = multiple
-            ? (this._bindings[key] ?? [])
-            : (this._bindings[key] ?? "");
+            ? Array.isArray(raw)
+                ? raw
+                : raw
+                    ? [raw]
+                    : []
+            : (raw ?? "");
         return b `
       <div class="role">
         <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
@@ -4659,6 +4667,10 @@ let AuroraPanel = class AuroraPanel extends i {
         this._loaded = false;
     }
     updated() {
+        // The ring route renders only the info-only overlay; it never reads
+        // profiles, so skip the settings fetch entirely on a pushed display.
+        if (this.route?.path === "/ring")
+            return;
         if (this.hass && !this._loaded) {
             this._loaded = true;
             this._selected = this.hass.user?.id ?? "";

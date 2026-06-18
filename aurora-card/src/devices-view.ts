@@ -255,9 +255,17 @@ export class AuroraDevicesView extends LitElement {
 
   private _role(key: string, multiple: boolean): TemplateResult {
     const options = this._entities!.roles[key] ?? [];
+    const raw = this._bindings[key];
+    // A multi role may still hold a legacy single-string binding (bound before
+    // it became multiple) — coerce so it renders and round-trips instead of
+    // silently dropping on save.
     const value = multiple
-      ? ((this._bindings[key] as string[]) ?? [])
-      : ((this._bindings[key] as string) ?? "");
+      ? Array.isArray(raw)
+        ? raw
+        : raw
+          ? [raw as string]
+          : []
+      : ((raw as string) ?? "");
     return html`
       <div class="role">
         <div class="name">${localize(this.hass?.language, "role." + key + ".label")}</div>
