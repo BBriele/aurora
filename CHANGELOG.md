@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.6 - 2026-06-18
+
+### Fixed
+- The alarm editor's large time display now follows Home Assistant's own
+  12/24-hour setting instead of the browser/OS locale, which could show AM/PM on
+  a 24-hour install. The display is formatted from `hass.locale`; tapping it
+  opens the native time picker.
+
 ## 0.16.5 - 2026-06-18
 
 ### Changed

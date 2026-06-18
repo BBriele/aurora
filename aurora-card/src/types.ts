@@ -24,6 +24,8 @@ export interface HomeAssistant {
   user?: HassUser;
   /** Active UI language (e.g. "en", "it"), used to localize the card. */
   language: string;
+  /** User's locale prefs; `time_format` is "12" | "24" | "language" | "system". */
+  locale?: { time_format?: string; language?: string };
   callWS<T>(msg: Record<string, unknown>): Promise<T>;
   callService(
     domain: string,

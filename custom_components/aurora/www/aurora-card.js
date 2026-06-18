@@ -844,6 +844,28 @@ const SOUND_CUSTOM = "__custom__";
 const REPEATS = ["once", "daily", "weekly"];
 // mdi:close — inlined so the bundle needs no mdi import.
 const MDI_CLOSE = "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
+// mdi:clock-outline — inlined.
+const MDI_CLOCK = "M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12.5,7H11V13L15.75,15.85L16.5,14.62L12.5,12.25V7Z";
+// HA's native <input type="time"> renders 12/24h from the OS locale, ignoring
+// HA's own setting. Format the displayed value from hass.locale instead.
+function fmtTime(t, locale) {
+    const [h, m] = t.split(":");
+    const tf = locale?.time_format;
+    if (tf === "24" || !tf)
+        return `${h}:${m}`;
+    const d = new Date(2000, 0, 1, Number(h), Number(m));
+    if (tf === "12")
+        return new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        }).format(d);
+    // "language" / "system": let the locale decide (Italian → 24h).
+    return new Intl.DateTimeFormat(locale?.language || undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(d);
+}
 let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     constructor() {
         super(...arguments);
@@ -961,6 +983,17 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
     }
     _setParam(key, value) {
         this._missionParams = { ...this._missionParams, [key]: value };
+    }
+    // Open the OS time picker from the hidden native input behind the big display.
+    _openTimePicker(e) {
+        const input = e.currentTarget.parentElement?.querySelector("input.time-native");
+        if (!input)
+            return;
+        // showPicker is the modern path; fall back to focus+click for older engines.
+        if (input.showPicker)
+            input.showPicker();
+        else
+            input.focus(), input.click();
     }
     // Wrap HA's stable `ha-selector` — it self-loads the right input for the
     // running HA version (today the WebAwesome `wa-input`/`ha-select`), so the
@@ -1178,10 +1211,20 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         <span slot="headerTitle" class="dlg-title">${title}</span>
 
         <div class="timepick">
-          <input
+          <button
+            type="button"
             class="big-time clock"
-            type="time"
             aria-label=${localize(lang, "dialog.time")}
+            @click=${this._openTimePicker}
+          >
+            ${fmtTime(this._time, this.hass?.locale)}
+            <ha-svg-icon .path=${MDI_CLOCK}></ha-svg-icon>
+          </button>
+          <input
+            class="time-native"
+            type="time"
+            tabindex="-1"
+            aria-hidden="true"
             .value=${this._time}
             @input=${(e) => (this._time = e.target.value)}
           />
@@ -1356,38 +1399,46 @@ AuroraAlarmDialog.styles = [
         justify-content: center;
         margin: 2px 0 16px;
       }
-      input.big-time {
+      button.big-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
         font: 600 3.4rem/1 var(--ha-font-family-body, inherit);
-        text-align: center;
         border: none;
         border-radius: 16px;
         background: transparent;
-        padding: 10px 20px;
+        padding: 10px 22px;
         color: var(--primary-text-color, var(--aurora-text));
         font-variant-numeric: tabular-nums;
         cursor: pointer;
         transition: background 0.15s ease, box-shadow 0.15s ease;
       }
-      input.big-time:hover {
+      button.big-time ha-svg-icon {
+        --mdc-icon-size: 2rem;
+        color: var(--aurora-dim);
+        transition: color 0.15s ease;
+      }
+      button.big-time:hover {
         background: color-mix(in srgb, var(--aurora-accent) 10%, transparent);
       }
-      input.big-time:focus {
+      button.big-time:hover ha-svg-icon {
+        color: var(--aurora-accent);
+      }
+      button.big-time:focus-visible {
         outline: none;
         background: color-mix(in srgb, var(--aurora-accent) 14%, transparent);
         box-shadow: inset 0 0 0 1px
           color-mix(in srgb, var(--aurora-accent) 40%, transparent);
       }
-      /* Theme + enlarge the native clock affordance. ponytail: invert assumes a
-         dark theme (the user's); a light theme would need invert(0). */
-      input.big-time::-webkit-calendar-picker-indicator {
-        filter: invert(0.65);
-        opacity: 0.6;
-        transform: scale(1.25);
-        margin-left: 8px;
-        cursor: pointer;
-      }
-      input.big-time::-webkit-calendar-picker-indicator:hover {
-        opacity: 1;
+      /* The native picker host — invisible, just provides the OS time dialog. */
+      .time-native {
+        position: absolute;
+        width: 0;
+        height: 0;
+        padding: 0;
+        border: 0;
+        opacity: 0;
+        pointer-events: none;
       }
       .grid2 {
         display: grid;
