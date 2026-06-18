@@ -61,6 +61,7 @@ from .const import (
     DEFAULT_SMART_WINDOW_MIN,
     DOMAIN,
     LATENCY_WINDOW,
+    PREWARM_LEAD_S,
     ROLE_AUDIO_SINK,
     ROLE_PRESENCE_SIGNAL,
     ROLE_SLEEP_SIGNAL,
@@ -236,6 +237,8 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_prewake_eval: CALLBACK_TYPE | None = None
         self._fusion: SleepFusion | None = None
         self._prewake_alarm_id: str | None = None
+        self._warmed_alarm_id: str | None = None
+        self._unsub_prewarm: CALLBACK_TYPE | None = None
         self._skip_dates: set[date] = set()
         self._unsub_listeners: list[CALLBACK_TYPE] = []
         self._ring = RingController(hass)
@@ -466,6 +469,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 self._next.fire_at_utc.isoformat(),
             )
             self._maybe_schedule_prewake()
+            self._maybe_schedule_prewarm()
         self._publish()
 
     @callback
@@ -581,15 +585,19 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
 
     @callback
     def _cancel_prewake(self) -> None:
-        """Cancel any pending pre-wake start timer and evaluation loop."""
+        """Cancel any pending pre-wake start timer, evaluation loop, and prewarm."""
         if self._unsub_prewake_start is not None:
             self._unsub_prewake_start()
             self._unsub_prewake_start = None
         if self._unsub_prewake_eval is not None:
             self._unsub_prewake_eval()
             self._unsub_prewake_eval = None
+        if self._unsub_prewarm is not None:
+            self._unsub_prewarm()
+            self._unsub_prewarm = None
         self._fusion = None
         self._prewake_alarm_id = None
+        self._warmed_alarm_id = None
 
     @callback
     def _resolve_signals(self, alarm: AuroraAlarm) -> list[str]:
@@ -630,6 +638,16 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
     def _start_prewake(self) -> None:
         """Enter the pre-wake window and begin evaluating sleep signals."""
         self._unsub_prewake_start = None
+        # Hook A: fire a best-effort prewarm for the pre-wake alarm so the model
+        # is loaded before the first real selfie check.
+        if self._prewake_alarm_id is not None:
+            alarm = self._get_alarm(self._prewake_alarm_id)
+            if alarm is not None:
+                self.config_entry.async_create_task(
+                    self.hass,
+                    self._async_vision_prewarm(alarm),
+                    "aurora_vision_prewarm_prewake",
+                )
         self._state = AuroraState.PRE_WAKE
         self._fusion = SleepFusion()
         self._publish()
@@ -1047,7 +1065,11 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         raise HomeAssistantError("No vision provider configured")
 
     async def async_vision_check(
-        self, image_b64: str, alarm_id: str | None = None
+        self,
+        image_b64: str,
+        alarm_id: str | None = None,
+        *,
+        record_stats: bool = True,
     ) -> dict[str, object]:
         """Verify a selfie shows the user awake. Returns {awake, latency_ms, error?}.
 
@@ -1055,6 +1077,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         each call is time-boxed and retried with backoff, and the temp image is
         always cleaned up. A failure returns ``awake: False`` so the alarm keeps
         ringing (and the card degrades to a simpler mission).
+
+        Pass ``record_stats=False`` for synthetic calls (benchmark, pre-warm) so
+        they do not pollute the rolling latency sensor or the circuit breaker.
         """
         if not self._vision_breaker.allow(time.monotonic()):
             return {"awake": False, "error": "circuit_open"}
@@ -1109,8 +1134,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     )
                     await asyncio.sleep(backoff)
         latency_ms = round((time.monotonic() - start) * 1000)
-        self._vision_breaker.record(ok, time.monotonic())
-        if ok:
+        if record_stats:
+            self._vision_breaker.record(ok, time.monotonic())
+        if record_stats and ok:
             self._vision_latency.add(latency_ms)
             self._publish()  # refresh the latency sensor
 
@@ -1129,27 +1155,36 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             }
         return {"awake": parse_verdict(text), "latency_ms": latency_ms}
 
-    async def async_vision_benchmark(self, samples: int) -> dict[str, object]:
-        """Run ``samples`` timed inferences on a generated image; report stats."""
+    def _sample_image_b64(self) -> str:
+        """Generate a small solid-colour JPEG and return it as a base64 string.
+
+        Pillow-backed.  Shared by the benchmark and the vision pre-warm so both
+        send a syntactically valid image without hitting a real camera.
+        """
+        import io
+
         try:
             from PIL import Image
         except ImportError as err:
             raise HomeAssistantError(
-                "Pillow is required for the vision benchmark"
+                "Pillow is required for vision benchmark / pre-warm"
             ) from err
 
-        def _sample_image() -> str:
-            import io
+        buf = io.BytesIO()
+        Image.new("RGB", (320, 320), (96, 96, 120)).save(buf, format="JPEG")
+        return base64.b64encode(buf.getvalue()).decode()
 
-            buf = io.BytesIO()
-            Image.new("RGB", (320, 320), (96, 96, 120)).save(buf, format="JPEG")
-            return base64.b64encode(buf.getvalue()).decode()
+    async def async_vision_benchmark(self, samples: int) -> dict[str, object]:
+        """Run ``samples`` timed inferences on a generated image; report stats.
 
-        image_b64 = await self.hass.async_add_executor_job(_sample_image)
+        Uses ``record_stats=False`` so benchmark runs do not pollute the rolling
+        latency sensor or the circuit breaker.
+        """
+        image_b64 = await self.hass.async_add_executor_job(self._sample_image_b64)
         latencies: list[float] = []
         succeeded = 0
         for _ in range(samples):
-            result = await self.async_vision_check(image_b64, None)
+            result = await self.async_vision_check(image_b64, None, record_stats=False)
             if result.get("error") is None:
                 succeeded += 1
             lat = result.get("latency_ms")
@@ -1168,3 +1203,72 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 "max": round(max(latencies)) if latencies else None,
             },
         }
+
+    async def _async_vision_prewarm(self, alarm: AuroraAlarm) -> None:
+        """Best-effort warm-up so the first real selfie check is not cold.
+
+        Guards:
+        - mission must be VISION;
+        - at most one warm-up per schedule cycle (_warmed_alarm_id guard);
+        - a vision provider must be resolvable for this alarm;
+        - the circuit breaker must allow a call.
+
+        Uses ``record_stats=False`` so the warm-up does not pollute the latency
+        sensor or the breaker.  All errors are suppressed — this is fire-and-forget.
+        """
+        if alarm.features.mission.type != MissionType.VISION:
+            return
+        if self._warmed_alarm_id == alarm.id:
+            return
+        options = self._effective_options(alarm)
+        if not _first_entity(options.get(ROLE_VISION_PROVIDER)):
+            return
+        if not self._vision_breaker.allow(time.monotonic()):
+            return
+        # Stamp the guard only once we have an image in hand: if sample
+        # generation fails (e.g. Pillow missing) the cycle stays un-warmed so
+        # the other trigger can still try, rather than being silently skipped.
+        with contextlib.suppress(Exception):
+            image = await self.hass.async_add_executor_job(self._sample_image_b64)
+            self._warmed_alarm_id = alarm.id
+            await self.async_vision_check(image, alarm.id, record_stats=False)
+
+    @callback
+    def _maybe_schedule_prewarm(self) -> None:
+        """Arm a pre-warm timer at PREWARM_LEAD_S before the next vision alarm.
+
+        Mirrors ``_maybe_schedule_prewake``.  If the alarm's mission is not VISION
+        or no vision provider is configured the method is a no-op.  The warm-up
+        task is fire-and-forget via ``config_entry.async_create_task``; it never
+        blocks or raises into the state machine.
+        """
+        if self._next is None:
+            return
+        alarm = self._get_alarm(self._next.alarm_id)
+        if alarm is None:
+            return
+        if alarm.features.mission.type != MissionType.VISION:
+            return
+        options = self._effective_options(alarm)
+        if not _first_entity(options.get(ROLE_VISION_PROVIDER)):
+            return
+        prewarm_at = self._next.fire_at_utc - timedelta(seconds=PREWARM_LEAD_S)
+        if prewarm_at <= dt_util.utcnow():
+            # Already past the lead time — fire immediately.
+            self.config_entry.async_create_task(
+                self.hass,
+                self._async_vision_prewarm(alarm),
+                "aurora_vision_prewarm_immediate",
+            )
+        else:
+            def _fire(_now: datetime) -> None:
+                self._unsub_prewarm = None
+                self.config_entry.async_create_task(
+                    self.hass,
+                    self._async_vision_prewarm(alarm),
+                    "aurora_vision_prewarm_scheduled",
+                )
+
+            self._unsub_prewarm = async_track_point_in_utc_time(
+                self.hass, _fire, prewarm_at
+            )

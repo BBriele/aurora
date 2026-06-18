@@ -92,6 +92,7 @@ VISION_BACKOFF_CAP_S: Final = 10
 CIRCUIT_FAILURE_THRESHOLD: Final = 3
 CIRCUIT_RECOVERY_S: Final = 60
 LATENCY_WINDOW: Final = 20
+PREWARM_LEAD_S: Final = 60  # seconds before alarm fire_at to run a warm-up inference
 
 # --- Frontend card ----------------------------------------------------------
 CARD_FILENAME: Final = "aurora-card.js"
