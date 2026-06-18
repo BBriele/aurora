@@ -280,7 +280,7 @@ const STRINGS = {
         "panel.profile": "Profile",
         "panel.tab_alarms": "Alarms",
         "panel.tab_devices": "Setup",
-        "panel.tab_globals": "Shared",
+        "panel.tab_globals": "Global",
         "panel.select_profile": "Select a profile to configure its devices.",
         // devices view
         "devices.loading": "Loading devices…",
@@ -317,7 +317,10 @@ const STRINGS = {
         "browser.paste_add": "Add",
         "browser.add_selected": "Add {n}",
         // globals view
-        "globals.intro": "Settings shared across the whole installation.",
+        "globals.intro": "Settings shared across the whole installation. Admins only.",
+        "globals.card_ring": "Ring",
+        "globals.card_calendar": "Calendar",
+        "globals.card_briefing": "Briefing",
         "globals.ring_max": "Max ring duration (min)",
         "globals.skip_calendars": "Skip-day calendars",
         "globals.holiday_calendars": "Holiday calendars (auto-skip)",
@@ -486,7 +489,7 @@ const STRINGS = {
         "panel.profile": "Profilo",
         "panel.tab_alarms": "Sveglie",
         "panel.tab_devices": "Setup",
-        "panel.tab_globals": "Globali",
+        "panel.tab_globals": "Globale",
         "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
         "devices.loading": "Caricamento dispositivi…",
         "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
@@ -519,7 +522,10 @@ const STRINGS = {
         "browser.paste": "Incolla un URI media",
         "browser.paste_add": "Aggiungi",
         "browser.add_selected": "Aggiungi {n}",
-        "globals.intro": "Impostazioni condivise da tutta l'installazione.",
+        "globals.intro": "Impostazioni condivise da tutta l'installazione. Solo amministratori.",
+        "globals.card_ring": "Suoneria",
+        "globals.card_calendar": "Calendario",
+        "globals.card_briefing": "Briefing",
         "globals.ring_max": "Durata massima suoneria (min)",
         "globals.skip_calendars": "Calendari per salto impegni",
         "globals.holiday_calendars": "Calendari festività (auto-skip)",
@@ -796,6 +802,67 @@ const auroraStyles = i$3 `
   }
   .switch[aria-checked="true"]::after {
     transform: translateX(19px);
+  }
+  /* Themed-card grid — shared by the Setup (devices) and Global views so both
+     pages share one responsive layout: 1 column on mobile, 2 ≥720px, 3 ≥1200px. */
+  .grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 720px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1200px) {
+    .grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .card {
+    background: var(--aurora-surface);
+    border: 1px solid var(--aurora-divider);
+    border-radius: var(--aurora-radius);
+    padding: 18px 20px;
+  }
+  .cardhead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .cardhead h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+  }
+  .ic {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 19px;
+    background: var(--aurora-grad-soft);
+    flex: none;
+  }
+  .role {
+    padding: 14px 0 2px;
+    border-top: 1px solid var(--aurora-divider);
+    margin-top: 12px;
+  }
+  .role:first-of-type {
+    border-top: none;
+    margin-top: 6px;
+  }
+  .role .name {
+    font-weight: 600;
+  }
+  .role .desc {
+    font-size: 0.8rem;
+    color: var(--aurora-dim);
+    margin-bottom: 10px;
   }
 `;
 
@@ -4753,66 +4820,6 @@ AuroraDevicesView.styles = [
         font-weight: 700;
         color: var(--aurora-text);
       }
-      /* Responsive card grid: 1 column on mobile, more on wider screens. */
-      .grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: 1fr;
-      }
-      @media (min-width: 720px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-      @media (min-width: 1200px) {
-        .grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-      }
-      .card {
-        background: var(--aurora-surface);
-        border: 1px solid var(--aurora-divider);
-        border-radius: var(--aurora-radius);
-        padding: 18px 20px;
-      }
-      .cardhead {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 6px;
-      }
-      .cardhead h3 {
-        margin: 0;
-        font-size: 1.05rem;
-        letter-spacing: 0.01em;
-      }
-      .ic {
-        width: 38px;
-        height: 38px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-size: 19px;
-        background: var(--aurora-grad-soft);
-        flex: none;
-      }
-      .role {
-        padding: 14px 0 2px;
-        border-top: 1px solid var(--aurora-divider);
-        margin-top: 12px;
-      }
-      .role:first-of-type {
-        border-top: none;
-        margin-top: 6px;
-      }
-      .role .name {
-        font-weight: 600;
-      }
-      .role .desc {
-        font-size: 0.8rem;
-        color: var(--aurora-dim);
-        margin-bottom: 10px;
-      }
       .vision-chips {
         display: flex;
         flex-wrap: wrap;
@@ -4968,47 +4975,71 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     }
     render() {
         if (!this._entities) {
-            return b `<div class="intro">${localize(this.hass?.language, "common.loading")}</div>`;
+            return b `<div class="card intro">${localize(this.hass?.language, "common.loading")}</div>`;
         }
+        const lang = this.hass?.language;
+        return b `
+      <p class="intro">${localize(lang, "globals.intro")}</p>
+      <div class="grid">
+        ${this._ringCard()} ${this._calendarCard()} ${this._briefingCard()} ${this._visionCard()}
+      </div>
+      <div class="savebar">
+        <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
+          ${this._saving ? localize(lang, "common.saving") : localize(lang, "globals.save")}
+        </button>
+        ${this._saved ? b `<span class="ok">${localize(lang, "common.saved")}</span>` : A}
+      </div>
+    `;
+    }
+    _head(icon, title) {
+        return b `<div class="cardhead"><div class="ic">${icon}</div><h3>${title}</h3></div>`;
+    }
+    _ringCard() {
+        const lang = this.hass?.language;
         const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
         return b `
-      <p class="intro">${localize(this.hass?.language, "globals.intro")}</p>
-
-      <div class="block">
-        <label class="field">${localize(this.hass?.language, "globals.ring_max")}</label>
-        <input
-          type="number"
-          min="1"
-          max="60"
-          style="max-width:140px"
-          .value=${String(ringMin)}
-          @input=${(e) => {
+      <div class="card">
+        ${this._head("🔔", localize(lang, "globals.card_ring"))}
+        <div class="role">
+          <div class="name">${localize(lang, "globals.ring_max")}</div>
+          <input
+            type="number"
+            min="1"
+            max="60"
+            style="max-width:140px"
+            .value=${String(ringMin)}
+            @input=${(e) => {
             this._options = {
                 ...this._options,
                 ring_max_duration: Number(e.target.value) * 60,
             };
             this._saved = false;
         }}
-        />
+          />
+        </div>
       </div>
-
-      ${this._calendars("skip_calendars", localize(this.hass?.language, "globals.skip_calendars"))}
-      ${this._calendars("holiday_calendars", localize(this.hass?.language, "globals.holiday_calendars"))}
-
-      <p class="intro" style="margin-top:22px">
-        ${localize(this.hass?.language, "globals.briefing_intro")}
-      </p>
-      ${this._picker("weather", localize(this.hass?.language, "globals.weather"), this._entities.weather ?? [], false)}
-      ${this._picker("briefing_calendars", localize(this.hass?.language, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
-      ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
-
-      ${this._visionSection()}
-
-      <div class="savebar">
-        <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
-        </button>
-        ${this._saved ? b `<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : A}
+    `;
+    }
+    _calendarCard() {
+        const lang = this.hass?.language;
+        const cals = this._entities.calendars ?? [];
+        return b `
+      <div class="card">
+        ${this._head("📅", localize(lang, "globals.card_calendar"))}
+        ${this._pickerRow("skip_calendars", localize(lang, "globals.skip_calendars"), cals, true)}
+        ${this._pickerRow("holiday_calendars", localize(lang, "globals.holiday_calendars"), cals, true)}
+      </div>
+    `;
+    }
+    _briefingCard() {
+        const lang = this.hass?.language;
+        return b `
+      <div class="card">
+        ${this._head("☀️", localize(lang, "globals.card_briefing"))}
+        <p class="note">${localize(lang, "globals.briefing_intro")}</p>
+        ${this._pickerRow("weather", localize(lang, "globals.weather"), this._entities.weather ?? [], false)}
+        ${this._pickerRow("briefing_calendars", localize(lang, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
+        ${this._pickerRow("todo_lists", localize(lang, "globals.todo_lists"), this._entities.todo ?? [], true)}
       </div>
     `;
     }
@@ -5026,7 +5057,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
             this._benchRunning = false;
         }
     }
-    _visionSection() {
+    _visionCard() {
         const lang = this.hass?.language;
         const llm = this._entities.vision_providers ?? [];
         const bound = this._options["vision_provider"] || "";
@@ -5048,37 +5079,37 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         const canBenchmark = !!bound || llm.length > 0;
         const r = this._benchResult;
         return b `
-      <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
-      <div class="block">
-        <label class="field">${localize(lang, "globals.vision_provider")}</label>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ entity: { domain: "ai_task" } }}
-          .value=${this._options["vision_provider"] ?? ""}
-          @value-changed=${(e) => this._setOption("vision_provider", e.detail.value)}
-        ></ha-selector>
-      </div>
+      <div class="card">
+        ${this._head("👁️", localize(lang, "mission.vision"))}
+        <p class="note">${localize(lang, "globals.vision_intro")}</p>
 
-      <div class="block">
-        <label class="field">${localize(lang, "mission.vision_prompt")}</label>
-        ${renderVisionPrompt(this._options["vision_prompt"] ?? "", lang, (text) => this._setOption("vision_prompt", text))}
-      </div>
+        <div class="role">
+          <div class="name">${localize(lang, "globals.vision_provider")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ entity: { domain: "ai_task" } }}
+            .value=${this._options["vision_provider"] ?? ""}
+            @value-changed=${(e) => this._setOption("vision_provider", e.detail.value)}
+          ></ha-selector>
+        </div>
 
-      <div class="block">
-        ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) => this._setOption(k, v))}
-      </div>
+        <div class="role">
+          <div class="name">${localize(lang, "mission.vision_prompt")}</div>
+          ${renderVisionPrompt(this._options["vision_prompt"] ?? "", lang, (text) => this._setOption("vision_prompt", text))}
+        </div>
 
-      ${canBenchmark
+        <div class="role">
+          ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) => this._setOption(k, v))}
+        </div>
+
+        ${canBenchmark
             ? b `<div class="bench">
-            <ha-button
-              ?disabled=${this._benchRunning}
-              @click=${this._runBenchmark}
-            >
-              ${this._benchRunning
+              <ha-button ?disabled=${this._benchRunning} @click=${this._runBenchmark}>
+                ${this._benchRunning
                 ? localize(lang, "globals.benchmark_running")
                 : localize(lang, "globals.run_benchmark")}
-            </ha-button>
-            ${r
+              </ha-button>
+              ${r
                 ? b `<span class="bench-result">${localize(lang, "globals.benchmark_result", {
                     ok: String(r.succeeded),
                     n: String(r.samples),
@@ -5087,29 +5118,27 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
                     max: r.latency_ms.max != null ? String(r.latency_ms.max) : "—",
                 })}</span>`
                 : A}
-            ${this._benchError
+              ${this._benchError
                 ? b `<ha-alert alert-type="error">${localize(lang, "globals.benchmark_failed", { error: this._benchError })}</ha-alert>`
                 : A}
-          </div>`
+            </div>`
             : A}
-      <div class="detected">${active}</div>
-      <div class="refs">
-        <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
-          ↗ ${localize(lang, "globals.vision_ref_aitask")}
-        </a>
-        <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
-          ↗ ${localize(lang, "globals.vision_ref_llm")}
-        </a>
+        <div class="detected">${active}</div>
+        <div class="refs">
+          <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
+            ↗ ${localize(lang, "globals.vision_ref_aitask")}
+          </a>
+          <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
+            ↗ ${localize(lang, "globals.vision_ref_llm")}
+          </a>
+        </div>
       </div>
     `;
     }
-    _calendars(key, label) {
-        return this._picker(key, label, this._entities.calendars ?? [], true);
-    }
-    _picker(key, label, options, multiple) {
+    _pickerRow(key, label, options, multiple) {
         return b `
-      <div class="block">
-        <label class="field">${label}</label>
+      <div class="role">
+        <div class="name">${label}</div>
         <aurora-entity-picker
           .hass=${this.hass}
           .options=${options}
@@ -5128,15 +5157,14 @@ AuroraGlobalsView.styles = [
     i$3 `
       .intro {
         color: var(--aurora-dim);
-        margin: 0 0 18px;
+        margin: 0 0 16px;
         line-height: 1.5;
       }
-      .block {
-        padding: 14px 0;
-        border-top: 1px solid var(--aurora-divider);
-      }
-      .block .field {
-        margin-bottom: 8px;
+      .note {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin: 4px 0 0;
+        line-height: 1.45;
       }
       .chips,
       .vision-chips {
@@ -5221,10 +5249,14 @@ AuroraGlobalsView.styles = [
         color: var(--aurora-dim);
       }
       .savebar {
+        position: sticky;
+        bottom: 0;
         display: flex;
         align-items: center;
         gap: 12px;
-        padding-top: 16px;
+        padding: 16px 2px 4px;
+        margin-top: 4px;
+        background: linear-gradient(transparent, var(--primary-background-color) 45%);
       }
       .ok {
         color: var(--aurora-accent);
@@ -5316,6 +5348,8 @@ let AuroraPanel = class AuroraPanel extends i {
             return b `<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
         }
         const initial = (this._selectedName[0] ?? "A").toUpperCase();
+        // Globals is admin-only; a non-admin never lands on it (e.g. stale state).
+        const tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
         return b `
       <div class="bar">
         <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
@@ -5336,25 +5370,25 @@ let AuroraPanel = class AuroraPanel extends i {
       </div>
 
       <div class="tabs">
-        <button class="tab ${this._tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
+        <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
           ${localize(this.hass?.language, "panel.tab_alarms")}
         </button>
-        <button class="tab ${this._tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
+        <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
           ${localize(this.hass?.language, "panel.tab_devices")}
         </button>
-        <button class="tab ${this._tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-          ${localize(this.hass?.language, "panel.tab_globals")}
-        </button>
+        ${this._isAdmin
+            ? b `<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
+              ${localize(this.hass?.language, "panel.tab_globals")}
+            </button>`
+            : A}
       </div>
 
-      <div class="content ${this._tab === "globals" ? "" : "wide"}">
-        ${this._tab === "alarms"
+      <div class="content wide">
+        ${tab === "alarms"
             ? this._alarmsTab()
-            : this._tab === "devices"
+            : tab === "devices"
                 ? this._setupTab()
-                : b `<div class="panel-card">
-                <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
-              </div>`}
+                : b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
       </div>
     `;
     }

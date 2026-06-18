@@ -89,15 +89,14 @@ export class AuroraGlobalsView extends LitElement {
     css`
       .intro {
         color: var(--aurora-dim);
-        margin: 0 0 18px;
+        margin: 0 0 16px;
         line-height: 1.5;
       }
-      .block {
-        padding: 14px 0;
-        border-top: 1px solid var(--aurora-divider);
-      }
-      .block .field {
-        margin-bottom: 8px;
+      .note {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin: 4px 0 0;
+        line-height: 1.45;
       }
       .chips,
       .vision-chips {
@@ -182,10 +181,14 @@ export class AuroraGlobalsView extends LitElement {
         color: var(--aurora-dim);
       }
       .savebar {
+        position: sticky;
+        bottom: 0;
         display: flex;
         align-items: center;
         gap: 12px;
-        padding-top: 16px;
+        padding: 16px 2px 4px;
+        margin-top: 4px;
+        background: linear-gradient(transparent, var(--primary-background-color) 45%);
       }
       .ok {
         color: var(--aurora-accent);
@@ -196,57 +199,80 @@ export class AuroraGlobalsView extends LitElement {
 
   render(): TemplateResult {
     if (!this._entities) {
-      return html`<div class="intro">${localize(this.hass?.language, "common.loading")}</div>`;
+      return html`<div class="card intro">${localize(this.hass?.language, "common.loading")}</div>`;
     }
-    const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
+    const lang = this.hass?.language;
     return html`
-      <p class="intro">${localize(this.hass?.language, "globals.intro")}</p>
-
-      <div class="block">
-        <label class="field">${localize(this.hass?.language, "globals.ring_max")}</label>
-        <input
-          type="number"
-          min="1"
-          max="60"
-          style="max-width:140px"
-          .value=${String(ringMin)}
-          @input=${(e: Event) => {
-            this._options = {
-              ...this._options,
-              ring_max_duration: Number((e.target as HTMLInputElement).value) * 60,
-            };
-            this._saved = false;
-          }}
-        />
+      <p class="intro">${localize(lang, "globals.intro")}</p>
+      <div class="grid">
+        ${this._ringCard()} ${this._calendarCard()} ${this._briefingCard()} ${this._visionCard()}
       </div>
-
-      ${this._calendars("skip_calendars", localize(this.hass?.language, "globals.skip_calendars"))}
-      ${this._calendars("holiday_calendars", localize(this.hass?.language, "globals.holiday_calendars"))}
-
-      <p class="intro" style="margin-top:22px">
-        ${localize(this.hass?.language, "globals.briefing_intro")}
-      </p>
-      ${this._picker(
-        "weather",
-        localize(this.hass?.language, "globals.weather"),
-        this._entities.weather ?? [],
-        false
-      )}
-      ${this._picker(
-        "briefing_calendars",
-        localize(this.hass?.language, "globals.briefing_calendars"),
-        this._entities.calendars ?? [],
-        true
-      )}
-      ${this._picker("todo_lists", localize(this.hass?.language, "globals.todo_lists"), this._entities.todo ?? [], true)}
-
-      ${this._visionSection()}
-
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
-          ${this._saving ? localize(this.hass?.language, "common.saving") : localize(this.hass?.language, "globals.save")}
+          ${this._saving ? localize(lang, "common.saving") : localize(lang, "globals.save")}
         </button>
-        ${this._saved ? html`<span class="ok">${localize(this.hass?.language, "common.saved")}</span>` : nothing}
+        ${this._saved ? html`<span class="ok">${localize(lang, "common.saved")}</span>` : nothing}
+      </div>
+    `;
+  }
+
+  private _head(icon: string, title: string): TemplateResult {
+    return html`<div class="cardhead"><div class="ic">${icon}</div><h3>${title}</h3></div>`;
+  }
+
+  private _ringCard(): TemplateResult {
+    const lang = this.hass?.language;
+    const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
+    return html`
+      <div class="card">
+        ${this._head("🔔", localize(lang, "globals.card_ring"))}
+        <div class="role">
+          <div class="name">${localize(lang, "globals.ring_max")}</div>
+          <input
+            type="number"
+            min="1"
+            max="60"
+            style="max-width:140px"
+            .value=${String(ringMin)}
+            @input=${(e: Event) => {
+              this._options = {
+                ...this._options,
+                ring_max_duration: Number((e.target as HTMLInputElement).value) * 60,
+              };
+              this._saved = false;
+            }}
+          />
+        </div>
+      </div>
+    `;
+  }
+
+  private _calendarCard(): TemplateResult {
+    const lang = this.hass?.language;
+    const cals = this._entities!.calendars ?? [];
+    return html`
+      <div class="card">
+        ${this._head("📅", localize(lang, "globals.card_calendar"))}
+        ${this._pickerRow("skip_calendars", localize(lang, "globals.skip_calendars"), cals, true)}
+        ${this._pickerRow("holiday_calendars", localize(lang, "globals.holiday_calendars"), cals, true)}
+      </div>
+    `;
+  }
+
+  private _briefingCard(): TemplateResult {
+    const lang = this.hass?.language;
+    return html`
+      <div class="card">
+        ${this._head("☀️", localize(lang, "globals.card_briefing"))}
+        <p class="note">${localize(lang, "globals.briefing_intro")}</p>
+        ${this._pickerRow("weather", localize(lang, "globals.weather"), this._entities!.weather ?? [], false)}
+        ${this._pickerRow(
+          "briefing_calendars",
+          localize(lang, "globals.briefing_calendars"),
+          this._entities!.calendars ?? [],
+          true
+        )}
+        ${this._pickerRow("todo_lists", localize(lang, "globals.todo_lists"), this._entities!.todo ?? [], true)}
       </div>
     `;
   }
@@ -264,7 +290,7 @@ export class AuroraGlobalsView extends LitElement {
     }
   }
 
-  private _visionSection(): TemplateResult {
+  private _visionCard(): TemplateResult {
     const lang = this.hass?.language;
     const llm = this._entities!.vision_providers ?? [];
     const bound = (this._options["vision_provider"] as string) || "";
@@ -284,81 +310,78 @@ export class AuroraGlobalsView extends LitElement {
     const canBenchmark = !!bound || llm.length > 0;
     const r = this._benchResult;
     return html`
-      <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
-      <div class="block">
-        <label class="field">${localize(lang, "globals.vision_provider")}</label>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ entity: { domain: "ai_task" } }}
-          .value=${(this._options["vision_provider"] as string) ?? ""}
-          @value-changed=${(e: CustomEvent) => this._setOption("vision_provider", e.detail.value)}
-        ></ha-selector>
-      </div>
+      <div class="card">
+        ${this._head("👁️", localize(lang, "mission.vision"))}
+        <p class="note">${localize(lang, "globals.vision_intro")}</p>
 
-      <div class="block">
-        <label class="field">${localize(lang, "mission.vision_prompt")}</label>
-        ${renderVisionPrompt(
-          (this._options["vision_prompt"] as string) ?? "",
-          lang,
-          (text) => this._setOption("vision_prompt", text)
-        )}
-      </div>
+        <div class="role">
+          <div class="name">${localize(lang, "globals.vision_provider")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ entity: { domain: "ai_task" } }}
+            .value=${(this._options["vision_provider"] as string) ?? ""}
+            @value-changed=${(e: CustomEvent) => this._setOption("vision_provider", e.detail.value)}
+          ></ha-selector>
+        </div>
 
-      <div class="block">
-        ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) =>
-          this._setOption(k, v)
-        )}
-      </div>
+        <div class="role">
+          <div class="name">${localize(lang, "mission.vision_prompt")}</div>
+          ${renderVisionPrompt(
+            (this._options["vision_prompt"] as string) ?? "",
+            lang,
+            (text) => this._setOption("vision_prompt", text)
+          )}
+        </div>
 
-      ${canBenchmark
-        ? html`<div class="bench">
-            <ha-button
-              ?disabled=${this._benchRunning}
-              @click=${this._runBenchmark}
-            >
-              ${this._benchRunning
-                ? localize(lang, "globals.benchmark_running")
-                : localize(lang, "globals.run_benchmark")}
-            </ha-button>
-            ${r
-              ? html`<span class="bench-result">${localize(lang, "globals.benchmark_result", {
-                  ok: String(r.succeeded),
-                  n: String(r.samples),
-                  min: r.latency_ms.min != null ? String(r.latency_ms.min) : "—",
-                  avg: r.latency_ms.avg != null ? String(Math.round(r.latency_ms.avg)) : "—",
-                  max: r.latency_ms.max != null ? String(r.latency_ms.max) : "—",
-                })}</span>`
-              : nothing}
-            ${this._benchError
-              ? html`<ha-alert alert-type="error">${localize(lang, "globals.benchmark_failed", { error: this._benchError })}</ha-alert>`
-              : nothing}
-          </div>`
-        : nothing}
-      <div class="detected">${active}</div>
-      <div class="refs">
-        <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
-          ↗ ${localize(lang, "globals.vision_ref_aitask")}
-        </a>
-        <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
-          ↗ ${localize(lang, "globals.vision_ref_llm")}
-        </a>
+        <div class="role">
+          ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) =>
+            this._setOption(k, v)
+          )}
+        </div>
+
+        ${canBenchmark
+          ? html`<div class="bench">
+              <ha-button ?disabled=${this._benchRunning} @click=${this._runBenchmark}>
+                ${this._benchRunning
+                  ? localize(lang, "globals.benchmark_running")
+                  : localize(lang, "globals.run_benchmark")}
+              </ha-button>
+              ${r
+                ? html`<span class="bench-result">${localize(lang, "globals.benchmark_result", {
+                    ok: String(r.succeeded),
+                    n: String(r.samples),
+                    min: r.latency_ms.min != null ? String(r.latency_ms.min) : "—",
+                    avg: r.latency_ms.avg != null ? String(Math.round(r.latency_ms.avg)) : "—",
+                    max: r.latency_ms.max != null ? String(r.latency_ms.max) : "—",
+                  })}</span>`
+                : nothing}
+              ${this._benchError
+                ? html`<ha-alert alert-type="error">${localize(lang, "globals.benchmark_failed", { error: this._benchError })}</ha-alert>`
+                : nothing}
+            </div>`
+          : nothing}
+        <div class="detected">${active}</div>
+        <div class="refs">
+          <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
+            ↗ ${localize(lang, "globals.vision_ref_aitask")}
+          </a>
+          <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
+            ↗ ${localize(lang, "globals.vision_ref_llm")}
+          </a>
+        </div>
       </div>
     `;
   }
 
-  private _calendars(key: string, label: string): TemplateResult {
-    return this._picker(key, label, this._entities!.calendars ?? [], true);
-  }
-
-  private _picker(
+  private _pickerRow(
     key: string,
     label: string,
     options: string[],
     multiple: boolean
   ): TemplateResult {
     return html`
-      <div class="block">
-        <label class="field">${label}</label>
+      <div class="role">
+        <div class="name">${label}</div>
         <aurora-entity-picker
           .hass=${this.hass}
           .options=${options}
@@ -366,8 +389,7 @@ export class AuroraGlobalsView extends LitElement {
             ? ((this._options[key] as string[]) ?? [])
             : ((this._options[key] as string) ?? "")}
           .multiple=${multiple}
-          @change=${(e: CustomEvent<string | string[]>) =>
-            this._setOption(key, e.detail)}
+          @change=${(e: CustomEvent<string | string[]>) => this._setOption(key, e.detail)}
         ></aurora-entity-picker>
       </div>
     `;

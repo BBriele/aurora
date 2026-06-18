@@ -158,66 +158,6 @@ export class AuroraDevicesView extends LitElement {
         font-weight: 700;
         color: var(--aurora-text);
       }
-      /* Responsive card grid: 1 column on mobile, more on wider screens. */
-      .grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: 1fr;
-      }
-      @media (min-width: 720px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-      @media (min-width: 1200px) {
-        .grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-      }
-      .card {
-        background: var(--aurora-surface);
-        border: 1px solid var(--aurora-divider);
-        border-radius: var(--aurora-radius);
-        padding: 18px 20px;
-      }
-      .cardhead {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 6px;
-      }
-      .cardhead h3 {
-        margin: 0;
-        font-size: 1.05rem;
-        letter-spacing: 0.01em;
-      }
-      .ic {
-        width: 38px;
-        height: 38px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-size: 19px;
-        background: var(--aurora-grad-soft);
-        flex: none;
-      }
-      .role {
-        padding: 14px 0 2px;
-        border-top: 1px solid var(--aurora-divider);
-        margin-top: 12px;
-      }
-      .role:first-of-type {
-        border-top: none;
-        margin-top: 6px;
-      }
-      .role .name {
-        font-weight: 600;
-      }
-      .role .desc {
-        font-size: 0.8rem;
-        color: var(--aurora-dim);
-        margin-bottom: 10px;
-      }
       .vision-chips {
         display: flex;
         flex-wrap: wrap;

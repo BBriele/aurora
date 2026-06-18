@@ -144,7 +144,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "panel.profile": "Profile",
     "panel.tab_alarms": "Alarms",
     "panel.tab_devices": "Setup",
-    "panel.tab_globals": "Shared",
+    "panel.tab_globals": "Global",
     "panel.select_profile": "Select a profile to configure its devices.",
 
     // devices view
@@ -185,7 +185,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.add_selected": "Add {n}",
 
     // globals view
-    "globals.intro": "Settings shared across the whole installation.",
+    "globals.intro": "Settings shared across the whole installation. Admins only.",
+    "globals.card_ring": "Ring",
+    "globals.card_calendar": "Calendar",
+    "globals.card_briefing": "Briefing",
     "globals.ring_max": "Max ring duration (min)",
     "globals.skip_calendars": "Skip-day calendars",
     "globals.holiday_calendars": "Holiday calendars (auto-skip)",
@@ -373,7 +376,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "panel.profile": "Profilo",
     "panel.tab_alarms": "Sveglie",
     "panel.tab_devices": "Setup",
-    "panel.tab_globals": "Globali",
+    "panel.tab_globals": "Globale",
     "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
 
     "devices.loading": "Caricamento dispositivi…",
@@ -410,7 +413,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.paste_add": "Aggiungi",
     "browser.add_selected": "Aggiungi {n}",
 
-    "globals.intro": "Impostazioni condivise da tutta l'installazione.",
+    "globals.intro": "Impostazioni condivise da tutta l'installazione. Solo amministratori.",
+    "globals.card_ring": "Suoneria",
+    "globals.card_calendar": "Calendario",
+    "globals.card_briefing": "Briefing",
     "globals.ring_max": "Durata massima suoneria (min)",
     "globals.skip_calendars": "Calendari per salto impegni",
     "globals.holiday_calendars": "Calendari festività (auto-skip)",

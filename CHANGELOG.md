@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.0 - 2026-06-18
+
+### Changed
+- Renamed the **Shared** tab to **Global**, and it is now shown only to admin
+  users (non-admins see just Alarms and Setup).
+- Reworked the Global page into the same responsive themed-card grid as Setup:
+  four cards — Ring, Calendar, Briefing, Vision — that reflow from one column on
+  mobile to two/three on wider screens, with a sticky save bar. The card-grid
+  styling is now shared between the Setup and Global views.
+
 ## 0.20.1 - 2026-06-18
 
 ### Fixed

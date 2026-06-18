@@ -175,6 +175,8 @@ export class AuroraPanel extends LitElement {
       return html`<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
     }
     const initial = (this._selectedName[0] ?? "A").toUpperCase();
+    // Globals is admin-only; a non-admin never lands on it (e.g. stale state).
+    const tab: Tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
     return html`
       <div class="bar">
         <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
@@ -198,25 +200,25 @@ export class AuroraPanel extends LitElement {
       </div>
 
       <div class="tabs">
-        <button class="tab ${this._tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
+        <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
           ${localize(this.hass?.language, "panel.tab_alarms")}
         </button>
-        <button class="tab ${this._tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
+        <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
           ${localize(this.hass?.language, "panel.tab_devices")}
         </button>
-        <button class="tab ${this._tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-          ${localize(this.hass?.language, "panel.tab_globals")}
-        </button>
+        ${this._isAdmin
+          ? html`<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
+              ${localize(this.hass?.language, "panel.tab_globals")}
+            </button>`
+          : nothing}
       </div>
 
-      <div class="content ${this._tab === "globals" ? "" : "wide"}">
-        ${this._tab === "alarms"
+      <div class="content wide">
+        ${tab === "alarms"
           ? this._alarmsTab()
-          : this._tab === "devices"
+          : tab === "devices"
             ? this._setupTab()
-            : html`<div class="panel-card">
-                <aurora-globals-view .hass=${this.hass}></aurora-globals-view>
-              </div>`}
+            : html`<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
       </div>
     `;
   }
