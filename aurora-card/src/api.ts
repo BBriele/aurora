@@ -117,6 +117,26 @@ export interface VisionResult {
   awake: boolean;
 }
 
+export interface BenchmarkResult {
+  samples: number;
+  succeeded: number;
+  failed: number;
+  latency_ms: { min: number | null; avg: number | null; max: number | null };
+}
+
+export async function benchmarkVision(
+  hass: HomeAssistant,
+  samples: number
+): Promise<BenchmarkResult> {
+  // HA's runtime callService accepts extra args (target, notifyOnError, returnResponse)
+  // that are not in our minimal stub type; cast to any for the extra params only.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const res = await (hass.callService as (...a: any[]) => Promise<any>)(
+    "aurora", "benchmark_vision", { samples }, undefined, false, true
+  );
+  return res.response as BenchmarkResult;
+}
+
 /** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
 export function visionCheck(
   hass: HomeAssistant,

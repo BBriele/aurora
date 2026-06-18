@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { getRoleEntities, getSettings, setSettings } from "./api";
+import { benchmarkVision, getRoleEntities, getSettings, setSettings, type BenchmarkResult } from "./api";
 import "./entity-picker";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
@@ -20,6 +20,9 @@ export class AuroraGlobalsView extends LitElement {
   @state() private _options: Record<string, unknown> = {};
   @state() private _saving = false;
   @state() private _saved = false;
+  @state() private _benchRunning = false;
+  @state() private _benchResult: BenchmarkResult | null = null;
+  @state() private _benchError: string | null = null;
   private _loaded = false;
 
   updated(): void {
@@ -134,6 +137,18 @@ export class AuroraGlobalsView extends LitElement {
       .refs a:hover {
         text-decoration: underline;
       }
+      .bench {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .bench-result {
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--aurora-dim);
+      }
       .savebar {
         display: flex;
         align-items: center;
@@ -204,6 +219,19 @@ export class AuroraGlobalsView extends LitElement {
     `;
   }
 
+  private async _runBenchmark(): Promise<void> {
+    this._benchRunning = true;
+    this._benchResult = null;
+    this._benchError = null;
+    try {
+      this._benchResult = await benchmarkVision(this.hass, 3);
+    } catch (err) {
+      this._benchError = String(err);
+    } finally {
+      this._benchRunning = false;
+    }
+  }
+
   private _visionSection(): TemplateResult {
     const lang = this.hass?.language;
     const aiTasks = this._entities!.roles?.["vision_provider"] ?? [];
@@ -220,9 +248,35 @@ export class AuroraGlobalsView extends LitElement {
     } else {
       active = localize(lang, "globals.vision_active_none");
     }
+    const hasBound = !!bound;
+    const r = this._benchResult;
     return html`
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
       ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      ${hasBound
+        ? html`<div class="bench">
+            <ha-button
+              ?disabled=${this._benchRunning}
+              @click=${this._runBenchmark}
+            >
+              ${this._benchRunning
+                ? localize(lang, "globals.benchmark_running")
+                : localize(lang, "globals.run_benchmark")}
+            </ha-button>
+            ${r
+              ? html`<span class="bench-result">${localize(lang, "globals.benchmark_result", {
+                  ok: String(r.succeeded),
+                  n: String(r.samples),
+                  min: r.latency_ms.min != null ? String(r.latency_ms.min) : "—",
+                  avg: r.latency_ms.avg != null ? String(Math.round(r.latency_ms.avg)) : "—",
+                  max: r.latency_ms.max != null ? String(r.latency_ms.max) : "—",
+                })}</span>`
+              : nothing}
+            ${this._benchError
+              ? html`<ha-alert alert-type="error">${localize(lang, "globals.benchmark_failed", { error: this._benchError })}</ha-alert>`
+              : nothing}
+          </div>`
+        : nothing}
       <div class="detected">${active}</div>
       <div class="refs">
         <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">

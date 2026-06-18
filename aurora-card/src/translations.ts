@@ -104,6 +104,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mparam.shake_count": "Shakes needed",
     "mparam.qr_value": "Expected QR text (optional)",
     "mparam.door_entity": "Door sensor (binary_sensor.…)",
+    "mission.vision_prompt": "Custom vision prompt (optional)",
+    "mission.vision_prompt_ph": "e.g. Is the person in the photo visibly awake and out of bed?",
 
     // briefing blocks
     "briefing.block.time": "Time & greeting",
@@ -199,6 +201,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
       "No vision provider available — the selfie mission falls back to the math challenge. Bind an AI Task entity or install LLM Vision.",
     "globals.vision_ref_aitask": "Home Assistant AI Tasks",
     "globals.vision_ref_llm": "LLM Vision integration",
+    "globals.run_benchmark": "Run benchmark",
+    "globals.benchmark_running": "Running…",
+    "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
+    "globals.benchmark_failed": "Benchmark failed: {error}",
     "globals.save": "Save shared settings",
 
     // entity picker
@@ -318,6 +324,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mparam.shake_count": "Scuotimenti richiesti",
     "mparam.qr_value": "Testo QR atteso (opzionale)",
     "mparam.door_entity": "Sensore porta (binary_sensor.…)",
+    "mission.vision_prompt": "Prompt di visione personalizzato (opzionale)",
+    "mission.vision_prompt_ph": "Es. La persona nella foto è visibilmente sveglia e fuori dal letto?",
 
     "briefing.block.time": "Ora e saluto",
     "briefing.block.weather": "Meteo",
@@ -405,6 +413,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
       "Nessun provider di visione disponibile — la missione selfie ripiega sulla sfida matematica. Collega un'entità AI Task o installa LLM Vision.",
     "globals.vision_ref_aitask": "AI Task di Home Assistant",
     "globals.vision_ref_llm": "Integrazione LLM Vision",
+    "globals.run_benchmark": "Esegui benchmark",
+    "globals.benchmark_running": "In esecuzione…",
+    "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
+    "globals.benchmark_failed": "Benchmark fallito: {error}",
     "globals.save": "Salva globali",
 
     "picker.none": "Nessuna entità compatibile trovata.",

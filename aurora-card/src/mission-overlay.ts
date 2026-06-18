@@ -25,8 +25,7 @@ interface MissionConfig {
 /**
  * Anti-snooze challenge shown over the ring. Emits `solved` once the active
  * mission is completed. Falls back to a simpler mission (and ultimately a tap)
- * when the device/setup can't run the requested one. Vision is wired in a later
- * increment — for now it degrades to math.
+ * when the device/setup can't run the requested one.
  */
 @customElement("aurora-mission-overlay")
 export class AuroraMissionOverlay extends LitElement {

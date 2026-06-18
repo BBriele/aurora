@@ -135,6 +135,13 @@ function browseMedia(hass, entityId, contentId, contentType) {
         ...(contentId ? { media_content_id: contentId } : {}),
     });
 }
+async function benchmarkVision(hass, samples) {
+    // HA's runtime callService accepts extra args (target, notifyOnError, returnResponse)
+    // that are not in our minimal stub type; cast to any for the extra params only.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await hass.callService("aurora", "benchmark_vision", { samples }, undefined, false, true);
+    return res.response;
+}
 /** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
 function visionCheck(hass, image, alarmId) {
     return hass.callWS({
@@ -234,6 +241,8 @@ const STRINGS = {
         "mparam.shake_count": "Shakes needed",
         "mparam.qr_value": "Expected QR text (optional)",
         "mparam.door_entity": "Door sensor (binary_sensor.…)",
+        "mission.vision_prompt": "Custom vision prompt (optional)",
+        "mission.vision_prompt_ph": "e.g. Is the person in the photo visibly awake and out of bed?",
         // briefing blocks
         "briefing.block.time": "Time & greeting",
         "briefing.block.weather": "Weather",
@@ -317,6 +326,10 @@ const STRINGS = {
         "globals.vision_active_none": "No vision provider available — the selfie mission falls back to the math challenge. Bind an AI Task entity or install LLM Vision.",
         "globals.vision_ref_aitask": "Home Assistant AI Tasks",
         "globals.vision_ref_llm": "LLM Vision integration",
+        "globals.run_benchmark": "Run benchmark",
+        "globals.benchmark_running": "Running…",
+        "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
+        "globals.benchmark_failed": "Benchmark failed: {error}",
         "globals.save": "Save shared settings",
         // entity picker
         "picker.none": "No compatible entity found.",
@@ -427,6 +440,8 @@ const STRINGS = {
         "mparam.shake_count": "Scuotimenti richiesti",
         "mparam.qr_value": "Testo QR atteso (opzionale)",
         "mparam.door_entity": "Sensore porta (binary_sensor.…)",
+        "mission.vision_prompt": "Prompt di visione personalizzato (opzionale)",
+        "mission.vision_prompt_ph": "Es. La persona nella foto è visibilmente sveglia e fuori dal letto?",
         "briefing.block.time": "Ora e saluto",
         "briefing.block.weather": "Meteo",
         "briefing.block.calendar": "Calendario",
@@ -502,6 +517,10 @@ const STRINGS = {
         "globals.vision_active_none": "Nessun provider di visione disponibile — la missione selfie ripiega sulla sfida matematica. Collega un'entità AI Task o installa LLM Vision.",
         "globals.vision_ref_aitask": "AI Task di Home Assistant",
         "globals.vision_ref_llm": "Integrazione LLM Vision",
+        "globals.run_benchmark": "Esegui benchmark",
+        "globals.benchmark_running": "In esecuzione…",
+        "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
+        "globals.benchmark_failed": "Benchmark fallito: {error}",
         "globals.save": "Salva globali",
         "picker.none": "Nessuna entità compatibile trovata.",
         "picker.empty_option": "— Nessuno —",
@@ -879,6 +898,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._display = false;
         this._displayTargets = [];
         this._displayOptions = [];
+        this._visionPrompt = "";
         // HA more-info style: click the header title to grow the dialog sideways.
         // Default expanded (two columns); CSS clamps to viewport so narrow screens
         // collapse to one column on their own — never a horizontal scrollbar.
@@ -941,6 +961,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             : [...BRIEFING_BLOCKS];
         this._display = a?.features.display?.enabled ?? false;
         this._displayTargets = [...(a?.features.display?.targets ?? [])];
+        this._visionPrompt = a?.features.mission.vision_prompt ?? "";
         this._enabled = a?.enabled ?? true;
         this._saving = false;
     }
@@ -1072,6 +1093,18 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         if (this._mission === "open_door") {
             return this._selector({ entity: { filter: [{ domain: "binary_sensor" }] } }, localize(lang, "mparam.door_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
         }
+        if (this._mission === "vision") {
+            return b `<div class="block">
+        <ha-textarea
+          .hass=${this.hass}
+          .label=${localize(lang, "mission.vision_prompt")}
+          .placeholder=${localize(lang, "mission.vision_prompt_ph")}
+          .value=${this._visionPrompt}
+          autogrow
+          @input=${(e) => (this._visionPrompt = e.target.value)}
+        ></ha-textarea>
+      </div>`;
+        }
         return A;
     }
     // The sound is either one of the profile's saved audio presets or a custom
@@ -1177,8 +1210,8 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._saving = true;
         // The backend replaces the whole `features` dict on update, so we spread the
         // existing alarm's features (and each sub-object) to preserve fields this
-        // dialog does not edit — per-alarm target overrides, mission params/vision
-        // prompt, smart-window signals, the briefing template, etc.
+        // dialog does not edit — per-alarm target overrides, smart-window signals,
+        // the briefing template, etc.
         const prev = this.alarm?.features;
         const input = {
             time: this._time,
@@ -1188,7 +1221,12 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
             features: {
                 ...prev,
-                mission: { ...prev?.mission, type: this._mission, params: this._missionParams },
+                mission: {
+                    ...prev?.mission,
+                    type: this._mission,
+                    params: this._missionParams,
+                    vision_prompt: this._mission === "vision" ? (this._visionPrompt.trim() || null) : null,
+                },
                 snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
                 audio: {
                     ...prev?.audio,
@@ -1719,6 +1757,9 @@ __decorate([
 ], AuroraAlarmDialog.prototype, "_displayOptions", void 0);
 __decorate([
     r()
+], AuroraAlarmDialog.prototype, "_visionPrompt", void 0);
+__decorate([
+    r()
 ], AuroraAlarmDialog.prototype, "_large", void 0);
 AuroraAlarmDialog = __decorate([
     t("aurora-alarm-dialog")
@@ -2026,8 +2067,7 @@ const VISION_MAX_FAILS = 3;
 /**
  * Anti-snooze challenge shown over the ring. Emits `solved` once the active
  * mission is completed. Falls back to a simpler mission (and ultimately a tap)
- * when the device/setup can't run the requested one. Vision is wired in a later
- * increment — for now it degrades to math.
+ * when the device/setup can't run the requested one.
  */
 let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
     constructor() {
@@ -4601,6 +4641,9 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         this._options = {};
         this._saving = false;
         this._saved = false;
+        this._benchRunning = false;
+        this._benchResult = null;
+        this._benchError = null;
         this._loaded = false;
     }
     updated() {
@@ -4690,6 +4733,20 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
       </div>
     `;
     }
+    async _runBenchmark() {
+        this._benchRunning = true;
+        this._benchResult = null;
+        this._benchError = null;
+        try {
+            this._benchResult = await benchmarkVision(this.hass, 3);
+        }
+        catch (err) {
+            this._benchError = String(err);
+        }
+        finally {
+            this._benchRunning = false;
+        }
+    }
     _visionSection() {
         const lang = this.hass?.language;
         const aiTasks = this._entities.roles?.["vision_provider"] ?? [];
@@ -4708,9 +4765,35 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         else {
             active = localize(lang, "globals.vision_active_none");
         }
+        const hasBound = !!bound;
+        const r = this._benchResult;
         return b `
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
       ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      ${hasBound
+            ? b `<div class="bench">
+            <ha-button
+              ?disabled=${this._benchRunning}
+              @click=${this._runBenchmark}
+            >
+              ${this._benchRunning
+                ? localize(lang, "globals.benchmark_running")
+                : localize(lang, "globals.run_benchmark")}
+            </ha-button>
+            ${r
+                ? b `<span class="bench-result">${localize(lang, "globals.benchmark_result", {
+                    ok: String(r.succeeded),
+                    n: String(r.samples),
+                    min: r.latency_ms.min != null ? String(r.latency_ms.min) : "—",
+                    avg: r.latency_ms.avg != null ? String(Math.round(r.latency_ms.avg)) : "—",
+                    max: r.latency_ms.max != null ? String(r.latency_ms.max) : "—",
+                })}</span>`
+                : A}
+            ${this._benchError
+                ? b `<ha-alert alert-type="error">${localize(lang, "globals.benchmark_failed", { error: this._benchError })}</ha-alert>`
+                : A}
+          </div>`
+            : A}
       <div class="detected">${active}</div>
       <div class="refs">
         <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
@@ -4811,6 +4894,18 @@ AuroraGlobalsView.styles = [
       .refs a:hover {
         text-decoration: underline;
       }
+      .bench {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .bench-result {
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--aurora-dim);
+      }
       .savebar {
         display: flex;
         align-items: center;
@@ -4838,6 +4933,15 @@ __decorate([
 __decorate([
     r()
 ], AuroraGlobalsView.prototype, "_saved", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_benchRunning", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_benchResult", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_benchError", void 0);
 AuroraGlobalsView = __decorate([
     t("aurora-globals-view")
 ], AuroraGlobalsView);

@@ -65,6 +65,7 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _display = false;
   @state() private _displayTargets: string[] = [];
   @state() private _displayOptions: string[] = [];
+  @state() private _visionPrompt = "";
   // HA more-info style: click the header title to grow the dialog sideways.
   // Default expanded (two columns); CSS clamps to viewport so narrow screens
   // collapse to one column on their own — never a horizontal scrollbar.
@@ -128,6 +129,7 @@ export class AuroraAlarmDialog extends LitElement {
       : [...BRIEFING_BLOCKS];
     this._display = a?.features.display?.enabled ?? false;
     this._displayTargets = [...(a?.features.display?.targets ?? [])];
+    this._visionPrompt = a?.features.mission.vision_prompt ?? "";
     this._enabled = a?.enabled ?? true;
     this._saving = false;
   }
@@ -287,6 +289,18 @@ export class AuroraAlarmDialog extends LitElement {
         (v) => this._setParam("entity_id", (v as string) ?? "")
       );
     }
+    if (this._mission === "vision") {
+      return html`<div class="block">
+        <ha-textarea
+          .hass=${this.hass}
+          .label=${localize(lang, "mission.vision_prompt")}
+          .placeholder=${localize(lang, "mission.vision_prompt_ph")}
+          .value=${this._visionPrompt}
+          autogrow
+          @input=${(e: Event) => (this._visionPrompt = (e.target as HTMLTextAreaElement).value)}
+        ></ha-textarea>
+      </div>`;
+    }
     return nothing;
   }
 
@@ -418,8 +432,8 @@ export class AuroraAlarmDialog extends LitElement {
     this._saving = true;
     // The backend replaces the whole `features` dict on update, so we spread the
     // existing alarm's features (and each sub-object) to preserve fields this
-    // dialog does not edit — per-alarm target overrides, mission params/vision
-    // prompt, smart-window signals, the briefing template, etc.
+    // dialog does not edit — per-alarm target overrides, smart-window signals,
+    // the briefing template, etc.
     const prev = this.alarm?.features;
     const input = {
       time: this._time,
@@ -429,7 +443,12 @@ export class AuroraAlarmDialog extends LitElement {
       schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
       features: {
         ...prev,
-        mission: { ...prev?.mission, type: this._mission, params: this._missionParams },
+        mission: {
+          ...prev?.mission,
+          type: this._mission,
+          params: this._missionParams,
+          vision_prompt: this._mission === "vision" ? (this._visionPrompt.trim() || null) : null,
+        },
         snooze: { ...prev?.snooze, max: this._snoozeMax, duration: this._snoozeMin * 60 },
         audio: {
           ...prev?.audio,
