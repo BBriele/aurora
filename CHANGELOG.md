@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.9 - 2026-06-18
+
+### Fixed
+- The alarm editor's Repeat and "When it stops" segmented controls rendered with
+  oversized text and a misshapen, overflowing selection pill: the inline time
+  editor added in 0.16.7 reused the `.seg` class name, so its 3.6rem font leaked
+  into those controls. The time segments now use a dedicated class.
+
 ## 0.16.8 - 2026-06-18
 
 ### Changed

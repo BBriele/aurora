@@ -1226,7 +1226,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
 
         <div class="timepick" role="group" aria-label=${localize(lang, "dialog.time")}>
           <input
-            class="seg clock"
+            class="tnum clock"
             inputmode="numeric"
             maxlength="2"
             aria-label=${localize(lang, "dialog.hours")}
@@ -1238,7 +1238,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
           />
           <span class="colon">:</span>
           <input
-            class="seg clock"
+            class="tnum clock"
             inputmode="numeric"
             maxlength="2"
             aria-label=${localize(lang, "dialog.minutes")}
@@ -1427,7 +1427,7 @@ AuroraAlarmDialog.styles = [
         gap: 2px;
         margin: 6px 0 18px;
       }
-      .seg {
+      .tnum {
         width: 1.7em;
         font: 600 3.6rem/1 var(--ha-font-family-body, inherit);
         text-align: center;
@@ -1441,15 +1441,15 @@ AuroraAlarmDialog.styles = [
         transition: background 0.15s ease, box-shadow 0.15s ease;
         -moz-appearance: textfield;
       }
-      .seg::-webkit-inner-spin-button,
-      .seg::-webkit-outer-spin-button {
+      .tnum::-webkit-inner-spin-button,
+      .tnum::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
       }
-      .seg:hover {
+      .tnum:hover {
         background: color-mix(in srgb, var(--aurora-accent) 9%, transparent);
       }
-      .seg:focus {
+      .tnum:focus {
         outline: none;
         background: color-mix(in srgb, var(--aurora-accent) 16%, transparent);
         box-shadow: inset 0 0 0 1px
