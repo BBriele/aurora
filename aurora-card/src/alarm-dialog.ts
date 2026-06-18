@@ -158,9 +158,12 @@ export class AuroraAlarmDialog extends LitElement {
   // ponytail: reaches into ha-dialog's shadow; if HA restructures it, the morph
   // silently degrades to the default root crossfade — no breakage.
   private _toggleLarge(): void {
-    const box = this.shadowRoot
-      ?.querySelector("ha-dialog")
-      ?.shadowRoot?.querySelector("dialog") as HTMLElement | null | undefined;
+    // The native <dialog> is two shadow levels down: ha-dialog → wa-dialog →
+    // <dialog>. querySelector won't cross shadow roots, so reach through both
+    // (fall back to ha-dialog's own shadow if HA ever drops the wa-dialog wrap).
+    const haShadow = this.shadowRoot?.querySelector("ha-dialog")?.shadowRoot;
+    const box = (haShadow?.querySelector("wa-dialog")?.shadowRoot?.querySelector("dialog") ??
+      haShadow?.querySelector("dialog")) as HTMLElement | null | undefined;
     if (box) box.style.viewTransitionName = "aurora-alarm-dialog";
     const flip = (): void => void (this._large = !this._large);
     const vt = (document as Document & {

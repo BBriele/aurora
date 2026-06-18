@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.17.3 - 2026-06-18
+
+### Fixed
+- The dialog box morph added in 0.17.2 never engaged: the `view-transition-name`
+  was set via a `querySelector` that stopped at `ha-dialog`'s shadow root, but
+  the native `<dialog>` lives one level deeper inside `wa-dialog`'s shadow, so
+  nothing got tagged and the resize fell back to a flat crossfade. The traversal
+  now reaches through both shadow roots, so the box geometrically morphs as
+  intended. (The header-anchoring half of 0.17.2 was already working.)
+
 ## 0.17.2 - 2026-06-18
 
 ### Changed
