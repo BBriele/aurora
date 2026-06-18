@@ -879,6 +879,10 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._display = false;
         this._displayTargets = [];
         this._displayOptions = [];
+        // HA more-info style: click the header title to grow the dialog sideways.
+        // Default expanded (two columns); CSS clamps to viewport so narrow screens
+        // collapse to one column on their own — never a horizontal scrollbar.
+        this._large = true;
     }
     willUpdate(changed) {
         if (changed.has("open") && this.open) {
@@ -956,6 +960,13 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             return;
         }
         this._close();
+    }
+    // View Transitions API morphs the width change smoothly (HA does the same);
+    // plain flip where the browser lacks it.
+    _toggleLarge() {
+        const flip = () => void (this._large = !this._large);
+        const vt = document.startViewTransition;
+        vt ? vt.call(document, flip) : flip();
     }
     _toggleBlock(block) {
         this._briefingBlocks = this._briefingBlocks.includes(block)
@@ -1215,14 +1226,22 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             ? localize(lang, "dialog.edit_title")
             : localize(lang, "dialog.new_title");
         return b `
-      <ha-dialog open @wa-hide=${this._onDialogHide}>
+      <ha-dialog open class=${this._large ? "large" : ""} @wa-hide=${this._onDialogHide}>
         <ha-icon-button
           slot="headerNavigationIcon"
           .label=${localize(lang, "common.cancel")}
           .path=${MDI_CLOSE}
           @click=${this._close}
         ></ha-icon-button>
-        <span slot="headerTitle" class="dlg-title">${title}</span>
+        <span
+          slot="headerTitle"
+          class="dlg-title"
+          role="button"
+          tabindex="0"
+          @click=${this._toggleLarge}
+          @keydown=${(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._toggleLarge())}
+          >${title}</span
+        >
 
         <div class="timepick" role="group" aria-label=${localize(lang, "dialog.time")}>
           <input
@@ -1380,18 +1399,27 @@ AuroraAlarmDialog.styles = [
     i$3 `
       ha-dialog {
         --dialog-content-padding: 4px 24px 16px;
-        /* Wider modal so the body fits two columns. HA exposes width via the mdc
-           vars, WebAwesome via --width; set both, the unused one is a no-op.
-           Shrinks on small screens. */
-        --mdc-dialog-min-width: min(600px, 90vw);
-        --mdc-dialog-max-width: 860px;
-        --width: min(860px, 92vw);
+        /* Compact (single column). HA exposes width via the mdc vars, WebAwesome
+           via --width; set both, the unused one is a no-op. min(..,vw) clamps to
+           the viewport so the dialog can never force a horizontal scrollbar. */
+        --mdc-dialog-min-width: min(560px, 92vw);
+        --mdc-dialog-max-width: min(560px, 92vw);
+        --width: min(560px, 92vw);
+      }
+      /* Large: grow sideways to fit the two-column body (default on wide screens,
+         toggled by clicking the header title). */
+      ha-dialog.large {
+        --mdc-dialog-max-width: min(1040px, 94vw);
+        --width: min(1040px, 94vw);
       }
       .cols {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: 1fr;
         gap: 0 28px;
         align-items: start;
+      }
+      ha-dialog.large .cols {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
       .col {
         min-width: 0;
@@ -1399,14 +1427,17 @@ AuroraAlarmDialog.styles = [
       .col .togglerow:first-child {
         border-top: none;
       }
+      /* Small screens stay one column even when "large" — clamp handles width. */
       @media (max-width: 640px) {
-        .cols {
+        ha-dialog.large .cols {
           grid-template-columns: 1fr;
         }
       }
       .dlg-title {
         font-size: 1.2rem;
         font-weight: 600;
+        cursor: pointer; /* click to expand/collapse, HA more-info style */
+        user-select: none;
       }
       .footer-actions {
         display: flex;
@@ -1670,6 +1701,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_displayOptions", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_large", void 0);
 AuroraAlarmDialog = __decorate([
     t("aurora-alarm-dialog")
 ], AuroraAlarmDialog);

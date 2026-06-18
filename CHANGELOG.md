@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.17.0 - 2026-06-18
+
+### Added
+- The alarm editor opens wider by default and you can click its header title to
+  toggle between the compact (single-column) and expanded (two-column) layouts,
+  matching Home Assistant's own more-info dialogs. The width is clamped to the
+  viewport, so narrow screens stay single-column and the dialog never grows a
+  horizontal scrollbar. The animation uses the browser's View Transitions API
+  where available.
+
 ## 0.16.9 - 2026-06-18
 
 ### Fixed

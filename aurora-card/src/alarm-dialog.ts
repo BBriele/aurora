@@ -65,6 +65,10 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _display = false;
   @state() private _displayTargets: string[] = [];
   @state() private _displayOptions: string[] = [];
+  // HA more-info style: click the header title to grow the dialog sideways.
+  // Default expanded (two columns); CSS clamps to viewport so narrow screens
+  // collapse to one column on their own — never a horizontal scrollbar.
+  @state() private _large = true;
 
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("open") && this.open) {
@@ -145,6 +149,16 @@ export class AuroraAlarmDialog extends LitElement {
       return;
     }
     this._close();
+  }
+
+  // View Transitions API morphs the width change smoothly (HA does the same);
+  // plain flip where the browser lacks it.
+  private _toggleLarge(): void {
+    const flip = (): void => void (this._large = !this._large);
+    const vt = (document as Document & {
+      startViewTransition?: (cb: () => void) => void;
+    }).startViewTransition;
+    vt ? vt.call(document, flip) : flip();
   }
 
   private _toggleBlock(block: BriefingBlock): void {
@@ -451,18 +465,27 @@ export class AuroraAlarmDialog extends LitElement {
     css`
       ha-dialog {
         --dialog-content-padding: 4px 24px 16px;
-        /* Wider modal so the body fits two columns. HA exposes width via the mdc
-           vars, WebAwesome via --width; set both, the unused one is a no-op.
-           Shrinks on small screens. */
-        --mdc-dialog-min-width: min(600px, 90vw);
-        --mdc-dialog-max-width: 860px;
-        --width: min(860px, 92vw);
+        /* Compact (single column). HA exposes width via the mdc vars, WebAwesome
+           via --width; set both, the unused one is a no-op. min(..,vw) clamps to
+           the viewport so the dialog can never force a horizontal scrollbar. */
+        --mdc-dialog-min-width: min(560px, 92vw);
+        --mdc-dialog-max-width: min(560px, 92vw);
+        --width: min(560px, 92vw);
+      }
+      /* Large: grow sideways to fit the two-column body (default on wide screens,
+         toggled by clicking the header title). */
+      ha-dialog.large {
+        --mdc-dialog-max-width: min(1040px, 94vw);
+        --width: min(1040px, 94vw);
       }
       .cols {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: 1fr;
         gap: 0 28px;
         align-items: start;
+      }
+      ha-dialog.large .cols {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
       .col {
         min-width: 0;
@@ -470,14 +493,17 @@ export class AuroraAlarmDialog extends LitElement {
       .col .togglerow:first-child {
         border-top: none;
       }
+      /* Small screens stay one column even when "large" — clamp handles width. */
       @media (max-width: 640px) {
-        .cols {
+        ha-dialog.large .cols {
           grid-template-columns: 1fr;
         }
       }
       .dlg-title {
         font-size: 1.2rem;
         font-weight: 600;
+        cursor: pointer; /* click to expand/collapse, HA more-info style */
+        user-select: none;
       }
       .footer-actions {
         display: flex;
@@ -661,14 +687,23 @@ export class AuroraAlarmDialog extends LitElement {
       ? localize(lang, "dialog.edit_title")
       : localize(lang, "dialog.new_title");
     return html`
-      <ha-dialog open @wa-hide=${this._onDialogHide}>
+      <ha-dialog open class=${this._large ? "large" : ""} @wa-hide=${this._onDialogHide}>
         <ha-icon-button
           slot="headerNavigationIcon"
           .label=${localize(lang, "common.cancel")}
           .path=${MDI_CLOSE}
           @click=${this._close}
         ></ha-icon-button>
-        <span slot="headerTitle" class="dlg-title">${title}</span>
+        <span
+          slot="headerTitle"
+          class="dlg-title"
+          role="button"
+          tabindex="0"
+          @click=${this._toggleLarge}
+          @keydown=${(e: KeyboardEvent) =>
+            (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._toggleLarge())}
+          >${title}</span
+        >
 
         <div class="timepick" role="group" aria-label=${localize(lang, "dialog.time")}>
           <input
