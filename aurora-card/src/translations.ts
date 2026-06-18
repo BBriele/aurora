@@ -70,6 +70,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     // alarm dialog
     "dialog.new_title": "New alarm",
     "dialog.edit_title": "Edit alarm",
+    "dialog.time": "Time",
     "dialog.label": "Label",
     "dialog.label_placeholder": "e.g. Work alarm",
     "dialog.repeat": "Repeat",
@@ -282,6 +283,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
 
     "dialog.new_title": "Nuova sveglia",
     "dialog.edit_title": "Modifica sveglia",
+    "dialog.time": "Ora",
     "dialog.label": "Etichetta",
     "dialog.label_placeholder": "Es. Sveglia lavoro",
     "dialog.repeat": "Ripetizione",

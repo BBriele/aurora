@@ -447,17 +447,8 @@ export class AuroraAlarmDialog extends LitElement {
         display: block;
         width: 100%;
       }
-      input.big-time {
-        width: 100%;
-        font-size: 3.2rem;
-        text-align: center;
-        border: none;
-        background: transparent;
-        padding: 4px 0 14px;
-        color: var(--primary-text-color, var(--aurora-text));
-      }
-      .big-time:focus {
-        outline: none;
+      .timepick {
+        margin: 2px 0 12px;
       }
       .grid2 {
         display: grid;
@@ -582,12 +573,15 @@ export class AuroraAlarmDialog extends LitElement {
         ></ha-icon-button>
         <span slot="headerTitle" class="dlg-title">${title}</span>
 
-        <input
-          class="big-time clock"
-          type="time"
-          .value=${this._time}
-          @input=${(e: Event) => (this._time = (e.target as HTMLInputElement).value)}
-        />
+        <div class="timepick">
+          ${this._selector(
+            { time: {} },
+            localize(lang, "dialog.time"),
+            this._time,
+            // HA's time selector emits HH:MM:SS; keep HH:MM for clean display.
+            (v) => (this._time = ((v as string) ?? "").slice(0, 5) || this._time)
+          )}
+        </div>
 
         ${this._selector(
           { text: {} },

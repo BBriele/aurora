@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.4 - 2026-06-18
+
+### Changed
+- The alarm editor's time field now uses Home Assistant's native time selector,
+  so it follows the installation's 12/24-hour format and matches the look of
+  Home Assistant's own time inputs, replacing the raw browser time field.
+
 ## 0.16.3 - 2026-06-18
 
 ### Changed

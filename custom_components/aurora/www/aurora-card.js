@@ -200,6 +200,7 @@ const STRINGS = {
         // alarm dialog
         "dialog.new_title": "New alarm",
         "dialog.edit_title": "Edit alarm",
+        "dialog.time": "Time",
         "dialog.label": "Label",
         "dialog.label_placeholder": "e.g. Work alarm",
         "dialog.repeat": "Repeat",
@@ -391,6 +392,7 @@ const STRINGS = {
         "summary.never": "Mai",
         "dialog.new_title": "Nuova sveglia",
         "dialog.edit_title": "Modifica sveglia",
+        "dialog.time": "Ora",
         "dialog.label": "Etichetta",
         "dialog.label_placeholder": "Es. Sveglia lavoro",
         "dialog.repeat": "Ripetizione",
@@ -1175,12 +1177,11 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         ></ha-icon-button>
         <span slot="headerTitle" class="dlg-title">${title}</span>
 
-        <input
-          class="big-time clock"
-          type="time"
-          .value=${this._time}
-          @input=${(e) => (this._time = e.target.value)}
-        />
+        <div class="timepick">
+          ${this._selector({ time: {} }, localize(lang, "dialog.time"), this._time, 
+        // HA's time selector emits HH:MM:SS; keep HH:MM for clean display.
+        (v) => (this._time = (v ?? "").slice(0, 5) || this._time))}
+        </div>
 
         ${this._selector({ text: {} }, localize(lang, "dialog.label"), this._label, (v) => (this._label = v ?? ""))}
 
@@ -1346,17 +1347,8 @@ AuroraAlarmDialog.styles = [
         display: block;
         width: 100%;
       }
-      input.big-time {
-        width: 100%;
-        font-size: 3.2rem;
-        text-align: center;
-        border: none;
-        background: transparent;
-        padding: 4px 0 14px;
-        color: var(--primary-text-color, var(--aurora-text));
-      }
-      .big-time:focus {
-        outline: none;
+      .timepick {
+        margin: 2px 0 12px;
       }
       .grid2 {
         display: grid;
