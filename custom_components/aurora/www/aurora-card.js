@@ -1335,7 +1335,7 @@ AuroraAlarmDialog.styles = [
       }
       .grid2 {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 14px;
         align-items: start;
       }
@@ -1696,12 +1696,15 @@ AuroraAlarmList.styles = [
       }
       @media (min-width: 720px) {
         .list {
-          grid-template-columns: repeat(2, 1fr);
+          /* minmax(0, 1fr) — not bare 1fr — so columns stay equal width
+             regardless of each card's content length (a longer label must not
+             widen its column and misalign the toggles). */
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       @media (min-width: 1100px) {
         .list {
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
       }
       .item {
@@ -2973,7 +2976,9 @@ AuroraScheduleCard.styles = [
       .week {
         display: grid;
         gap: 10px;
-        grid-template-columns: repeat(7, 1fr);
+        /* minmax(0, 1fr) keeps the 7 day columns equal even when one day has a
+           longer alarm label than the others. */
+        grid-template-columns: repeat(7, minmax(0, 1fr));
       }
       .day {
         background: var(--aurora-grad-soft);
@@ -4312,12 +4317,12 @@ AuroraDevicesView.styles = [
       }
       @media (min-width: 720px) {
         .grid {
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       @media (min-width: 1200px) {
         .grid {
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
       }
       .card {

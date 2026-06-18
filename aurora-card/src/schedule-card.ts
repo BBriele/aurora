@@ -123,7 +123,9 @@ export class AuroraScheduleCard extends LitElement {
       .week {
         display: grid;
         gap: 10px;
-        grid-template-columns: repeat(7, 1fr);
+        /* minmax(0, 1fr) keeps the 7 day columns equal even when one day has a
+           longer alarm label than the others. */
+        grid-template-columns: repeat(7, minmax(0, 1fr));
       }
       .day {
         background: var(--aurora-grad-soft);

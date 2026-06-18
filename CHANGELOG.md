@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.2 - 2026-06-18
+
+### Fixed
+- Equal-width cards in the multi-column grids: the alarm list, the weekly
+  schedule, and the Setup cards used bare `1fr` tracks, so a card with a longer
+  label grew its column and pushed its toggle out of line. The grids now use
+  `minmax(0, 1fr)`, keeping every card the same width and the controls aligned.
+
 ## 0.16.1 - 2026-06-18
 
 ### Fixed
