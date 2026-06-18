@@ -4,6 +4,12 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.1 - 2026-06-18
+
+### Changed
+- Aligned the Global page wording with the rename: the save button now reads
+  "Save global settings" and the intro no longer calls the settings "shared".
+
 ## 0.21.0 - 2026-06-18
 
 ### Changed

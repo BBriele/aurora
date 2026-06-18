@@ -185,7 +185,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.add_selected": "Add {n}",
 
     // globals view
-    "globals.intro": "Settings shared across the whole installation. Admins only.",
+    "globals.intro": "Installation-wide settings, shared by every profile. Admins only.",
     "globals.card_ring": "Ring",
     "globals.card_calendar": "Calendar",
     "globals.card_briefing": "Briefing",
@@ -209,7 +209,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "globals.benchmark_running": "Running…",
     "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
     "globals.benchmark_failed": "Benchmark failed: {error}",
-    "globals.save": "Save shared settings",
+    "globals.save": "Save global settings",
 
     // entity picker
     "picker.none": "No compatible entity found.",
@@ -413,7 +413,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "browser.paste_add": "Aggiungi",
     "browser.add_selected": "Aggiungi {n}",
 
-    "globals.intro": "Impostazioni condivise da tutta l'installazione. Solo amministratori.",
+    "globals.intro": "Impostazioni dell'intera installazione, condivise da ogni profilo. Solo amministratori.",
     "globals.card_ring": "Suoneria",
     "globals.card_calendar": "Calendario",
     "globals.card_briefing": "Briefing",
@@ -437,7 +437,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "globals.benchmark_running": "In esecuzione…",
     "globals.benchmark_result": "{ok}/{n} ok · {min}/{avg}/{max} ms",
     "globals.benchmark_failed": "Benchmark fallito: {error}",
-    "globals.save": "Salva globali",
+    "globals.save": "Salva impostazioni globali",
 
     "picker.none": "Nessuna entità compatibile trovata.",
     "picker.empty_option": "— Nessuno —",
