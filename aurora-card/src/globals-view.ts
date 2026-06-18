@@ -248,12 +248,14 @@ export class AuroraGlobalsView extends LitElement {
     } else {
       active = localize(lang, "globals.vision_active_none");
     }
-    const hasBound = !!bound;
+    // The benchmark works against whatever async_vision_check would use: a bound
+    // AI Task entity, or (failing that) an auto-detected LLM Vision provider.
+    const canBenchmark = !!bound || llm.length > 0;
     const r = this._benchResult;
     return html`
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
       ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
-      ${hasBound
+      ${canBenchmark
         ? html`<div class="bench">
             <ha-button
               ?disabled=${this._benchRunning}

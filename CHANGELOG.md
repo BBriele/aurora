@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.18.1 - 2026-06-18
+
+### Fixed
+- The **Run benchmark** button now also appears when the vision provider is an
+  auto-detected LLM Vision integration (not only when an AI Task entity is
+  explicitly bound) — matching what the benchmark actually runs against.
+
 ## 0.18.0 - 2026-06-18
 
 ### Added
