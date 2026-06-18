@@ -53,16 +53,12 @@ class DisplaySurfaceAdapter:
         hass: HomeAssistant,
         entity_id: str,
         *,
-        color_temp_kelvin: int | None,
         duration_min: int,
-        label: str,
     ) -> None:
         """Store the target and the (reused) light ramp parameters."""
         self._hass = hass
         self._entity_id = entity_id
-        self._color_temp_kelvin = color_temp_kelvin
         self._duration_s = max(1, duration_min) * 60
-        self._label = label
         self._device_id: str | None = None
         self._controls: dict[str, str] = {}  # translation_key -> entity_id
         self._task: asyncio.Task[None] | None = None

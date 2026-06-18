@@ -156,9 +156,7 @@ class RingController:
                     DisplaySurfaceAdapter(
                         self._hass,
                         target,
-                        color_temp_kelvin=light.color_temp_kelvin,
                         duration_min=light.duration_min,
-                        label=alarm.label,
                     )
                 )
 

@@ -30,7 +30,7 @@ async def test_non_fully_kiosk_target_noops(hass):
          patch("custom_components.aurora.adapters.display.er.async_entries_for_device",
                return_value=entries):
         a = DisplaySurfaceAdapter(hass, "media_player.tv",
-                                  color_temp_kelvin=2700, duration_min=30, label="x")
+                                  duration_min=30)
         await a.async_start()
     hass.services.async_call.assert_not_called()
 
@@ -51,7 +51,7 @@ async def test_fully_kiosk_start_loads_ring_and_wakes(hass):
                return_value=entries), \
          patch("custom_components.aurora.adapters.display.get_url", return_value="http://ha"):
         a = DisplaySurfaceAdapter(hass, "media_player.smartclock",
-                                  color_temp_kelvin=2700, duration_min=30, label="Wake")
+                                  duration_min=30)
         await a.async_start()
     calls = [(c.args[0], c.args[1], c.args[2]) for c in hass.services.async_call.call_args_list]
     # fully_kiosk.load_url to the ring route
@@ -75,7 +75,7 @@ async def test_fully_kiosk_stop_restores(hass):
                return_value=entries), \
          patch("custom_components.aurora.adapters.display.get_url", return_value="http://ha"):
         a = DisplaySurfaceAdapter(hass, "media_player.smartclock",
-                                  color_temp_kelvin=None, duration_min=1, label="x")
+                                  duration_min=1)
         await a.async_start()
         hass.services.async_call.reset_mock()
         await a.async_stop()

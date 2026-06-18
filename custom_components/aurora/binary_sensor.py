@@ -50,4 +50,6 @@ class AuroraRingingBinarySensor(AuroraEntity, BinarySensorEntity):
         return {
             "alarm_id": data.active_alarm_id,
             "mission": data.active_mission,
+            "label": data.active_label,
+            "color_temp_kelvin": data.active_color_temp_kelvin,
         }

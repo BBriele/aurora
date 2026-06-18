@@ -188,6 +188,8 @@ class AuroraCoordinatorData:
     next_alarm: NextAlarm | None
     active_alarm_id: str | None = None
     active_mission: dict[str, object] | None = None
+    active_label: str | None = None
+    active_color_temp_kelvin: int | None = None
 
 
 @dataclass(slots=True)
@@ -394,24 +396,40 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             return None
         return self._active_alarm.features.mission.as_dict()
 
+    @callback
+    def _active_overlay(self) -> tuple[str | None, int | None]:
+        """Return the ringing alarm's label + light colour for the display overlay."""
+        if self._active_alarm is None:
+            return (None, None)
+        return (
+            self._active_alarm.label or None,
+            self._active_alarm.features.light.color_temp_kelvin,
+        )
+
     async def _async_update_data(self) -> AuroraCoordinatorData:
         """Return the current snapshot (push coordinator: no I/O)."""
+        active_label, active_color_temp_kelvin = self._active_overlay()
         return AuroraCoordinatorData(
             state=self._state,
             next_alarm=self._next,
             active_alarm_id=self._active_alarm_id,
             active_mission=self._active_mission(),
+            active_label=active_label,
+            active_color_temp_kelvin=active_color_temp_kelvin,
         )
 
     @callback
     def _publish(self) -> None:
         """Push the latest snapshot to listeners/entities."""
+        active_label, active_color_temp_kelvin = self._active_overlay()
         self.async_set_updated_data(
             AuroraCoordinatorData(
                 state=self._state,
                 next_alarm=self._next,
                 active_alarm_id=self._active_alarm_id,
                 active_mission=self._active_mission(),
+                active_label=active_label,
+                active_color_temp_kelvin=active_color_temp_kelvin,
             )
         )
 

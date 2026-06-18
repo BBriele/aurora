@@ -2767,6 +2767,23 @@ let AuroraRingDisplay = class AuroraRingDisplay extends i {
     get _label() {
         return this._sensor?.attributes?.["label"] ?? "";
     }
+    /**
+     * Interpolate the near-horizon gradient stop from the alarm's light colour
+     * temperature. Warmth factor t=0 (2200 K, very warm) → #ffd27a;
+     * t=1 (6500 K, cool daylight) → #cfe0ff. Falls back to the warm default
+     * when no kelvin value is available.
+     */
+    get _horizonColor() {
+        const k = this._sensor?.attributes?.["color_temp_kelvin"];
+        if (k == null)
+            return "#ffd27a";
+        const t = Math.max(0, Math.min(1, (k - 2200) / (6500 - 2200)));
+        // Interpolate #ffd27a → #cfe0ff channel by channel
+        const r = Math.round(0xff + (0xcf - 0xff) * t);
+        const g = Math.round(0xd2 + (0xe0 - 0xd2) * t);
+        const b = Math.round(0x7a + (0xff - 0x7a) * t);
+        return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    }
     render() {
         if (!this.hass)
             return A;
@@ -2778,7 +2795,7 @@ let AuroraRingDisplay = class AuroraRingDisplay extends i {
       </div></div>`;
         }
         return b `<div class="screen">
-      <div class="sky"></div>
+      <div class="sky" style="--aurora-horizon:${this._horizonColor}"></div>
       <div class="content">
         <div class="big clock">${hh}:${mm}</div>
         <div class="label">${this._label || localize(this.hass?.language, "ring.label")}</div>
@@ -2802,7 +2819,7 @@ AuroraRingDisplay.styles = [
         position: absolute;
         inset: 0;
         background: radial-gradient(120% 80% at 50% 118%,
-          #ffd27a 0%, #f0883e 22%, #a44a86 48%, #3a2a6b 72%, #14122a 100%);
+          var(--aurora-horizon, #ffd27a) 0%, #f0883e 22%, #a44a86 48%, #3a2a6b 72%, #14122a 100%);
         animation: rise 7s ease-out both;
       }
       .content { position: relative; text-align: center; }
