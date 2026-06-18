@@ -4,6 +4,23 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.0 - 2026-06-18
+
+### Added
+- Per-alarm **display wake overlay**: pick one or more screen-controllable
+  displays (Fully Kiosk) in the alarm editor; when the alarm rings, Aurora wakes
+  the screen, ramps its brightness over the wake window, and shows a fullscreen,
+  info-only sunrise (clock + label) by loading the new `/aurora/ring` view. On
+  dismiss it reloads the kiosk's start URL and restores the screen. The overlay
+  reuses the alarm's light colour/duration and is non-interactive — a software
+  sunrise lamp, not an alarm control.
+- `display_surface` can now be bound to multiple displays in Setup.
+
+### Changed
+- The card's ringing view is now an opt-in **in-card animation**
+  (`ring_animation`, formerly `ring_screen`) contained within the card, instead
+  of a full-screen device takeover. The old key is still honoured.
+
 ## 0.15.0 - 2026-06-17
 
 ### Added
