@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.20.1 - 2026-06-18
+
+### Fixed
+- The vision model combo was always empty: the model harvest tested config
+  entry/subentry data with `isinstance(..., dict)`, but Home Assistant stores it
+  as a read-only `MappingProxyType`, so every real provider was skipped. It now
+  accepts any mapping and surfaces the configured models.
+
 ## 0.20.0 - 2026-06-18
 
 ### Added

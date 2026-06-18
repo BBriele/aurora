@@ -13,6 +13,7 @@ HA-free so it runs in the local test shim; the registry walk in
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from .const import DOMAIN_LLM_VISION
@@ -27,9 +28,14 @@ _AI_DOMAINS = ("ai_task", "conversation")
 
 
 def _models_from_mapping(mapping: Any) -> set[str]:
-    """Return the model strings stored under MODEL_KEYS in a single config dict."""
+    """Return the model strings stored under MODEL_KEYS in a single config map.
+
+    Accepts any Mapping — config entry/subentry ``data`` is a read-only
+    ``MappingProxyType``, not a ``dict``, so an ``isinstance(..., dict)`` check
+    would silently miss every real entry.
+    """
     out: set[str] = set()
-    if not isinstance(mapping, dict):
+    if not isinstance(mapping, Mapping):
         return out
     for key in MODEL_KEYS:
         value = mapping.get(key)

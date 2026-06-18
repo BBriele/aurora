@@ -8,6 +8,7 @@ HA-dependent and only collected in CI.
 
 import importlib.util
 import types
+from types import MappingProxyType
 
 from custom_components.aurora.vision_models import (
     MODEL_KEYS,
@@ -42,10 +43,15 @@ def test_mapping_strips_whitespace() -> None:
 
 
 def test_mapping_handles_non_dict() -> None:
-    """A non-dict input contributes nothing, never raises."""
+    """A non-mapping input contributes nothing, never raises."""
     assert _models_from_mapping(None) == set()
     assert _models_from_mapping("not-a-dict") == set()
     assert _models_from_mapping(["model"]) == set()
+
+
+def test_mapping_accepts_mappingproxy() -> None:
+    """Config entry/subentry data is a MappingProxyType, not a dict — must work."""
+    assert _models_from_mapping(MappingProxyType({"model": "llava"})) == {"llava"}
 
 
 def test_mapping_ignores_unrelated_keys() -> None:
