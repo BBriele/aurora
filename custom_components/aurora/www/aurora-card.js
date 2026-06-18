@@ -1206,8 +1206,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             </div>`
             : A}
 
-        <div class="block grid2">
-          ${this._selector({
+        <div class="cols">
+          <div class="col">
+            ${this._selector({
             select: {
                 mode: "dropdown",
                 options: MISSION_TYPES.map((m) => ({
@@ -1215,73 +1216,74 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                     label: localize(lang, "mission." + m),
                 })),
             },
-        }, localize(lang, "dialog.mission"), this._mission, (v) => (this._mission = v ?? "tap"), "")}
-          ${this._soundField(lang)}
-        </div>
+        }, localize(lang, "dialog.mission"), this._mission, (v) => (this._mission = v ?? "tap"))}
+            ${this._missionParamsBlock()}
+            ${this._soundField(lang)}
+            <div class="grid2">
+              ${this._selector({ number: { min: 0, max: 10, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_max"), this._snoozeMax, (v) => (this._snoozeMax = Number(v ?? 0)), "")}
+              ${this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_duration"), this._snoozeMin, (v) => (this._snoozeMin = Number(v ?? 0)), "")}
+            </div>
+          </div>
 
-        ${this._missionParamsBlock()}
+          <div class="col">
+            <div class="togglerow">
+              <ha-switch
+                .checked=${this._audioFade}
+                @change=${(e) => (this._audioFade = e.target.checked)}
+              ></ha-switch>
+              <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
+            </div>
 
-        <div class="block grid2">
-          ${this._selector({ number: { min: 0, max: 10, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_max"), this._snoozeMax, (v) => (this._snoozeMax = Number(v ?? 0)), "")}
-          ${this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_duration"), this._snoozeMin, (v) => (this._snoozeMin = Number(v ?? 0)), "")}
-        </div>
+            ${this._volumeBlock(lang)}
+            ${this._displayBlock(lang)}
 
-        <div class="togglerow">
-          <ha-switch
-            .checked=${this._audioFade}
-            @change=${(e) => (this._audioFade = e.target.checked)}
-          ></ha-switch>
-          <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
-        </div>
-
-        ${this._volumeBlock(lang)}
-        ${this._displayBlock(lang)}
-
-        <div class="togglerow">
-          <ha-switch
-            .checked=${this._light}
-            @change=${(e) => (this._light = e.target.checked)}
-          ></ha-switch>
-          <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
-        </div>
-        ${this._light
+            <div class="togglerow">
+              <ha-switch
+                .checked=${this._light}
+                @change=${(e) => (this._light = e.target.checked)}
+              ></ha-switch>
+              <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
+            </div>
+            ${this._light
             ? this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.sunrise_min"), this._lightMin, (v) => (this._lightMin = Number(v ?? 0)))
             : A}
 
-        <div class="togglerow">
-          <ha-switch
-            .checked=${this._smart}
-            @change=${(e) => (this._smart = e.target.checked)}
-          ></ha-switch>
-          <div class="spacer">
-            ${localize(lang, "dialog.smart")}
-            <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
-          </div>
-        </div>
-        ${this._smart
+            <div class="togglerow">
+              <ha-switch
+                .checked=${this._smart}
+                @change=${(e) => (this._smart = e.target.checked)}
+              ></ha-switch>
+              <div class="spacer">
+                ${localize(lang, "dialog.smart")}
+                <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
+              </div>
+            </div>
+            ${this._smart
             ? this._selector({ number: { min: 5, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.smart_min"), this._smartMin, (v) => (this._smartMin = Number(v ?? 0)))
             : A}
 
-        <div class="togglerow">
-          <ha-switch
-            .checked=${this._briefing}
-            @change=${(e) => (this._briefing = e.target.checked)}
-          ></ha-switch>
-          <div class="spacer">
-            ${localize(lang, "dialog.briefing")}
-            <div class="sub">${localize(lang, "dialog.briefing_desc")}</div>
+            <div class="togglerow">
+              <ha-switch
+                .checked=${this._briefing}
+                @change=${(e) => (this._briefing = e.target.checked)}
+              ></ha-switch>
+              <div class="spacer">
+                ${localize(lang, "dialog.briefing")}
+                <div class="sub">${localize(lang, "dialog.briefing_desc")}</div>
+              </div>
+            </div>
+            ${this._briefing
+            ? b `<div class="chips">
+                  ${BRIEFING_BLOCKS.map((b$1) => b `<button
+                      class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
+                      @click=${() => this._toggleBlock(b$1)}
+                    >
+                      ${localize(lang, "briefing.block." + b$1)}
+                    </button>`)}
+                </div>`
+            : A}
           </div>
         </div>
-        ${this._briefing
-            ? b `<div class="chips">
-              ${BRIEFING_BLOCKS.map((b$1) => b `<button
-                  class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
-                  @click=${() => this._toggleBlock(b$1)}
-                >
-                  ${localize(lang, "briefing.block." + b$1)}
-                </button>`)}
-            </div>`
-            : A}
 
         <div class="footer-actions" slot="footer">
           <ha-button appearance="plain" @click=${this._close}>
@@ -1305,6 +1307,29 @@ AuroraAlarmDialog.styles = [
     i$3 `
       ha-dialog {
         --dialog-content-padding: 4px 24px 16px;
+        /* Wider modal so the body fits two columns. HA exposes width via the mdc
+           vars, WebAwesome via --width; set both, the unused one is a no-op.
+           Shrinks on small screens. */
+        --mdc-dialog-min-width: min(600px, 90vw);
+        --mdc-dialog-max-width: 860px;
+        --width: min(860px, 92vw);
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0 28px;
+        align-items: start;
+      }
+      .col {
+        min-width: 0;
+      }
+      .col .togglerow:first-child {
+        border-top: none;
+      }
+      @media (max-width: 640px) {
+        .cols {
+          grid-template-columns: 1fr;
+        }
       }
       .dlg-title {
         font-size: 1.2rem;

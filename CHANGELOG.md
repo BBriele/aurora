@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.3 - 2026-06-18
+
+### Changed
+- The alarm create/edit modal is wider and lays its fields out in two columns on
+  roomy screens (scheduling and sound on the left, wake-up behaviours on the
+  right), collapsing back to a single column on phones — less scrolling and a
+  clearer grouping.
+
 ## 0.16.2 - 2026-06-18
 
 ### Fixed
