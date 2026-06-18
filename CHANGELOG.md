@@ -4,6 +4,25 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.18.0 - 2026-06-18
+
+### Added
+- The alarm editor now exposes a **custom prompt** for the AI-vision (selfie)
+  anti-snooze mission. Leave it empty to use the built-in default. The backend
+  already honoured a per-alarm prompt; it just had no UI.
+- A **Run benchmark** button next to the vision provider runs a few timed
+  inferences and reports the min/avg/max latency and success count inline, so you
+  can tune expectations against your own hardware.
+- **Pre-warm**: when the next alarm uses the vision mission, Aurora runs one
+  throwaway warm-up inference shortly before it fires (and at the start of the
+  smart-wake window), so the first real selfie check is not paying the
+  cold-model load cost.
+
+### Changed
+- `sensor.aurora_vision_latency` and the vision circuit breaker now reflect
+  **real mission checks only**. The benchmark and the pre-warm no longer feed the
+  rolling latency average or affect the breaker.
+
 ## 0.17.3 - 2026-06-18
 
 ### Fixed
