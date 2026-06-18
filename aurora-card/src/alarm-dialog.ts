@@ -151,9 +151,17 @@ export class AuroraAlarmDialog extends LitElement {
     this._close();
   }
 
-  // View Transitions API morphs the width change smoothly (HA does the same);
-  // plain flip where the browser lacks it.
+  // View Transitions API morphs the resize smoothly (HA does the same); plain
+  // flip where the browser lacks it. Tagging HA's inner <dialog> with a
+  // view-transition-name makes the box *geometrically* morph (grow/shrink)
+  // instead of a flat crossfade — that's what gives HA's more-info its feel.
+  // ponytail: reaches into ha-dialog's shadow; if HA restructures it, the morph
+  // silently degrades to the default root crossfade — no breakage.
   private _toggleLarge(): void {
+    const box = this.shadowRoot
+      ?.querySelector("ha-dialog")
+      ?.shadowRoot?.querySelector("dialog") as HTMLElement | null | undefined;
+    if (box) box.style.viewTransitionName = "aurora-alarm-dialog";
     const flip = (): void => void (this._large = !this._large);
     const vt = (document as Document & {
       startViewTransition?: (cb: () => void) => void;
@@ -471,6 +479,11 @@ export class AuroraAlarmDialog extends LitElement {
            (The legacy --width / --mdc-dialog-* vars are ignored by this dialog.)
            Compact = single column. */
         --ha-dialog-width-md: 560px;
+        /* Top-anchor the surface: compact (1 col) is much taller than large
+           (2 col), so vertical centering would make the header jump ~120px when
+           toggling. A fixed top keeps the header still; the body just grows down
+           (ha-dialog caps height and scrolls internally on short screens). */
+        --dialog-surface-margin-top: 48px;
       }
       /* Large: grow sideways to fit the two-column body (default on wide screens,
          toggled by clicking the header title). */

@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.17.2 - 2026-06-18
+
+### Changed
+- The alarm editor's expand/collapse animation is now coherent. Two fixes: the
+  dialog is top-anchored so the header no longer jumps vertically (the compact
+  single-column layout is much taller than the expanded two-column one, and
+  centering made the header leap ~120px); and the dialog box now carries a
+  `view-transition-name`, so it geometrically morphs (grows/shrinks) like Home
+  Assistant's own more-info dialogs instead of a flat crossfade.
+
 ## 0.17.1 - 2026-06-18
 
 ### Fixed
