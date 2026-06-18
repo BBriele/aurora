@@ -4,7 +4,6 @@
 barest setup (Tier 0). Any bound ``notify.*`` entities are additionally notified.
 """
 
-import contextlib
 import logging
 
 from homeassistant.components import persistent_notification
@@ -66,6 +65,5 @@ class NotifyChannelAdapter:
                 _LOGGER.warning("Aurora notify: failed on %s: %s", target, err)
 
     async def async_stop(self) -> None:
-        """Dismiss the persistent notification."""
-        with contextlib.suppress(Exception):
-            persistent_notification.async_dismiss(self._hass, self._notification_id)
+        """Dismiss the persistent notification (no-op if already gone)."""
+        persistent_notification.async_dismiss(self._hass, self._notification_id)

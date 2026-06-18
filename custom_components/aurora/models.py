@@ -49,7 +49,7 @@ class VolumeEndMode(StrEnum):
 
 
 # datetime.weekday(): Monday == 0 ... Sunday == 6
-WEEKDAYS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
+WEEKDAYS: tuple[int, ...] = tuple(range(7))
 
 
 def _parse_time(value: str | None) -> time | None:

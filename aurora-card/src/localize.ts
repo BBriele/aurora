@@ -34,8 +34,3 @@ export function localize(
 export function weekdayLetters(language: string | undefined): string[] {
   return localize(language, "weekday.letters").split(",");
 }
-
-/** Localized full weekday names (Mon-first). */
-export function weekdayNames(language: string | undefined): string[] {
-  return localize(language, "weekday.names").split("|");
-}

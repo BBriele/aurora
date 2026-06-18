@@ -17,8 +17,7 @@ const ALL = "__all__";
 @customElement("aurora-panel")
 export class AuroraPanel extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
-  @property({ attribute: false }) route?: { prefix: string; path: string };
-  @property({ type: Boolean }) narrow = false;
+  @property({ attribute: false }) route?: { path: string };
 
   @state() private _tab: Tab = "alarms";
   @state() private _selected = "";

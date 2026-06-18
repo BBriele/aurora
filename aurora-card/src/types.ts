@@ -146,20 +146,6 @@ export interface RoleEntities {
 export const BRIEFING_BLOCKS = ["time", "weather", "calendar", "todo"] as const;
 export type BriefingBlock = (typeof BRIEFING_BLOCKS)[number];
 
-// Role icons are emoji (not language-dependent). Labels/descriptions are
-// localized via the "role.<key>.label/.desc" keys in translations.ts.
-export const ROLE_ICONS: Record<string, string> = {
-  audio_sink: "🔊",
-  wake_light: "🌅",
-  display_surface: "🖥️",
-  notify_channel: "🔔",
-  sleep_signal: "😴",
-  presence_signal: "🚶",
-  conversation: "🗣️",
-  tts: "📣",
-  vision_provider: "👁️",
-};
-
 // Mission types in display order. Labels are localized via "mission.<type>".
 export const MISSION_TYPES: MissionType[] = [
   "none",

@@ -157,7 +157,6 @@ const STRINGS = {
         "common.none": "—",
         // weekdays (Mon-first); letters split by "," names by "|"
         "weekday.letters": "M,T,W,T,F,S,S",
-        "weekday.names": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
         "weekday.short": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
         "schedule.title": "This week",
         "schedule.empty": "No alarms this day",
@@ -356,7 +355,6 @@ const STRINGS = {
         "common.delete": "Elimina",
         "common.none": "—",
         "weekday.letters": "L,M,M,G,V,S,D",
-        "weekday.names": "Lunedì|Martedì|Mercoledì|Giovedì|Venerdì|Sabato|Domenica",
         "weekday.short": "Lun,Mar,Mer,Gio,Ven,Sab,Dom",
         "schedule.title": "Questa settimana",
         "schedule.empty": "Nessuna sveglia questo giorno",
@@ -1966,20 +1964,8 @@ const SHAKE_DEFAULT_COUNT = 12;
  * (no camera, no motion sensor, missing entity). Always terminates at "tap".
  */
 function degradeMission(type) {
-    switch (type) {
-        case "vision":
-            return "math";
-        case "qr":
-            return "math";
-        case "shake":
-            return "math";
-        case "open_door":
-            return "tap";
-        case "math":
-            return "tap";
-        default:
-            return "tap";
-    }
+    // Sensor-dependent missions fall back to math; everything else to tap.
+    return ["vision", "qr", "shake"].includes(type) ? "math" : "tap";
 }
 /** Missions that need an active mission UI (everything except none/tap). */
 function needsChallenge(type) {
@@ -4810,7 +4796,6 @@ const ALL = "__all__";
 let AuroraPanel = class AuroraPanel extends i {
     constructor() {
         super(...arguments);
-        this.narrow = false;
         this._tab = "alarms";
         this._selected = "";
         this._profiles = {};
@@ -5044,9 +5029,6 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AuroraPanel.prototype, "route", void 0);
-__decorate([
-    n({ type: Boolean })
-], AuroraPanel.prototype, "narrow", void 0);
 __decorate([
     r()
 ], AuroraPanel.prototype, "_tab", void 0);

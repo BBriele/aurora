@@ -22,7 +22,6 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
 
     // weekdays (Mon-first); letters split by "," names by "|"
     "weekday.letters": "M,T,W,T,F,S,S",
-    "weekday.names": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
     "weekday.short": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
     "schedule.title": "This week",
     "schedule.empty": "No alarms this day",
@@ -242,7 +241,6 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "common.none": "—",
 
     "weekday.letters": "L,M,M,G,V,S,D",
-    "weekday.names": "Lunedì|Martedì|Mercoledì|Giovedì|Venerdì|Sabato|Domenica",
     "weekday.short": "Lun,Mar,Mer,Gio,Ven,Sab,Dom",
     "schedule.title": "Questa settimana",
     "schedule.empty": "Nessuna sveglia questo giorno",

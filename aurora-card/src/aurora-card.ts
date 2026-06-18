@@ -11,7 +11,6 @@ import type { HassEntity, HomeAssistant } from "./types";
 export interface AuroraCardConfig {
   type: string;
   title?: string;
-  compact?: boolean;
   /** Show the ringing animation inside this card (opt-in). Legacy key:
    * ring_screen. Off by default. */
   ring_animation?: boolean;

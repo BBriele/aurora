@@ -13,8 +13,8 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 import voluptuous as vol
 
-from .capabilities import get_llm_vision_providers, suggest_entities
-from .const import ALL_ROLES, DOMAIN
+from .capabilities import available_roles, get_llm_vision_providers
+from .const import DOMAIN
 
 
 def _entry(hass: HomeAssistant) -> Any:
@@ -76,7 +76,7 @@ def ws_options_entities(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """Return, per role, the entities that currently satisfy it (for selectors)."""
-    roles = {role: suggest_entities(hass, role) for role in ALL_ROLES}
+    roles = available_roles(hass)
     calendars = sorted(state.entity_id for state in hass.states.async_all("calendar"))
     weather = sorted(state.entity_id for state in hass.states.async_all("weather"))
     todo = sorted(state.entity_id for state in hass.states.async_all("todo"))

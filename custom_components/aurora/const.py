@@ -11,10 +11,8 @@ from typing import Final
 DOMAIN: Final = "aurora"
 
 # --- Versioning -------------------------------------------------------------
-# Config-entry schema version (drives async_migrate_entry).
-CONFIG_VERSION: Final = 1
-CONFIG_MINOR_VERSION: Final = 1
-# Persistent Store schema versions (drive Store migration).
+# Persistent Store schema versions (drive Store migration). The config-entry
+# schema version is set directly on the config flow (VERSION/MINOR_VERSION).
 STORAGE_VERSION: Final = 1
 STORAGE_MINOR_VERSION: Final = 1
 
@@ -105,7 +103,6 @@ CARD_URL: Final = f"{CARD_URL_BASE}/{CARD_FILENAME}"
 # works without any of them via generic adapters.
 DOMAIN_LLM_VISION: Final = "llmvision"
 DOMAIN_FULLY_KIOSK: Final = "fully_kiosk"
-DOMAIN_BROWSER_MOD: Final = "browser_mod"
 
 # Fully Kiosk display control. translation_keys are locale-independent, so the
 # DisplaySurfaceAdapter resolves the device's control entities by these keys via

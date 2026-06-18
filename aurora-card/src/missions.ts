@@ -47,20 +47,8 @@ export const SHAKE_DEFAULT_COUNT = 12;
  * (no camera, no motion sensor, missing entity). Always terminates at "tap".
  */
 export function degradeMission(type: MissionType): MissionType {
-  switch (type) {
-    case "vision":
-      return "math";
-    case "qr":
-      return "math";
-    case "shake":
-      return "math";
-    case "open_door":
-      return "tap";
-    case "math":
-      return "tap";
-    default:
-      return "tap";
-  }
+  // Sensor-dependent missions fall back to math; everything else to tap.
+  return ["vision", "qr", "shake"].includes(type) ? "math" : "tap";
 }
 
 /** Missions that need an active mission UI (everything except none/tap). */

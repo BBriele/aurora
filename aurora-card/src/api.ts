@@ -72,7 +72,7 @@ export function getRoleEntities(hass: HomeAssistant): Promise<RoleEntities> {
   return hass.callWS<RoleEntities>({ type: "aurora/options/entities" });
 }
 
-export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss" | "trigger_now") =>
+export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss") =>
   hass.callService("aurora", service, {});
 
 /** A node in Home Assistant's media-browse tree (player or media-source). */
@@ -84,7 +84,6 @@ export interface BrowseMedia {
   can_play: boolean;
   can_expand: boolean;
   thumbnail?: string | null;
-  children_media_class?: string | null;
   children?: BrowseMedia[];
 }
 
@@ -116,8 +115,6 @@ export function browseMedia(
 
 export interface VisionResult {
   awake: boolean;
-  latency_ms?: number;
-  error?: string;
 }
 
 /** Submit a selfie (data URL / base64) to the AI-vision provider for a verdict. */
