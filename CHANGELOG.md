@@ -4,6 +4,23 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.19.0 - 2026-06-18
+
+### Added
+- The AI-vision selfie mission is now tunable at three levels, most-specific
+  wins: **per-alarm** (existing prompt), **per-user** (Setup → Vision), and
+  **installation-wide** (Shared). Each level can set the vision **prompt**, the
+  LLM Vision **model**, and the robustness knobs (**timeout**, **retries**,
+  **max fails before degrading**). An alarm with nothing set inherits the user
+  default, then the global default, then Aurora's built-in.
+- A **criteria builder** next to every vision prompt: toggle chips (standing /
+  eyes open / face visible) compose the prompt text for you; you can still edit
+  it freely afterwards.
+
+### Changed
+- The number of failed selfie checks before the mission degrades to Tap/math is
+  now configurable (was hardcoded to 3).
+
 ## 0.18.1 - 2026-06-18
 
 ### Fixed

@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { visionCheck } from "./api";
+import { getSettings, visionCheck } from "./api";
 import { localize } from "./localize";
 import {
   degradeMission,
@@ -14,7 +14,7 @@ import {
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, MissionType } from "./types";
 
-const VISION_MAX_FAILS = 3;
+const VISION_MAX_FAILS_DEFAULT = 3;
 
 interface MissionConfig {
   type: MissionType;
@@ -49,10 +49,39 @@ export class AuroraMissionOverlay extends LitElement {
   private _stream?: MediaStream;
   private _scanTimer?: number;
   private _motionHandler?: (e: DeviceMotionEvent) => void;
+  /** Resolved max vision fails: per-profile > global > built-in default. */
+  private _visionMaxFails = VISION_MAX_FAILS_DEFAULT;
 
   connectedCallback(): void {
     super.connectedCallback();
     this._start(this.mission.type || "tap");
+    void this._resolveVisionMaxFails();
+  }
+
+  private async _resolveVisionMaxFails(): Promise<void> {
+    try {
+      const settings = await getSettings(this.hass);
+      const options = settings.options;
+      const profiles = (options["profiles"] as Record<string, Record<string, unknown>>) ?? {};
+      // Determine the owner profile id from the alarm (not available directly on
+      // MissionConfig — we look up all profiles and find the one bound to the
+      // hass user as a best-effort; the overlay doesn't receive a profile_id prop).
+      // Simpler: check the current HA user id against profile keys.
+      const userId = this.hass?.user?.id ?? "";
+      const profile = profiles[userId] ?? {};
+      const perProfile = profile["vision_max_fails"];
+      const global = options["vision_max_fails"];
+      const resolved =
+        perProfile != null && perProfile !== ""
+          ? Number(perProfile)
+          : global != null && global !== ""
+            ? Number(global)
+            : VISION_MAX_FAILS_DEFAULT;
+      this._visionMaxFails = Number.isFinite(resolved) ? resolved : VISION_MAX_FAILS_DEFAULT;
+    } catch {
+      // Settings unavailable — keep built-in default.
+      this._visionMaxFails = VISION_MAX_FAILS_DEFAULT;
+    }
   }
 
   disconnectedCallback(): void {
@@ -264,11 +293,11 @@ export class AuroraMissionOverlay extends LitElement {
       }
       this._visionFails += 1;
       this._notice = localize(this._lang, "missionui.vision_failed");
-      if (this._visionFails >= VISION_MAX_FAILS) this._degrade();
+      if (this._visionFails >= this._visionMaxFails) this._degrade();
     } catch {
       this._visionFails += 1;
       this._notice = localize(this._lang, "missionui.vision_failed");
-      if (this._visionFails >= VISION_MAX_FAILS) this._degrade();
+      if (this._visionFails >= this._visionMaxFails) this._degrade();
     } finally {
       this._checking = false;
     }

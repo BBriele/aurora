@@ -340,6 +340,16 @@ const STRINGS = {
         "ring.snooze": "Snooze",
         "ring.stop": "Stop",
         "ring.start_mission": "I'm awake",
+        // vision criteria chips + prompt builder
+        "vision.crit_standing": "standing up",
+        "vision.crit_eyes_open": "with both eyes open",
+        "vision.crit_face": "face clearly visible",
+        "vision.prompt_template": "Answer only YES or NO: is the person in the photo {criteria}?",
+        "vision.model": "Vision model",
+        "vision.model_ph": "e.g. gemma3, qwen2.5vl",
+        "vision.timeout_s": "Timeout (seconds)",
+        "vision.retries": "Retries",
+        "vision.max_fails": "Max fails before downgrade",
         // mission overlay
         "missionui.math_prompt": "Solve to dismiss",
         "missionui.answer": "Answer",
@@ -529,6 +539,16 @@ const STRINGS = {
         "ring.snooze": "Posponi",
         "ring.stop": "Stop",
         "ring.start_mission": "Sono sveglio",
+        // vision criteria chips + prompt builder
+        "vision.crit_standing": "in piedi",
+        "vision.crit_eyes_open": "con entrambi gli occhi aperti",
+        "vision.crit_face": "viso chiaramente visibile",
+        "vision.prompt_template": "Rispondi solo SÌ o NO: la persona nella foto è {criteria}?",
+        "vision.model": "Modello di visione",
+        "vision.model_ph": "es. gemma3, qwen2.5vl",
+        "vision.timeout_s": "Timeout (secondi)",
+        "vision.retries": "Tentativi",
+        "vision.max_fails": "Fallimenti massimi prima del downgrade",
         "missionui.math_prompt": "Risolvi per spegnere",
         "missionui.answer": "Risposta",
         "missionui.check": "Verifica",
@@ -2063,7 +2083,7 @@ function needsChallenge(type) {
     return type !== "none" && type !== "tap";
 }
 
-const VISION_MAX_FAILS = 3;
+const VISION_MAX_FAILS_DEFAULT = 3;
 /**
  * Anti-snooze challenge shown over the ring. Emits `solved` once the active
  * mission is completed. Falls back to a simpler mission (and ultimately a tap)
@@ -2085,10 +2105,38 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
         this._notice = "";
         this._solved = false;
         this._doorWasOpen = false;
+        /** Resolved max vision fails: per-profile > global > built-in default. */
+        this._visionMaxFails = VISION_MAX_FAILS_DEFAULT;
     }
     connectedCallback() {
         super.connectedCallback();
         this._start(this.mission.type || "tap");
+        void this._resolveVisionMaxFails();
+    }
+    async _resolveVisionMaxFails() {
+        try {
+            const settings = await getSettings(this.hass);
+            const options = settings.options;
+            const profiles = options["profiles"] ?? {};
+            // Determine the owner profile id from the alarm (not available directly on
+            // MissionConfig — we look up all profiles and find the one bound to the
+            // hass user as a best-effort; the overlay doesn't receive a profile_id prop).
+            // Simpler: check the current HA user id against profile keys.
+            const userId = this.hass?.user?.id ?? "";
+            const profile = profiles[userId] ?? {};
+            const perProfile = profile["vision_max_fails"];
+            const global = options["vision_max_fails"];
+            const resolved = perProfile != null && perProfile !== ""
+                ? Number(perProfile)
+                : global != null && global !== ""
+                    ? Number(global)
+                    : VISION_MAX_FAILS_DEFAULT;
+            this._visionMaxFails = Number.isFinite(resolved) ? resolved : VISION_MAX_FAILS_DEFAULT;
+        }
+        catch {
+            // Settings unavailable — keep built-in default.
+            this._visionMaxFails = VISION_MAX_FAILS_DEFAULT;
+        }
     }
     disconnectedCallback() {
         super.disconnectedCallback();
@@ -2298,13 +2346,13 @@ let AuroraMissionOverlay = class AuroraMissionOverlay extends i {
             }
             this._visionFails += 1;
             this._notice = localize(this._lang, "missionui.vision_failed");
-            if (this._visionFails >= VISION_MAX_FAILS)
+            if (this._visionFails >= this._visionMaxFails)
                 this._degrade();
         }
         catch {
             this._visionFails += 1;
             this._notice = localize(this._lang, "missionui.vision_failed");
-            if (this._visionFails >= VISION_MAX_FAILS)
+            if (this._visionFails >= this._visionMaxFails)
                 this._degrade();
         }
         finally {
@@ -4361,6 +4409,86 @@ AuroraAudioPresets = __decorate([
     t("aurora-audio-presets")
 ], AuroraAudioPresets);
 
+/**
+ * Vision-prompt criteria builder — DRY module shared by globals-view and
+ * devices-view. Stateless: chips generate text, the text field is the stored
+ * value (one source of truth).
+ */
+/** The three well-known selfie criteria the chip row exposes. */
+const VISION_CRITERIA = ["standing", "eyes_open", "face"];
+/** Map each criterion to its translations.ts key. */
+const CRIT_KEY = {
+    standing: "vision.crit_standing",
+    eyes_open: "vision.crit_eyes_open",
+    face: "vision.crit_face",
+};
+/**
+ * Compose a YES/NO instruction sentence from the selected criteria.
+ * Returns "" when the list is empty (no overwrite intended).
+ */
+function composeVisionPrompt(criteria, lang) {
+    const valid = criteria.filter((c) => VISION_CRITERIA.includes(c));
+    if (valid.length === 0)
+        return "";
+    const clauses = valid.map((c) => localize(lang, CRIT_KEY[c]));
+    // Join with ", " between items and " and " before the last.
+    let joined;
+    if (clauses.length === 1) {
+        joined = clauses[0];
+    }
+    else {
+        joined = clauses.slice(0, -1).join(", ") + " and " + clauses[clauses.length - 1];
+    }
+    // Insert the joined clauses into the template sentence.
+    const template = localize(lang, "vision.prompt_template");
+    return template.replace("{criteria}", joined);
+}
+/**
+ * Render a criteria chip row + a free-edit textarea.
+ * Chips are write-only: clicking one composes a new prompt and calls onChange.
+ * The textarea also calls onChange on every keystroke.
+ *
+ * @param value   Current stored prompt text (bound to the textarea).
+ * @param lang    UI language (hass.language).
+ * @param onChange Called with the new string whenever the user interacts.
+ */
+function renderVisionPrompt(value, lang, onChange) {
+    // Detect which criteria appear in the current value so we can show chips as
+    // "active" when the text already matches.
+    const active = new Set(VISION_CRITERIA.filter((c) => {
+        const clause = localize(lang, CRIT_KEY[c]);
+        return clause && value.includes(clause);
+    }));
+    const toggleCriterion = (c) => {
+        const next = new Set(active);
+        if (next.has(c)) {
+            next.delete(c);
+        }
+        else {
+            next.add(c);
+        }
+        onChange(composeVisionPrompt([...next], lang));
+    };
+    return b `
+    <div class="vision-chips">
+      ${VISION_CRITERIA.map((c) => b `
+          <button
+            type="button"
+            class="chip ${active.has(c) ? "on" : ""}"
+            @click=${() => toggleCriterion(c)}
+          >
+            ${localize(lang, CRIT_KEY[c])}
+          </button>
+        `)}
+    </div>
+    <ha-textarea
+      .value=${value}
+      autogrow
+      @input=${(e) => onChange(e.target.value)}
+    ></ha-textarea>
+  `;
+}
+
 // Roles grouped into themed cards (mirrors the Alarms page's card layout).
 const GROUPS = [
     { key: "audio", icon: "🔊", roles: [{ key: "audio_sink", multiple: false }] },
@@ -4397,6 +4525,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         this.userId = "";
         this.userName = "";
         this._bindings = {};
+        this._vision = {};
         this._saving = false;
         this._saved = false;
         this._profiles = {};
@@ -4415,11 +4544,28 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         ]);
         this._entities = entities;
         this._profiles = settings.options.profiles ?? {};
-        this._bindings = { ...(this._profiles[this.userId]?.bindings ?? {}) };
+        const profile = this._profiles[this.userId] ?? {};
+        // Cast through unknown to access dynamic vision keys that are not in the
+        // Profile type (they are new sibling keys stored alongside bindings).
+        const profileDyn = profile;
+        this._bindings = { ...(profile.bindings ?? {}) };
+        this._vision = {
+            vision_prompt: profileDyn["vision_prompt"] ?? "",
+            vision_model: profileDyn["vision_model"] ?? "",
+            // Numbers stay raw (number | undefined) so the ha-selector number field
+            // shows empty when unset — never an empty string.
+            vision_timeout_s: profileDyn["vision_timeout_s"],
+            vision_retries: profileDyn["vision_retries"],
+            vision_max_fails: profileDyn["vision_max_fails"],
+        };
         this._saved = false;
     }
     _set(key, value) {
         this._bindings = { ...this._bindings, [key]: value };
+        this._saved = false;
+    }
+    _setVision(key, value) {
+        this._vision = { ...this._vision, [key]: value };
         this._saved = false;
     }
     async _save() {
@@ -4431,10 +4577,18 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
             const fresh = await getSettings(this.hass);
             const profiles = fresh.options.profiles ?? {};
             const existing = profiles[this.userId];
+            // Strip empty vision strings so we don't persist noise; keep non-empty values.
+            const visionKeys = {};
+            for (const [k, v] of Object.entries(this._vision)) {
+                if (v !== "" && v !== null && v !== undefined) {
+                    visionKeys[k] = v;
+                }
+            }
             profiles[this.userId] = {
                 ...existing,
                 name: this.userName || existing?.name || this.userId,
                 bindings,
+                ...visionKeys,
             };
             const res = await setSettings(this.hass, { profiles });
             this._profiles = res.options.profiles ?? profiles;
@@ -4455,7 +4609,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
             name: this.userName || localize(lang, "devices.this_profile"),
         })}
       </p>
-      <div class="grid">${GROUPS.map((g) => this._card(g))}</div>
+      <div class="grid">${GROUPS.map((g) => this._card(g))}${this._visionCard()}</div>
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? localize(lang, "common.saving") : localize(lang, "devices.save")}
@@ -4487,6 +4641,53 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
           .userName=${this.userName}
           .entityId=${entityId}
         ></aurora-audio-presets>
+      </div>
+    `;
+    }
+    _visionCard() {
+        const lang = this.hass?.language;
+        return b `
+      <div class="card">
+        <div class="cardhead">
+          <div class="ic">👁️</div>
+          <h3>${localize(lang, "mission.vision")}</h3>
+        </div>
+
+        <div class="role">
+          <div class="name">${localize(lang, "mission.vision_prompt")}</div>
+          ${renderVisionPrompt(this._vision["vision_prompt"] ?? "", lang, (text) => this._setVision("vision_prompt", text))}
+        </div>
+
+        <div class="role">
+          <div class="name">${localize(lang, "vision.model")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${this._vision["vision_model"] ?? ""}
+            .placeholder=${localize(lang, "vision.model_ph")}
+            @value-changed=${(e) => this._setVision("vision_model", e.detail.value)}
+          ></ha-selector>
+        </div>
+
+        <div class="role vision-fields">
+          ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
+          ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
+          ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+        </div>
+      </div>
+    `;
+    }
+    /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
+    _visionNumber(key, label, min) {
+        return b `
+      <div>
+        <div class="name">${label}</div>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min, mode: "box" } }}
+          .value=${this._vision[key]}
+          @value-changed=${(e) => this._setVision(key, e.detail.value)}
+        ></ha-selector>
       </div>
     `;
     }
@@ -4590,6 +4791,39 @@ AuroraDevicesView.styles = [
         color: var(--aurora-dim);
         margin-bottom: 10px;
       }
+      .vision-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .chip {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--aurora-dim);
+      }
+      .chip.on {
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
+        border-color: transparent;
+      }
+      ha-textarea {
+        width: 100%;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .vision-fields {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        margin-top: 4px;
+      }
       .savebar {
         position: sticky;
         bottom: 0;
@@ -4621,6 +4855,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraDevicesView.prototype, "_bindings", void 0);
+__decorate([
+    r()
+], AuroraDevicesView.prototype, "_vision", void 0);
 __decorate([
     r()
 ], AuroraDevicesView.prototype, "_saving", void 0);
@@ -4664,6 +4901,20 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         this._options = { ...this._options, [key]: value };
         this._saved = false;
     }
+    /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
+    _visionNumber(key, label, min) {
+        return b `
+      <div class="field">
+        <label class="field">${label}</label>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min, mode: "box" } }}
+          .value=${this._options[key]}
+          @value-changed=${(e) => this._setOption(key, e.detail.value)}
+        ></ha-selector>
+      </div>
+    `;
+    }
     async _save() {
         this._saving = true;
         try {
@@ -4675,6 +4926,11 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
                 briefing_calendars: this._options["briefing_calendars"] ?? [],
                 todo_lists: this._options["todo_lists"] ?? [],
                 vision_provider: this._options["vision_provider"] ?? "",
+                vision_prompt: this._options["vision_prompt"] || undefined,
+                vision_model: this._options["vision_model"] || undefined,
+                vision_timeout_s: this._options["vision_timeout_s"] || undefined,
+                vision_retries: this._options["vision_retries"] || undefined,
+                vision_max_fails: this._options["vision_max_fails"] || undefined,
             });
             this._options = { ...res.options };
             this._saved = true;
@@ -4772,6 +5028,28 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         return b `
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
       ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+
+      <div class="block">
+        <label class="field">${localize(lang, "mission.vision_prompt")}</label>
+        ${renderVisionPrompt(this._options["vision_prompt"] ?? "", lang, (text) => this._setOption("vision_prompt", text))}
+      </div>
+
+      <div class="block vision-fields">
+        <div class="field">
+          <label class="field">${localize(lang, "vision.model")}</label>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${this._options["vision_model"] ?? ""}
+            .placeholder=${localize(lang, "vision.model_ph")}
+            @value-changed=${(e) => this._setOption("vision_model", e.detail.value)}
+          ></ha-selector>
+        </div>
+        ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
+        ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
+        ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+      </div>
+
       ${canBenchmark
             ? b `<div class="bench">
             <ha-button
@@ -4842,10 +5120,12 @@ AuroraGlobalsView.styles = [
       .block .field {
         margin-bottom: 8px;
       }
-      .chips {
+      .chips,
+      .vision-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        margin-bottom: 10px;
       }
       .chip {
         appearance: none;
@@ -4862,6 +5142,17 @@ AuroraGlobalsView.styles = [
         color: var(--aurora-on-accent);
         background: var(--aurora-accent-grad);
         border-color: transparent;
+      }
+      ha-textarea {
+        width: 100%;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .vision-fields {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        margin-top: 8px;
       }
       .none {
         font-size: 0.85rem;

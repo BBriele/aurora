@@ -1011,13 +1011,60 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         """Rolling average AI-vision latency in ms (for the diagnostic sensor)."""
         return self._vision_latency.average()
 
+    def _resolve_vision(self, alarm: AuroraAlarm | None) -> dict:
+        """Effective vision params: per-alarm → per-user profile → global → default."""
+        options = dict(self.config_entry.options)
+        profiles = options.get(CONF_PROFILES) or {}
+        profile = (
+            profiles.get(alarm.profile_id or "")
+            if (alarm and isinstance(profiles, dict))
+            else None
+        )
+        profile = profile if isinstance(profile, dict) else {}
+
+        def pick(key: str, default: object) -> object:
+            v = profile.get(key)
+            if v not in (None, ""):
+                return v
+            v = options.get(key)
+            return v if v not in (None, "") else default
+
+        prompt = (
+            alarm.features.mission.vision_prompt
+            if alarm and alarm.features.mission.vision_prompt
+            else pick("vision_prompt", DEFAULT_VISION_PROMPT)
+        )
+        try:
+            timeout_s = float(pick("vision_timeout_s", VISION_TIMEOUT_S))
+        except (TypeError, ValueError):
+            timeout_s = float(VISION_TIMEOUT_S)
+        try:
+            retries = int(pick("vision_retries", VISION_MAX_ATTEMPTS))
+        except (TypeError, ValueError):
+            retries = int(VISION_MAX_ATTEMPTS)
+        model_raw = pick("vision_model", None)
+        return {
+            "prompt": prompt,
+            "model": model_raw if model_raw not in (None, "") else None,
+            "timeout_s": timeout_s,
+            "retries": retries,
+        }
+
     async def _async_vision_infer(
-        self, image_path: str, media_uri: str, prompt: str, options: dict[str, object]
+        self,
+        image_path: str,
+        media_uri: str,
+        prompt: str,
+        options: dict[str, object],
+        *,
+        model: str | None = None,
     ) -> str:
         """Run the bound vision provider on the saved selfie, return its answer.
 
         Prefers a bound ai_task entity (structured yes/no), else the first LLM
         Vision provider (free-text). Raises on no provider / provider error.
+        When *model* is set, it is forwarded to the llmvision.image_analyzer call
+        (ai_task branch uses its own configured model and ignores this param).
         """
         ai_entity = _first_entity(options.get(ROLE_VISION_PROVIDER))
         if ai_entity and ai_entity.startswith("ai_task."):
@@ -1048,16 +1095,19 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             return str(data or "")
         providers = get_llm_vision_providers(self.hass)
         if providers:
+            service_data: dict[str, object] = {
+                "provider": providers[0][0],
+                "message": prompt,
+                "image_file": image_path,
+                "max_tokens": 10,
+                "temperature": 0.1,
+            }
+            if model is not None:
+                service_data["model"] = model
             resp = await self.hass.services.async_call(
                 "llmvision",
                 "image_analyzer",
-                {
-                    "provider": providers[0][0],
-                    "message": prompt,
-                    "image_file": image_path,
-                    "max_tokens": 10,
-                    "temperature": 0.1,
-                },
+                service_data,
                 blocking=True,
                 return_response=True,
             )
@@ -1089,9 +1139,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             if alarm
             else dict(self.config_entry.options)
         )
-        prompt = DEFAULT_VISION_PROMPT
-        if alarm and alarm.features.mission.vision_prompt:
-            prompt = alarm.features.mission.vision_prompt
+        v = self._resolve_vision(alarm)
         try:
             raw = base64.b64decode(image_b64.split(",")[-1])
         except (ValueError, TypeError):
@@ -1114,11 +1162,11 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         text = ""
         ok = False
         start = time.monotonic()
-        for attempt in range(VISION_MAX_ATTEMPTS):
+        for attempt in range(v["retries"]):
             try:
-                async with asyncio.timeout(VISION_TIMEOUT_S):
+                async with asyncio.timeout(v["timeout_s"]):
                     text = await self._async_vision_infer(
-                        path, media_uri, prompt, options
+                        path, media_uri, v["prompt"], options, model=v["model"]
                     )
                 ok = True
                 break
@@ -1128,7 +1176,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     attempt + 1,
                     exc_info=True,
                 )
-                if attempt + 1 < VISION_MAX_ATTEMPTS:
+                if attempt + 1 < v["retries"]:
                     backoff = min(
                         VISION_BACKOFF_BASE_S * (2**attempt), VISION_BACKOFF_CAP_S
                     )

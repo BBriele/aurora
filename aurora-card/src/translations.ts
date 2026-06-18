@@ -218,6 +218,18 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "ring.stop": "Stop",
     "ring.start_mission": "I'm awake",
 
+    // vision criteria chips + prompt builder
+    "vision.crit_standing": "standing up",
+    "vision.crit_eyes_open": "with both eyes open",
+    "vision.crit_face": "face clearly visible",
+    "vision.prompt_template":
+      "Answer only YES or NO: is the person in the photo {criteria}?",
+    "vision.model": "Vision model",
+    "vision.model_ph": "e.g. gemma3, qwen2.5vl",
+    "vision.timeout_s": "Timeout (seconds)",
+    "vision.retries": "Retries",
+    "vision.max_fails": "Max fails before downgrade",
+
     // mission overlay
     "missionui.math_prompt": "Solve to dismiss",
     "missionui.answer": "Answer",
@@ -427,6 +439,18 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "ring.snooze": "Posponi",
     "ring.stop": "Stop",
     "ring.start_mission": "Sono sveglio",
+
+    // vision criteria chips + prompt builder
+    "vision.crit_standing": "in piedi",
+    "vision.crit_eyes_open": "con entrambi gli occhi aperti",
+    "vision.crit_face": "viso chiaramente visibile",
+    "vision.prompt_template":
+      "Rispondi solo SÌ o NO: la persona nella foto è {criteria}?",
+    "vision.model": "Modello di visione",
+    "vision.model_ph": "es. gemma3, qwen2.5vl",
+    "vision.timeout_s": "Timeout (secondi)",
+    "vision.retries": "Tentativi",
+    "vision.max_fails": "Fallimenti massimi prima del downgrade",
 
     "missionui.math_prompt": "Risolvi per spegnere",
     "missionui.answer": "Risposta",

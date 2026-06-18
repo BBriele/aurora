@@ -6,6 +6,7 @@ import "./entity-picker";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, RoleEntities } from "./types";
+import { renderVisionPrompt } from "./vision-prompt";
 
 /** Reference docs for the two supported wake-up vision providers. */
 const AI_TASK_DOCS = "https://www.home-assistant.io/integrations/ai_task/";
@@ -46,6 +47,21 @@ export class AuroraGlobalsView extends LitElement {
     this._saved = false;
   }
 
+  /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
+  private _visionNumber(key: string, label: string, min: number): TemplateResult {
+    return html`
+      <div class="field">
+        <label class="field">${label}</label>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min, mode: "box" } }}
+          .value=${this._options[key] as number | undefined}
+          @value-changed=${(e: CustomEvent) => this._setOption(key, e.detail.value)}
+        ></ha-selector>
+      </div>
+    `;
+  }
+
   private async _save(): Promise<void> {
     this._saving = true;
     try {
@@ -57,6 +73,11 @@ export class AuroraGlobalsView extends LitElement {
         briefing_calendars: this._options["briefing_calendars"] ?? [],
         todo_lists: this._options["todo_lists"] ?? [],
         vision_provider: this._options["vision_provider"] ?? "",
+        vision_prompt: this._options["vision_prompt"] || undefined,
+        vision_model: this._options["vision_model"] || undefined,
+        vision_timeout_s: this._options["vision_timeout_s"] || undefined,
+        vision_retries: this._options["vision_retries"] || undefined,
+        vision_max_fails: this._options["vision_max_fails"] || undefined,
       });
       this._options = { ...res.options };
       this._saved = true;
@@ -83,10 +104,12 @@ export class AuroraGlobalsView extends LitElement {
       .block .field {
         margin-bottom: 8px;
       }
-      .chips {
+      .chips,
+      .vision-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        margin-bottom: 10px;
       }
       .chip {
         appearance: none;
@@ -103,6 +126,17 @@ export class AuroraGlobalsView extends LitElement {
         color: var(--aurora-on-accent);
         background: var(--aurora-accent-grad);
         border-color: transparent;
+      }
+      ha-textarea {
+        width: 100%;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .vision-fields {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        margin-top: 8px;
       }
       .none {
         font-size: 0.85rem;
@@ -255,6 +289,32 @@ export class AuroraGlobalsView extends LitElement {
     return html`
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
       ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+
+      <div class="block">
+        <label class="field">${localize(lang, "mission.vision_prompt")}</label>
+        ${renderVisionPrompt(
+          (this._options["vision_prompt"] as string) ?? "",
+          lang,
+          (text) => this._setOption("vision_prompt", text)
+        )}
+      </div>
+
+      <div class="block vision-fields">
+        <div class="field">
+          <label class="field">${localize(lang, "vision.model")}</label>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${(this._options["vision_model"] as string) ?? ""}
+            .placeholder=${localize(lang, "vision.model_ph")}
+            @value-changed=${(e: CustomEvent) => this._setOption("vision_model", e.detail.value)}
+          ></ha-selector>
+        </div>
+        ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
+        ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
+        ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+      </div>
+
       ${canBenchmark
         ? html`<div class="bench">
             <ha-button

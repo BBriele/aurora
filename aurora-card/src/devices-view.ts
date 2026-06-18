@@ -11,6 +11,7 @@ import {
   type Profiles,
   type RoleEntities,
 } from "./types";
+import { renderVisionPrompt } from "./vision-prompt";
 
 interface RoleDef {
   key: string;
@@ -61,6 +62,7 @@ export class AuroraDevicesView extends LitElement {
 
   @state() private _entities?: RoleEntities;
   @state() private _bindings: Record<string, unknown> = {};
+  @state() private _vision: Record<string, unknown> = {};
   @state() private _saving = false;
   @state() private _saved = false;
   private _profiles: Profiles = {};
@@ -80,12 +82,30 @@ export class AuroraDevicesView extends LitElement {
     ]);
     this._entities = entities;
     this._profiles = (settings.options.profiles as Profiles) ?? {};
-    this._bindings = { ...(this._profiles[this.userId]?.bindings ?? {}) };
+    const profile = this._profiles[this.userId] ?? {};
+    // Cast through unknown to access dynamic vision keys that are not in the
+    // Profile type (they are new sibling keys stored alongside bindings).
+    const profileDyn = profile as unknown as Record<string, unknown>;
+    this._bindings = { ...(profile.bindings ?? {}) };
+    this._vision = {
+      vision_prompt: profileDyn["vision_prompt"] ?? "",
+      vision_model: profileDyn["vision_model"] ?? "",
+      // Numbers stay raw (number | undefined) so the ha-selector number field
+      // shows empty when unset — never an empty string.
+      vision_timeout_s: profileDyn["vision_timeout_s"],
+      vision_retries: profileDyn["vision_retries"],
+      vision_max_fails: profileDyn["vision_max_fails"],
+    };
     this._saved = false;
   }
 
   private _set(key: string, value: unknown): void {
     this._bindings = { ...this._bindings, [key]: value };
+    this._saved = false;
+  }
+
+  private _setVision(key: string, value: unknown): void {
+    this._vision = { ...this._vision, [key]: value };
     this._saved = false;
   }
 
@@ -102,11 +122,19 @@ export class AuroraDevicesView extends LitElement {
       const fresh = await getSettings(this.hass);
       const profiles = (fresh.options.profiles as Profiles) ?? {};
       const existing = profiles[this.userId];
+      // Strip empty vision strings so we don't persist noise; keep non-empty values.
+      const visionKeys: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(this._vision)) {
+        if (v !== "" && v !== null && v !== undefined) {
+          visionKeys[k] = v;
+        }
+      }
       profiles[this.userId] = {
-        ...existing,
+        ...(existing as unknown as Record<string, unknown>),
         name: this.userName || existing?.name || this.userId,
         bindings,
-      };
+        ...visionKeys,
+      } as unknown as Profiles[string];
       const res = await setSettings(this.hass, { profiles });
       this._profiles = (res.options.profiles as Profiles) ?? profiles;
       this._saved = true;
@@ -187,6 +215,39 @@ export class AuroraDevicesView extends LitElement {
         color: var(--aurora-dim);
         margin-bottom: 10px;
       }
+      .vision-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .chip {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--aurora-dim);
+      }
+      .chip.on {
+        color: var(--aurora-on-accent);
+        background: var(--aurora-accent-grad);
+        border-color: transparent;
+      }
+      ha-textarea {
+        width: 100%;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .vision-fields {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        margin-top: 4px;
+      }
       .savebar {
         position: sticky;
         bottom: 0;
@@ -215,7 +276,7 @@ export class AuroraDevicesView extends LitElement {
           name: this.userName || localize(lang, "devices.this_profile"),
         })}
       </p>
-      <div class="grid">${GROUPS.map((g) => this._card(g))}</div>
+      <div class="grid">${GROUPS.map((g) => this._card(g))}${this._visionCard()}</div>
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
           ${this._saving ? localize(lang, "common.saving") : localize(lang, "devices.save")}
@@ -249,6 +310,59 @@ export class AuroraDevicesView extends LitElement {
           .userName=${this.userName}
           .entityId=${entityId}
         ></aurora-audio-presets>
+      </div>
+    `;
+  }
+
+  private _visionCard(): TemplateResult {
+    const lang = this.hass?.language;
+    return html`
+      <div class="card">
+        <div class="cardhead">
+          <div class="ic">👁️</div>
+          <h3>${localize(lang, "mission.vision")}</h3>
+        </div>
+
+        <div class="role">
+          <div class="name">${localize(lang, "mission.vision_prompt")}</div>
+          ${renderVisionPrompt(
+            (this._vision["vision_prompt"] as string) ?? "",
+            lang,
+            (text) => this._setVision("vision_prompt", text)
+          )}
+        </div>
+
+        <div class="role">
+          <div class="name">${localize(lang, "vision.model")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${(this._vision["vision_model"] as string) ?? ""}
+            .placeholder=${localize(lang, "vision.model_ph")}
+            @value-changed=${(e: CustomEvent) => this._setVision("vision_model", e.detail.value)}
+          ></ha-selector>
+        </div>
+
+        <div class="role vision-fields">
+          ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
+          ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
+          ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+        </div>
+      </div>
+    `;
+  }
+
+  /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
+  private _visionNumber(key: string, label: string, min: number): TemplateResult {
+    return html`
+      <div>
+        <div class="name">${label}</div>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min, mode: "box" } }}
+          .value=${this._vision[key] as number | undefined}
+          @value-changed=${(e: CustomEvent) => this._setVision(key, e.detail.value)}
+        ></ha-selector>
       </div>
     `;
   }
