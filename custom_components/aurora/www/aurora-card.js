@@ -1399,18 +1399,17 @@ AuroraAlarmDialog.styles = [
     i$3 `
       ha-dialog {
         --dialog-content-padding: 4px 24px 16px;
-        /* Compact (single column). HA exposes width via the mdc vars, WebAwesome
-           via --width; set both, the unused one is a no-op. min(..,vw) clamps to
-           the viewport so the dialog can never force a horizontal scrollbar. */
-        --mdc-dialog-min-width: min(560px, 92vw);
-        --mdc-dialog-max-width: min(560px, 92vw);
-        --width: min(560px, 92vw);
+        /* HA's WebAwesome ha-dialog derives its width from --ha-dialog-width-md
+           and clamps the result to --ha-dialog-width-full (~95vw), so narrow
+           screens shrink and the dialog never forces a horizontal scrollbar.
+           (The legacy --width / --mdc-dialog-* vars are ignored by this dialog.)
+           Compact = single column. */
+        --ha-dialog-width-md: 560px;
       }
       /* Large: grow sideways to fit the two-column body (default on wide screens,
          toggled by clicking the header title). */
       ha-dialog.large {
-        --mdc-dialog-max-width: min(1040px, 94vw);
-        --width: min(1040px, 94vw);
+        --ha-dialog-width-md: 1040px;
       }
       .cols {
         display: grid;

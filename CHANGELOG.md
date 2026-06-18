@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.17.1 - 2026-06-18
+
+### Fixed
+- The alarm editor's expand toggle reflowed the columns but never actually
+  widened the dialog (it stayed at the default width): the width was set through
+  legacy `--width` / `--mdc-dialog-*` variables that Home Assistant's current
+  WebAwesome dialog ignores. The expanded layout now drives `--ha-dialog-width-md`,
+  so the dialog genuinely grows sideways (and still clamps to the viewport).
+
 ## 0.17.0 - 2026-06-18
 
 ### Added
