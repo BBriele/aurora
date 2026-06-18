@@ -4,6 +4,23 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.20.0 - 2026-06-18
+
+### Added
+- The vision **model** field is now a combo box preloaded with the models
+  actually configured across your providers (LLM Vision entries and the AI Task
+  entity behind the bound provider). The list is read live from Home Assistant,
+  so it stays current as you change providers — and you can still type any model
+  by hand for anything not listed.
+
+### Changed
+- Reworked the vision settings in **Shared** and **Setup → Vision**: the
+  installation-wide vision provider is now picked with the native Home Assistant
+  entity picker (searchable), and the model + limits controls are shared between
+  the two views for a consistent layout. The per-user vision card now states
+  that the provider is inherited from Shared settings, so it is clear the profile
+  view only fine-tunes the prompt, model and limits.
+
 ## 0.19.0 - 2026-06-18
 
 ### Added

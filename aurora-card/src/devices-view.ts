@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { getRoleEntities, getSettings, setSettings } from "./api";
+import { getRoleEntities, getSettings, getVisionModels, setSettings } from "./api";
 import "./entity-picker";
 import "./audio-presets";
 import { localize } from "./localize";
@@ -11,7 +11,7 @@ import {
   type Profiles,
   type RoleEntities,
 } from "./types";
-import { renderVisionPrompt } from "./vision-prompt";
+import { renderVisionPrompt, renderVisionTuning } from "./vision-prompt";
 
 interface RoleDef {
   key: string;
@@ -61,6 +61,7 @@ export class AuroraDevicesView extends LitElement {
   @property({ attribute: false }) userName = "";
 
   @state() private _entities?: RoleEntities;
+  @state() private _models: string[] = [];
   @state() private _bindings: Record<string, unknown> = {};
   @state() private _vision: Record<string, unknown> = {};
   @state() private _saving = false;
@@ -76,11 +77,13 @@ export class AuroraDevicesView extends LitElement {
   }
 
   private async _load(): Promise<void> {
-    const [entities, settings] = await Promise.all([
+    const [entities, settings, models] = await Promise.all([
       getRoleEntities(this.hass),
       getSettings(this.hass),
+      getVisionModels(this.hass).catch(() => [] as string[]),
     ]);
     this._entities = entities;
+    this._models = models;
     this._profiles = (settings.options.profiles as Profiles) ?? {};
     const profile = this._profiles[this.userId] ?? {};
     // Cast through unknown to access dynamic vision keys that are not in the
@@ -242,6 +245,15 @@ export class AuroraDevicesView extends LitElement {
         display: block;
         margin-bottom: 8px;
       }
+      .inherit {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin: -2px 0 10px;
+        line-height: 1.4;
+      }
+      .vision-field {
+        margin-bottom: 12px;
+      }
       .vision-fields {
         display: grid;
         gap: 8px;
@@ -322,6 +334,7 @@ export class AuroraDevicesView extends LitElement {
           <div class="ic">👁️</div>
           <h3>${localize(lang, "mission.vision")}</h3>
         </div>
+        <p class="desc inherit">${localize(lang, "devices.vision_inherits")}</p>
 
         <div class="role">
           <div class="name">${localize(lang, "mission.vision_prompt")}</div>
@@ -333,36 +346,10 @@ export class AuroraDevicesView extends LitElement {
         </div>
 
         <div class="role">
-          <div class="name">${localize(lang, "vision.model")}</div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ text: {} }}
-            .value=${(this._vision["vision_model"] as string) ?? ""}
-            .placeholder=${localize(lang, "vision.model_ph")}
-            @value-changed=${(e: CustomEvent) => this._setVision("vision_model", e.detail.value)}
-          ></ha-selector>
+          ${renderVisionTuning(this.hass, this._vision, this._models, lang, (k, v) =>
+            this._setVision(k, v)
+          )}
         </div>
-
-        <div class="role vision-fields">
-          ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
-          ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
-          ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
-        </div>
-      </div>
-    `;
-  }
-
-  /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
-  private _visionNumber(key: string, label: string, min: number): TemplateResult {
-    return html`
-      <div>
-        <div class="name">${label}</div>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ number: { min, mode: "box" } }}
-          .value=${this._vision[key] as number | undefined}
-          @value-changed=${(e: CustomEvent) => this._setVision(key, e.detail.value)}
-        ></ha-selector>
       </div>
     `;
   }

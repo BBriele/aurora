@@ -15,6 +15,7 @@ import voluptuous as vol
 
 from .capabilities import available_roles, get_llm_vision_providers
 from .const import DOMAIN
+from .vision_models import collect_vision_models
 
 
 def _entry(hass: HomeAssistant) -> Any:
@@ -96,6 +97,15 @@ def ws_options_entities(
     )
 
 
+@websocket_api.websocket_command({vol.Required("type"): "aurora/vision/models"})
+@callback
+def ws_vision_models(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the models configured across the install's vision providers."""
+    connection.send_result(msg["id"], {"models": collect_vision_models(hass)})
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "aurora/vision/check",
@@ -124,4 +134,5 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_set)
     websocket_api.async_register_command(hass, ws_options_entities)
+    websocket_api.async_register_command(hass, ws_vision_models)
     websocket_api.async_register_command(hass, ws_vision_check)

@@ -1,12 +1,19 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { benchmarkVision, getRoleEntities, getSettings, setSettings, type BenchmarkResult } from "./api";
+import {
+  benchmarkVision,
+  getRoleEntities,
+  getSettings,
+  getVisionModels,
+  setSettings,
+  type BenchmarkResult,
+} from "./api";
 import "./entity-picker";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, RoleEntities } from "./types";
-import { renderVisionPrompt } from "./vision-prompt";
+import { renderVisionPrompt, renderVisionTuning } from "./vision-prompt";
 
 /** Reference docs for the two supported wake-up vision providers. */
 const AI_TASK_DOCS = "https://www.home-assistant.io/integrations/ai_task/";
@@ -18,6 +25,7 @@ export class AuroraGlobalsView extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
 
   @state() private _entities?: RoleEntities;
+  @state() private _models: string[] = [];
   @state() private _options: Record<string, unknown> = {};
   @state() private _saving = false;
   @state() private _saved = false;
@@ -34,32 +42,19 @@ export class AuroraGlobalsView extends LitElement {
   }
 
   private async _load(): Promise<void> {
-    const [entities, settings] = await Promise.all([
+    const [entities, settings, models] = await Promise.all([
       getRoleEntities(this.hass),
       getSettings(this.hass),
+      getVisionModels(this.hass).catch(() => [] as string[]),
     ]);
     this._entities = entities;
     this._options = { ...settings.options };
+    this._models = models;
   }
 
   private _setOption(key: string, value: unknown): void {
     this._options = { ...this._options, [key]: value };
     this._saved = false;
-  }
-
-  /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
-  private _visionNumber(key: string, label: string, min: number): TemplateResult {
-    return html`
-      <div class="field">
-        <label class="field">${label}</label>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ number: { min, mode: "box" } }}
-          .value=${this._options[key] as number | undefined}
-          @value-changed=${(e: CustomEvent) => this._setOption(key, e.detail.value)}
-        ></ha-selector>
-      </div>
-    `;
   }
 
   private async _save(): Promise<void> {
@@ -131,6 +126,9 @@ export class AuroraGlobalsView extends LitElement {
         width: 100%;
         display: block;
         margin-bottom: 8px;
+      }
+      .vision-field {
+        margin-bottom: 10px;
       }
       .vision-fields {
         display: grid;
@@ -268,7 +266,6 @@ export class AuroraGlobalsView extends LitElement {
 
   private _visionSection(): TemplateResult {
     const lang = this.hass?.language;
-    const aiTasks = this._entities!.roles?.["vision_provider"] ?? [];
     const llm = this._entities!.vision_providers ?? [];
     const bound = (this._options["vision_provider"] as string) || "";
     let active: string;
@@ -288,7 +285,15 @@ export class AuroraGlobalsView extends LitElement {
     const r = this._benchResult;
     return html`
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
-      ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      <div class="block">
+        <label class="field">${localize(lang, "globals.vision_provider")}</label>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ entity: { domain: "ai_task" } }}
+          .value=${(this._options["vision_provider"] as string) ?? ""}
+          @value-changed=${(e: CustomEvent) => this._setOption("vision_provider", e.detail.value)}
+        ></ha-selector>
+      </div>
 
       <div class="block">
         <label class="field">${localize(lang, "mission.vision_prompt")}</label>
@@ -299,20 +304,10 @@ export class AuroraGlobalsView extends LitElement {
         )}
       </div>
 
-      <div class="block vision-fields">
-        <div class="field">
-          <label class="field">${localize(lang, "vision.model")}</label>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ text: {} }}
-            .value=${(this._options["vision_model"] as string) ?? ""}
-            .placeholder=${localize(lang, "vision.model_ph")}
-            @value-changed=${(e: CustomEvent) => this._setOption("vision_model", e.detail.value)}
-          ></ha-selector>
-        </div>
-        ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
-        ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
-        ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+      <div class="block">
+        ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) =>
+          this._setOption(k, v)
+        )}
       </div>
 
       ${canBenchmark

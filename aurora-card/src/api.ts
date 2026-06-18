@@ -72,6 +72,12 @@ export function getRoleEntities(hass: HomeAssistant): Promise<RoleEntities> {
   return hass.callWS<RoleEntities>({ type: "aurora/options/entities" });
 }
 
+/** Live list of vision models configured across the install's providers. */
+export async function getVisionModels(hass: HomeAssistant): Promise<string[]> {
+  const res = await hass.callWS<{ models: string[] }>({ type: "aurora/vision/models" });
+  return res.models ?? [];
+}
+
 export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss") =>
   hass.callService("aurora", service, {});
 

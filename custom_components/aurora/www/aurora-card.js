@@ -114,6 +114,11 @@ function setSettings(hass, options) {
 function getRoleEntities(hass) {
     return hass.callWS({ type: "aurora/options/entities" });
 }
+/** Live list of vision models configured across the install's providers. */
+async function getVisionModels(hass) {
+    const res = await hass.callWS({ type: "aurora/vision/models" });
+    return res.models ?? [];
+}
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
 /**
  * Browse Home Assistant media. With an `entityId` the player's own tree is used
@@ -281,6 +286,7 @@ const STRINGS = {
         "devices.loading": "Loading devices…",
         "devices.intro": "{name}'s devices — all optional. Search and add only what you need; the exact alarm time is always guaranteed.",
         "devices.this_profile": "this profile",
+        "devices.vision_inherits": "Vision provider is set once in Shared settings. Here you only fine-tune the prompt, model and limits for this profile — leave a field blank to inherit the shared value.",
         "devices.save": "Save setup",
         "setup.group.audio": "Audio",
         "setup.group.wake": "Wake & display",
@@ -485,6 +491,7 @@ const STRINGS = {
         "devices.loading": "Caricamento dispositivi…",
         "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
         "devices.this_profile": "questo profilo",
+        "devices.vision_inherits": "Il provider di visione si imposta una sola volta nelle impostazioni Condivise. Qui regoli solo prompt, modello e limiti per questo profilo — lascia vuoto un campo per ereditare il valore condiviso.",
         "devices.save": "Salva setup",
         "setup.group.audio": "Audio",
         "setup.group.wake": "Risveglio & display",
@@ -4488,6 +4495,44 @@ function renderVisionPrompt(value, lang, onChange) {
     ></ha-textarea>
   `;
 }
+/**
+ * Render the shared model + limits block (model combo, timeout, retries,
+ * max-fails) used identically by globals-view and devices-view.
+ *
+ * @param models  Live list of configured vision models (combo suggestions);
+ *                the combo still accepts free-text for anything unlisted.
+ * @param onChange Called with (key, value) on every edit.
+ */
+function renderVisionTuning(hass, vals, models, lang, onChange) {
+    const number = (key, label) => b `
+    <div>
+      <label class="field">${label}</label>
+      <ha-selector
+        .hass=${hass}
+        .selector=${{ number: { min: 1, mode: "box" } }}
+        .value=${vals[key]}
+        @value-changed=${(e) => onChange(key, e.detail.value)}
+      ></ha-selector>
+    </div>
+  `;
+    return b `
+    <div class="vision-field">
+      <label class="field">${localize(lang, "vision.model")}</label>
+      <ha-selector
+        .hass=${hass}
+        .selector=${{ select: { options: models, custom_value: true, mode: "dropdown", sort: true } }}
+        .value=${vals.vision_model ?? ""}
+        .placeholder=${localize(lang, "vision.model_ph")}
+        @value-changed=${(e) => onChange("vision_model", e.detail.value)}
+      ></ha-selector>
+    </div>
+    <div class="vision-fields">
+      ${number("vision_timeout_s", localize(lang, "vision.timeout_s"))}
+      ${number("vision_retries", localize(lang, "vision.retries"))}
+      ${number("vision_max_fails", localize(lang, "vision.max_fails"))}
+    </div>
+  `;
+}
 
 // Roles grouped into themed cards (mirrors the Alarms page's card layout).
 const GROUPS = [
@@ -4524,6 +4569,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         super(...arguments);
         this.userId = "";
         this.userName = "";
+        this._models = [];
         this._bindings = {};
         this._vision = {};
         this._saving = false;
@@ -4538,11 +4584,13 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         }
     }
     async _load() {
-        const [entities, settings] = await Promise.all([
+        const [entities, settings, models] = await Promise.all([
             getRoleEntities(this.hass),
             getSettings(this.hass),
+            getVisionModels(this.hass).catch(() => []),
         ]);
         this._entities = entities;
+        this._models = models;
         this._profiles = settings.options.profiles ?? {};
         const profile = this._profiles[this.userId] ?? {};
         // Cast through unknown to access dynamic vision keys that are not in the
@@ -4652,6 +4700,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
           <div class="ic">👁️</div>
           <h3>${localize(lang, "mission.vision")}</h3>
         </div>
+        <p class="desc inherit">${localize(lang, "devices.vision_inherits")}</p>
 
         <div class="role">
           <div class="name">${localize(lang, "mission.vision_prompt")}</div>
@@ -4659,35 +4708,8 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         </div>
 
         <div class="role">
-          <div class="name">${localize(lang, "vision.model")}</div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ text: {} }}
-            .value=${this._vision["vision_model"] ?? ""}
-            .placeholder=${localize(lang, "vision.model_ph")}
-            @value-changed=${(e) => this._setVision("vision_model", e.detail.value)}
-          ></ha-selector>
+          ${renderVisionTuning(this.hass, this._vision, this._models, lang, (k, v) => this._setVision(k, v))}
         </div>
-
-        <div class="role vision-fields">
-          ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
-          ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
-          ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
-        </div>
-      </div>
-    `;
-    }
-    /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
-    _visionNumber(key, label, min) {
-        return b `
-      <div>
-        <div class="name">${label}</div>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ number: { min, mode: "box" } }}
-          .value=${this._vision[key]}
-          @value-changed=${(e) => this._setVision(key, e.detail.value)}
-        ></ha-selector>
       </div>
     `;
     }
@@ -4818,6 +4840,15 @@ AuroraDevicesView.styles = [
         display: block;
         margin-bottom: 8px;
       }
+      .inherit {
+        font-size: 0.8rem;
+        color: var(--aurora-dim);
+        margin: -2px 0 10px;
+        line-height: 1.4;
+      }
+      .vision-field {
+        margin-bottom: 12px;
+      }
       .vision-fields {
         display: grid;
         gap: 8px;
@@ -4854,6 +4885,9 @@ __decorate([
 ], AuroraDevicesView.prototype, "_entities", void 0);
 __decorate([
     r()
+], AuroraDevicesView.prototype, "_models", void 0);
+__decorate([
+    r()
 ], AuroraDevicesView.prototype, "_bindings", void 0);
 __decorate([
     r()
@@ -4875,6 +4909,7 @@ const LLM_VISION_REPO = "https://github.com/valentinfrlch/ha-llmvision";
 let AuroraGlobalsView = class AuroraGlobalsView extends i {
     constructor() {
         super(...arguments);
+        this._models = [];
         this._options = {};
         this._saving = false;
         this._saved = false;
@@ -4890,30 +4925,18 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         }
     }
     async _load() {
-        const [entities, settings] = await Promise.all([
+        const [entities, settings, models] = await Promise.all([
             getRoleEntities(this.hass),
             getSettings(this.hass),
+            getVisionModels(this.hass).catch(() => []),
         ]);
         this._entities = entities;
         this._options = { ...settings.options };
+        this._models = models;
     }
     _setOption(key, value) {
         this._options = { ...this._options, [key]: value };
         this._saved = false;
-    }
-    /** A labeled number field (ha-selector); empty → undefined so blank = unset. */
-    _visionNumber(key, label, min) {
-        return b `
-      <div class="field">
-        <label class="field">${label}</label>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ number: { min, mode: "box" } }}
-          .value=${this._options[key]}
-          @value-changed=${(e) => this._setOption(key, e.detail.value)}
-        ></ha-selector>
-      </div>
-    `;
     }
     async _save() {
         this._saving = true;
@@ -5005,7 +5028,6 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     }
     _visionSection() {
         const lang = this.hass?.language;
-        const aiTasks = this._entities.roles?.["vision_provider"] ?? [];
         const llm = this._entities.vision_providers ?? [];
         const bound = this._options["vision_provider"] || "";
         let active;
@@ -5027,27 +5049,23 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         const r = this._benchResult;
         return b `
       <p class="intro" style="margin-top:22px">${localize(lang, "globals.vision_intro")}</p>
-      ${this._picker("vision_provider", localize(lang, "globals.vision_provider"), aiTasks, false)}
+      <div class="block">
+        <label class="field">${localize(lang, "globals.vision_provider")}</label>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ entity: { domain: "ai_task" } }}
+          .value=${this._options["vision_provider"] ?? ""}
+          @value-changed=${(e) => this._setOption("vision_provider", e.detail.value)}
+        ></ha-selector>
+      </div>
 
       <div class="block">
         <label class="field">${localize(lang, "mission.vision_prompt")}</label>
         ${renderVisionPrompt(this._options["vision_prompt"] ?? "", lang, (text) => this._setOption("vision_prompt", text))}
       </div>
 
-      <div class="block vision-fields">
-        <div class="field">
-          <label class="field">${localize(lang, "vision.model")}</label>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ text: {} }}
-            .value=${this._options["vision_model"] ?? ""}
-            .placeholder=${localize(lang, "vision.model_ph")}
-            @value-changed=${(e) => this._setOption("vision_model", e.detail.value)}
-          ></ha-selector>
-        </div>
-        ${this._visionNumber("vision_timeout_s", localize(lang, "vision.timeout_s"), 1)}
-        ${this._visionNumber("vision_retries", localize(lang, "vision.retries"), 1)}
-        ${this._visionNumber("vision_max_fails", localize(lang, "vision.max_fails"), 1)}
+      <div class="block">
+        ${renderVisionTuning(this.hass, this._options, this._models, lang, (k, v) => this._setOption(k, v))}
       </div>
 
       ${canBenchmark
@@ -5148,6 +5166,9 @@ AuroraGlobalsView.styles = [
         display: block;
         margin-bottom: 8px;
       }
+      .vision-field {
+        margin-bottom: 10px;
+      }
       .vision-fields {
         display: grid;
         gap: 8px;
@@ -5217,6 +5238,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraGlobalsView.prototype, "_entities", void 0);
+__decorate([
+    r()
+], AuroraGlobalsView.prototype, "_models", void 0);
 __decorate([
     r()
 ], AuroraGlobalsView.prototype, "_options", void 0);

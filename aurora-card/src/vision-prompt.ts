@@ -5,6 +5,7 @@
  */
 import { html, type TemplateResult } from "lit";
 import { localize } from "./localize";
+import type { HomeAssistant } from "./types";
 
 /** The three well-known selfie criteria the chip row exposes. */
 export const VISION_CRITERIA = ["standing", "eyes_open", "face"] as const;
@@ -91,5 +92,58 @@ export function renderVisionPrompt(
       autogrow
       @input=${(e: Event) => onChange((e.target as HTMLTextAreaElement).value)}
     ></ha-textarea>
+  `;
+}
+
+/** The vision-tuning keys edited by {@link renderVisionTuning}. */
+export type VisionTuning = {
+  vision_model?: unknown;
+  vision_timeout_s?: unknown;
+  vision_retries?: unknown;
+  vision_max_fails?: unknown;
+};
+
+/**
+ * Render the shared model + limits block (model combo, timeout, retries,
+ * max-fails) used identically by globals-view and devices-view.
+ *
+ * @param models  Live list of configured vision models (combo suggestions);
+ *                the combo still accepts free-text for anything unlisted.
+ * @param onChange Called with (key, value) on every edit.
+ */
+export function renderVisionTuning(
+  hass: HomeAssistant,
+  vals: VisionTuning,
+  models: string[],
+  lang: string | undefined,
+  onChange: (key: string, value: unknown) => void
+): TemplateResult {
+  const number = (key: keyof VisionTuning, label: string): TemplateResult => html`
+    <div>
+      <label class="field">${label}</label>
+      <ha-selector
+        .hass=${hass}
+        .selector=${{ number: { min: 1, mode: "box" } }}
+        .value=${vals[key] as number | undefined}
+        @value-changed=${(e: CustomEvent) => onChange(key, e.detail.value)}
+      ></ha-selector>
+    </div>
+  `;
+  return html`
+    <div class="vision-field">
+      <label class="field">${localize(lang, "vision.model")}</label>
+      <ha-selector
+        .hass=${hass}
+        .selector=${{ select: { options: models, custom_value: true, mode: "dropdown", sort: true } }}
+        .value=${(vals.vision_model as string) ?? ""}
+        .placeholder=${localize(lang, "vision.model_ph")}
+        @value-changed=${(e: CustomEvent) => onChange("vision_model", e.detail.value)}
+      ></ha-selector>
+    </div>
+    <div class="vision-fields">
+      ${number("vision_timeout_s", localize(lang, "vision.timeout_s"))}
+      ${number("vision_retries", localize(lang, "vision.retries"))}
+      ${number("vision_max_fails", localize(lang, "vision.max_fails"))}
+    </div>
   `;
 }
