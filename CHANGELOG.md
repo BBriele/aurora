@@ -4,6 +4,14 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.16.5 - 2026-06-18
+
+### Changed
+- The alarm editor keeps its large, centred time display (restored from the
+  brief 0.16.4 switch to the compact spinner), now polished: a rounded hover
+  and focus surface, an accent focus ring, tabular figures, and a themed,
+  enlarged clock affordance.
+
 ## 0.16.4 - 2026-06-18
 
 ### Changed

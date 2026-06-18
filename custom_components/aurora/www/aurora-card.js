@@ -1178,9 +1178,13 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         <span slot="headerTitle" class="dlg-title">${title}</span>
 
         <div class="timepick">
-          ${this._selector({ time: {} }, localize(lang, "dialog.time"), this._time, 
-        // HA's time selector emits HH:MM:SS; keep HH:MM for clean display.
-        (v) => (this._time = (v ?? "").slice(0, 5) || this._time))}
+          <input
+            class="big-time clock"
+            type="time"
+            aria-label=${localize(lang, "dialog.time")}
+            .value=${this._time}
+            @input=${(e) => (this._time = e.target.value)}
+          />
         </div>
 
         ${this._selector({ text: {} }, localize(lang, "dialog.label"), this._label, (v) => (this._label = v ?? ""))}
@@ -1348,7 +1352,42 @@ AuroraAlarmDialog.styles = [
         width: 100%;
       }
       .timepick {
-        margin: 2px 0 12px;
+        display: flex;
+        justify-content: center;
+        margin: 2px 0 16px;
+      }
+      input.big-time {
+        font: 600 3.4rem/1 var(--ha-font-family-body, inherit);
+        text-align: center;
+        border: none;
+        border-radius: 16px;
+        background: transparent;
+        padding: 10px 20px;
+        color: var(--primary-text-color, var(--aurora-text));
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+      }
+      input.big-time:hover {
+        background: color-mix(in srgb, var(--aurora-accent) 10%, transparent);
+      }
+      input.big-time:focus {
+        outline: none;
+        background: color-mix(in srgb, var(--aurora-accent) 14%, transparent);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--aurora-accent) 40%, transparent);
+      }
+      /* Theme + enlarge the native clock affordance. ponytail: invert assumes a
+         dark theme (the user's); a light theme would need invert(0). */
+      input.big-time::-webkit-calendar-picker-indicator {
+        filter: invert(0.65);
+        opacity: 0.6;
+        transform: scale(1.25);
+        margin-left: 8px;
+        cursor: pointer;
+      }
+      input.big-time::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
       }
       .grid2 {
         display: grid;
