@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { browseMedia, type BrowseMedia } from "./api";
+import { browsePlayer, browseSource, type BrowseMedia, type BrowseVia } from "./api";
 import { localize } from "./localize";
 import { auroraStyles } from "./theme";
 import type { HomeAssistant, PresetItem } from "./types";
@@ -48,22 +48,62 @@ export class AuroraMediaBrowser extends LitElement {
     return this._stack[this._stack.length - 1];
   }
 
+  // Tag a node's children with the transport they belong to, so navigating
+  // deeper keeps using the same source (player library vs HA media sources).
+  private _tag(children: BrowseMedia[] | undefined, via: BrowseVia): BrowseMedia[] {
+    return (children ?? []).map((c) => ({ ...c, via }));
+  }
+
   private async _browse(node?: BrowseMedia): Promise<void> {
     this._loading = true;
     this._error = "";
     try {
-      const result = await browseMedia(
-        this.hass,
-        this.entityId,
-        node?.media_content_id,
-        node?.media_content_type
-      );
-      this._stack = node ? [...this._stack, result] : [result];
+      if (!node) {
+        this._stack = [await this._root()];
+        return;
+      }
+      const via: BrowseVia = node.via ?? (this.entityId ? "player" : "source");
+      const result =
+        via === "player" && this.entityId
+          ? await browsePlayer(this.hass, this.entityId, node.media_content_id, node.media_content_type)
+          : await browseSource(this.hass, node.media_content_id);
+      result.children = this._tag(result.children, via);
+      this._stack = [...this._stack, result];
     } catch (err) {
       this._error = String(err);
     } finally {
       this._loading = false;
     }
+  }
+
+  // The root merges the bound player's library (e.g. Music Assistant) with HA's
+  // media sources, so local files (my_media/sounds) are always reachable even
+  // when a Music Assistant speaker is bound (which hides them on its own).
+  private async _root(): Promise<BrowseMedia> {
+    const children: BrowseMedia[] = [];
+    if (this.entityId) {
+      try {
+        const player = await browsePlayer(this.hass, this.entityId);
+        children.push(...this._tag(player.children, "player"));
+      } catch {
+        /* player offline / no tree — still show media sources below */
+      }
+    }
+    try {
+      const source = await browseSource(this.hass);
+      children.push(...this._tag(source.children, "source"));
+    } catch {
+      /* media sources unavailable */
+    }
+    return {
+      title: "",
+      media_class: "directory",
+      media_content_type: "",
+      media_content_id: "",
+      can_play: false,
+      can_expand: true,
+      children,
+    };
   }
 
   private _up(toIndex: number): void {

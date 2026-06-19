@@ -4,6 +4,22 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.24.0 - 2026-06-19
+
+### Added
+- Quick **Nap** action on the Alarms tab: one tap creates a one-shot alarm in
+  10/20/30/45/60 minutes — as easy as a phone nap timer.
+- **WLED-style sunrise**: when a bound wake light advertises a native
+  sunrise/wake-up effect, Aurora triggers that effect instead of the generic
+  brightness ramp (falls back to the ramp otherwise).
+
+### Fixed
+- Audio preset media picker can now reach **Home Assistant's local media
+  sources** (e.g. mp3s under `my_media/sounds`), not only the bound speaker's
+  library. The browser root now merges the player's library with the "My media"
+  tree, so local files are selectable even when a Music Assistant speaker is
+  bound (which hides them on its own).
+
 ## 0.23.0 - 2026-06-19
 
 ### Added

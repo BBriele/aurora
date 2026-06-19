@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { deleteAlarm, subscribeAlarms, updateAlarm } from "./api";
+import { createAlarm, deleteAlarm, subscribeAlarms, updateAlarm } from "./api";
 import "./alarm-dialog";
 import { localize, weekdayLetters } from "./localize";
 import { auroraStyles } from "./theme";
@@ -30,6 +30,7 @@ export class AuroraAlarmList extends LitElement {
   @state() private _loaded = false;
   @state() private _editing: Alarm | null = null;
   @state() private _dialogOpen = false;
+  @state() private _napOpen = false;
 
   private _unsub?: Promise<() => void>;
 
@@ -66,6 +67,29 @@ export class AuroraAlarmList extends LitElement {
     this._dialogOpen = true;
   }
 
+  // Quick "nap": create a one-shot alarm at now + `minutes`, no mission, so it
+  // is as easy as a phone's nap timer.
+  private async _nap(minutes: number): Promise<void> {
+    this._napOpen = false;
+    const t = new Date(Date.now() + minutes * 60000);
+    const pad = (n: number): string => String(n).padStart(2, "0");
+    const time = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    const onDate = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    try {
+      await createAlarm(this.hass, {
+        time,
+        label: localize(this.hass?.language, "alarms.nap_label"),
+        profile_id: this.profileId,
+        schedule: { repeat_mode: "once", weekdays: [], on_date: onDate },
+        features: { mission: { type: "none", params: {} } },
+      });
+    } catch (err) {
+      this.dispatchEvent(
+        new CustomEvent("error", { detail: String(err), bubbles: true, composed: true })
+      );
+    }
+  }
+
   static styles = [
     auroraStyles,
     css`
@@ -84,6 +108,36 @@ export class AuroraAlarmList extends LitElement {
         margin: 0;
         font-size: 1.05rem;
         letter-spacing: 0.01em;
+      }
+      .head .btn + .btn {
+        margin-left: 8px;
+      }
+      .naprow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 14px;
+      }
+      .naprow .naplabel {
+        color: var(--aurora-dim);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .napchip {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 999px;
+        color: var(--aurora-accent);
+        background: transparent;
+        transition: background 0.15s ease;
+      }
+      .napchip:hover {
+        background: color-mix(in srgb, var(--aurora-accent) 12%, transparent);
       }
       /* Responsive list: 1 column on mobile, multi-column on wider screens. */
       .list {
@@ -176,10 +230,24 @@ export class AuroraAlarmList extends LitElement {
         <div class="head">
           <h3>${localize(this.hass?.language, "alarms.title")}</h3>
           <span class="spacer"></span>
+          <button class="btn" @click=${() => (this._napOpen = !this._napOpen)}>
+            ${localize(this.hass?.language, "alarms.nap")}
+          </button>
           <button class="btn primary" @click=${this._add}>
             ${localize(this.hass?.language, "alarms.new")}
           </button>
         </div>
+
+        ${this._napOpen
+          ? html`<div class="naprow">
+              <span class="naplabel">${localize(this.hass?.language, "alarms.nap_in")}</span>
+              ${[10, 20, 30, 45, 60].map(
+                (m) => html`<button class="napchip" @click=${() => this._nap(m)}>
+                  ${m} min
+                </button>`
+              )}
+            </div>`
+          : nothing}
 
         ${!this._loaded
           ? html`<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`

@@ -121,20 +121,25 @@ async function getVisionModels(hass) {
 }
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
 /**
- * Browse Home Assistant media. With an `entityId` the player's own tree is used
- * (richest — includes its providers and the media sources it can play); without
- * one, the installation's media sources are browsed. `contentId`/`contentType`
- * navigate into a folder; omit them for the root.
+ * Browse a media player's own tree (its providers, e.g. Music Assistant). This
+ * is the richest source for that player but, crucially, a Music Assistant player
+ * does NOT expose Home Assistant's local media sources — use `browseSource` for
+ * those (e.g. files under `my_media/sounds`).
  */
-function browseMedia(hass, entityId, contentId, contentType) {
-    if (entityId) {
-        return hass.callWS({
-            type: "media_player/browse_media",
-            entity_id: entityId,
-            ...(contentId ? { media_content_id: contentId } : {}),
-            ...(contentType ? { media_content_type: contentType } : {}),
-        });
-    }
+function browsePlayer(hass, entityId, contentId, contentType) {
+    return hass.callWS({
+        type: "media_player/browse_media",
+        entity_id: entityId,
+        ...(contentId ? { media_content_id: contentId } : {}),
+        ...(contentType ? { media_content_type: contentType } : {}),
+    });
+}
+/**
+ * Browse Home Assistant's media sources (the "My media" tree — local files,
+ * `media-source://` providers). Always available regardless of the bound player,
+ * so local mp3s under `my_media/sounds` are reachable.
+ */
+function browseSource(hass, contentId) {
     return hass.callWS({
         type: "media_source/browse_media",
         ...(contentId ? { media_content_id: contentId } : {}),
@@ -275,6 +280,9 @@ const STRINGS = {
         // alarm list
         "alarms.title": "Alarms",
         "alarms.new": "+ New",
+        "alarms.nap": "💤 Nap",
+        "alarms.nap_in": "Nap in",
+        "alarms.nap_label": "Nap",
         "alarms.empty": "No alarms yet — tap “+ New” to create one.",
         "alarms.default_label": "Alarm",
         "alarms.skip_badge": "skip 1",
@@ -505,6 +513,9 @@ const STRINGS = {
         "briefing.block.todo": "Cose da fare",
         "alarms.title": "Sveglie",
         "alarms.new": "+ Nuova",
+        "alarms.nap": "💤 Pisolino",
+        "alarms.nap_in": "Pisolino tra",
+        "alarms.nap_label": "Pisolino",
         "alarms.empty": "Nessuna sveglia — tocca “+ Nuova” per crearne una.",
         "alarms.default_label": "Sveglia",
         "alarms.skip_badge": "salta 1",
@@ -2147,6 +2158,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         this._loaded = false;
         this._editing = null;
         this._dialogOpen = false;
+        this._napOpen = false;
     }
     connectedCallback() {
         super.connectedCallback();
@@ -2177,6 +2189,27 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         this._editing = alarm;
         this._dialogOpen = true;
     }
+    // Quick "nap": create a one-shot alarm at now + `minutes`, no mission, so it
+    // is as easy as a phone's nap timer.
+    async _nap(minutes) {
+        this._napOpen = false;
+        const t = new Date(Date.now() + minutes * 60000);
+        const pad = (n) => String(n).padStart(2, "0");
+        const time = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+        const onDate = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+        try {
+            await createAlarm(this.hass, {
+                time,
+                label: localize(this.hass?.language, "alarms.nap_label"),
+                profile_id: this.profileId,
+                schedule: { repeat_mode: "once", weekdays: [], on_date: onDate },
+                features: { mission: { type: "none", params: {} } },
+            });
+        }
+        catch (err) {
+            this.dispatchEvent(new CustomEvent("error", { detail: String(err), bubbles: true, composed: true }));
+        }
+    }
     get _visible() {
         if (this.showAll || !this.profileId)
             return this._alarms;
@@ -2189,10 +2222,22 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
         <div class="head">
           <h3>${localize(this.hass?.language, "alarms.title")}</h3>
           <span class="spacer"></span>
+          <button class="btn" @click=${() => (this._napOpen = !this._napOpen)}>
+            ${localize(this.hass?.language, "alarms.nap")}
+          </button>
           <button class="btn primary" @click=${this._add}>
             ${localize(this.hass?.language, "alarms.new")}
           </button>
         </div>
+
+        ${this._napOpen
+            ? b `<div class="naprow">
+              <span class="naplabel">${localize(this.hass?.language, "alarms.nap_in")}</span>
+              ${[10, 20, 30, 45, 60].map((m) => b `<button class="napchip" @click=${() => this._nap(m)}>
+                  ${m} min
+                </button>`)}
+            </div>`
+            : A}
 
         ${!this._loaded
             ? b `<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
@@ -2279,6 +2324,36 @@ AuroraAlarmList.styles = [
         margin: 0;
         font-size: 1.05rem;
         letter-spacing: 0.01em;
+      }
+      .head .btn + .btn {
+        margin-left: 8px;
+      }
+      .naprow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 14px;
+      }
+      .naprow .naplabel {
+        color: var(--aurora-dim);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .napchip {
+        appearance: none;
+        border: 1px solid var(--aurora-divider);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 999px;
+        color: var(--aurora-accent);
+        background: transparent;
+        transition: background 0.15s ease;
+      }
+      .napchip:hover {
+        background: color-mix(in srgb, var(--aurora-accent) 12%, transparent);
       }
       /* Responsive list: 1 column on mobile, multi-column on wider screens. */
       .list {
@@ -2379,6 +2454,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmList.prototype, "_dialogOpen", void 0);
+__decorate([
+    r()
+], AuroraAlarmList.prototype, "_napOpen", void 0);
 AuroraAlarmList = __decorate([
     t("aurora-alarm-list")
 ], AuroraAlarmList);
@@ -3880,12 +3958,25 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
     get _current() {
         return this._stack[this._stack.length - 1];
     }
+    // Tag a node's children with the transport they belong to, so navigating
+    // deeper keeps using the same source (player library vs HA media sources).
+    _tag(children, via) {
+        return (children ?? []).map((c) => ({ ...c, via }));
+    }
     async _browse(node) {
         this._loading = true;
         this._error = "";
         try {
-            const result = await browseMedia(this.hass, this.entityId, node?.media_content_id, node?.media_content_type);
-            this._stack = node ? [...this._stack, result] : [result];
+            if (!node) {
+                this._stack = [await this._root()];
+                return;
+            }
+            const via = node.via ?? (this.entityId ? "player" : "source");
+            const result = via === "player" && this.entityId
+                ? await browsePlayer(this.hass, this.entityId, node.media_content_id, node.media_content_type)
+                : await browseSource(this.hass, node.media_content_id);
+            result.children = this._tag(result.children, via);
+            this._stack = [...this._stack, result];
         }
         catch (err) {
             this._error = String(err);
@@ -3893,6 +3984,37 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
         finally {
             this._loading = false;
         }
+    }
+    // The root merges the bound player's library (e.g. Music Assistant) with HA's
+    // media sources, so local files (my_media/sounds) are always reachable even
+    // when a Music Assistant speaker is bound (which hides them on its own).
+    async _root() {
+        const children = [];
+        if (this.entityId) {
+            try {
+                const player = await browsePlayer(this.hass, this.entityId);
+                children.push(...this._tag(player.children, "player"));
+            }
+            catch {
+                /* player offline / no tree — still show media sources below */
+            }
+        }
+        try {
+            const source = await browseSource(this.hass);
+            children.push(...this._tag(source.children, "source"));
+        }
+        catch {
+            /* media sources unavailable */
+        }
+        return {
+            title: "",
+            media_class: "directory",
+            media_content_type: "",
+            media_content_id: "",
+            can_play: false,
+            can_expand: true,
+            children,
+        };
     }
     _up(toIndex) {
         if (toIndex < this._stack.length - 1) {

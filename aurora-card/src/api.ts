@@ -81,6 +81,9 @@ export async function getVisionModels(hass: HomeAssistant): Promise<string[]> {
 export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss") =>
   hass.callService("aurora", service, {});
 
+/** Which transport a browse node belongs to (so navigation stays consistent). */
+export type BrowseVia = "player" | "source";
+
 /** A node in Home Assistant's media-browse tree (player or media-source). */
 export interface BrowseMedia {
   title: string;
@@ -91,28 +94,39 @@ export interface BrowseMedia {
   can_expand: boolean;
   thumbnail?: string | null;
   children?: BrowseMedia[];
+  /** Set by the card to remember which transport produced this node. */
+  via?: BrowseVia;
 }
 
 /**
- * Browse Home Assistant media. With an `entityId` the player's own tree is used
- * (richest — includes its providers and the media sources it can play); without
- * one, the installation's media sources are browsed. `contentId`/`contentType`
- * navigate into a folder; omit them for the root.
+ * Browse a media player's own tree (its providers, e.g. Music Assistant). This
+ * is the richest source for that player but, crucially, a Music Assistant player
+ * does NOT expose Home Assistant's local media sources — use `browseSource` for
+ * those (e.g. files under `my_media/sounds`).
  */
-export function browseMedia(
+export function browsePlayer(
   hass: HomeAssistant,
-  entityId: string | null,
+  entityId: string,
   contentId?: string,
   contentType?: string
 ): Promise<BrowseMedia> {
-  if (entityId) {
-    return hass.callWS<BrowseMedia>({
-      type: "media_player/browse_media",
-      entity_id: entityId,
-      ...(contentId ? { media_content_id: contentId } : {}),
-      ...(contentType ? { media_content_type: contentType } : {}),
-    });
-  }
+  return hass.callWS<BrowseMedia>({
+    type: "media_player/browse_media",
+    entity_id: entityId,
+    ...(contentId ? { media_content_id: contentId } : {}),
+    ...(contentType ? { media_content_type: contentType } : {}),
+  });
+}
+
+/**
+ * Browse Home Assistant's media sources (the "My media" tree — local files,
+ * `media-source://` providers). Always available regardless of the bound player,
+ * so local mp3s under `my_media/sounds` are reachable.
+ */
+export function browseSource(
+  hass: HomeAssistant,
+  contentId?: string
+): Promise<BrowseMedia> {
   return hass.callWS<BrowseMedia>({
     type: "media_source/browse_media",
     ...(contentId ? { media_content_id: contentId } : {}),

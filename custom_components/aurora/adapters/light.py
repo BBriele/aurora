@@ -12,6 +12,8 @@ import logging
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
+    ATTR_EFFECT,
+    ATTR_EFFECT_LIST,
 )
 from homeassistant.components.light import (
     DOMAIN as LIGHT_DOMAIN,
@@ -34,6 +36,26 @@ SERVICE_SET_VALUE = "set_value"
 ATTR_VALUE = "value"
 ATTR_MIN = "min"
 ATTR_MAX = "max"
+
+# Keywords that mark a native sunrise/wake-up effect (e.g. WLED's "Sunrise").
+_SUNRISE_EFFECT_WORDS = ("sunrise", "wake", "dawn", "alba", "sunup")
+
+
+def find_sunrise_effect(effect_list: object) -> str | None:
+    """Return the first sunrise-like effect name in a light's effect_list, if any.
+
+    Pure helper (no HA) so the WLED/effect tier can be unit-tested: a light that
+    advertises a native sunrise effect should ramp via that effect rather than a
+    stepped brightness ramp.
+    """
+    if not isinstance(effect_list, (list, tuple)):
+        return None
+    for effect in effect_list:
+        if isinstance(effect, str) and any(
+            word in effect.lower() for word in _SUNRISE_EFFECT_WORDS
+        ):
+            return effect
+    return None
 
 
 class WakeLightAdapter:
@@ -58,8 +80,41 @@ class WakeLightAdapter:
         self._task: asyncio.Task[None] | None = None
 
     async def async_start(self) -> None:
-        """Start the sunrise ramp in the background."""
+        """Start the sunrise ramp.
+
+        If the bound light advertises a native sunrise/wake-up effect (WLED and
+        similar), trigger that effect once and let the device own the ramp;
+        otherwise fall back to the generic stepped brightness ramp.
+        """
+        effect = self._native_sunrise_effect()
+        if effect is not None:
+            await self._start_effect(effect)
+            return
         self._task = self._hass.async_create_task(self._async_ramp())
+
+    def _native_sunrise_effect(self) -> str | None:
+        """Return the bound light's native sunrise effect name, or None."""
+        if self._domain != LIGHT_DOMAIN:
+            return None
+        state = self._hass.states.get(self._entity_id)
+        if state is None:
+            return None
+        return find_sunrise_effect(state.attributes.get(ATTR_EFFECT_LIST))
+
+    async def _start_effect(self, effect: str) -> None:
+        """Trigger a native sunrise effect on the bound light."""
+        data: dict[str, object] = {ATTR_ENTITY_ID: self._entity_id, ATTR_EFFECT: effect}
+        if self._kelvin is not None:
+            data[ATTR_COLOR_TEMP_KELVIN] = self._kelvin
+        with contextlib.suppress(HomeAssistantError):
+            await self._hass.services.async_call(
+                LIGHT_DOMAIN, SERVICE_TURN_ON, data, blocking=False
+            )
+            _LOGGER.debug(
+                "Aurora light: native sunrise effect '%s' on %s",
+                effect,
+                self._entity_id,
+            )
 
     async def _async_ramp(self) -> None:
         """Step brightness from minimum to maximum across the window."""
