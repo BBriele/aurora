@@ -102,7 +102,7 @@ export interface AlarmFeatures {
   smart_window: { enabled: boolean; minutes: number; signals: string[]; sensitivity?: number };
   mission: { type: MissionType; params: Record<string, unknown>; vision_prompt?: string | null };
   snooze: { max: number; duration: number };
-  briefing: { enabled: boolean; blocks: string[]; template?: string | null };
+  briefing: { enabled: boolean; blocks: string[]; template?: string | null; use_agent?: boolean };
   display: { enabled: boolean; targets: string[] };
 }
 

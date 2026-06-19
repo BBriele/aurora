@@ -65,6 +65,9 @@ CONF_RING_MAX_DURATION: Final = "ring_max_duration"
 CONF_WEATHER: Final = "weather"
 CONF_BRIEFING_CALENDARS: Final = "briefing_calendars"
 CONF_TODO_LISTS: Final = "todo_lists"
+# Optional post-wake routine: an entity (script/scene/automation/...) Aurora
+# turns on once the alarm is dismissed and the briefing (if any) has finished.
+CONF_POST_WAKE_ACTION: Final = "post_wake_action"
 
 # --- Service names ----------------------------------------------------------
 SERVICE_ADD_ALARM: Final = "add_alarm"

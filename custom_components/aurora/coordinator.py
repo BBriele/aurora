@@ -52,6 +52,7 @@ from .const import (
     CIRCUIT_RECOVERY_S,
     CONF_BRIEFING_CALENDARS,
     CONF_HOLIDAY_CALENDARS,
+    CONF_POST_WAKE_ACTION,
     CONF_PROFILE_BINDINGS,
     CONF_PROFILE_NAME,
     CONF_PROFILES,
@@ -65,6 +66,7 @@ from .const import (
     LATENCY_WINDOW,
     PREWARM_LEAD_S,
     ROLE_AUDIO_SINK,
+    ROLE_CONVERSATION,
     ROLE_PRESENCE_SIGNAL,
     ROLE_SLEEP_SIGNAL,
     ROLE_TTS,
@@ -901,7 +903,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._snooze_end_utc = None
         # The ring is over: persist a non-resumable state so a later restart does
         # not re-ring (set the final state first so the snapshot is accurate).
-        if alarm is not None and alarm.features.briefing.enabled:
+        has_action = alarm is not None and bool(
+            _first_entity(self._effective_options(alarm).get(CONF_POST_WAKE_ACTION))
+        )
+        if alarm is not None and (alarm.features.briefing.enabled or has_action):
             self._state = AuroraState.POST_WAKE
             self._persist_ring()
             self._publish()
@@ -914,9 +919,11 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._publish()
 
     async def _async_post_wake(self, alarm: AuroraAlarm) -> None:
-        """Run the post-wake routine (briefing), then return to idle."""
+        """Run the post-wake routine (briefing + optional action), then go idle."""
         try:
-            await self._async_run_briefing(alarm)
+            if alarm.features.briefing.enabled:
+                await self._async_run_briefing(alarm)
+            await self._async_run_post_wake_action(alarm)
         except Exception:
             _LOGGER.exception("Aurora: wake-up briefing failed")
         finally:
@@ -925,6 +932,29 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             if self._state is AuroraState.POST_WAKE:
                 self._state = AuroraState.IDLE
                 self._publish()
+
+    async def _async_run_post_wake_action(self, alarm: AuroraAlarm) -> None:
+        """Turn on the configured post-wake entity (script/scene/automation/...).
+
+        Generic on purpose: ``homeassistant.turn_on`` activates a script, scene,
+        automation, light or switch alike, so the user wires any routine they
+        like. Best-effort - a failure is logged, never raised into the cycle.
+        """
+        options = self._effective_options(alarm)
+        entity_id = _first_entity(options.get(CONF_POST_WAKE_ACTION))
+        if not entity_id:
+            return
+        try:
+            await self.hass.services.async_call(
+                "homeassistant",
+                "turn_on",
+                {"entity_id": entity_id},
+                blocking=False,
+            )
+        except Exception:
+            _LOGGER.warning(
+                "Aurora: post-wake action '%s' failed", entity_id, exc_info=True
+            )
 
     async def async_snooze(self) -> None:
         """Snooze the current ring and schedule a re-ring (respects the max)."""
@@ -1026,7 +1056,55 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             events=await self._gather_events(options) if "calendar" in blocks else [],
             todos=await self._gather_todos(options) if "todo" in blocks else [],
         )
-        return compose_briefing(ctx, blocks, self.hass.config.language)
+        facts = compose_briefing(ctx, blocks, self.hass.config.language)
+        # Optionally let the bound Conversation agent phrase the facts naturally;
+        # fall back to the plain composed briefing if there is no agent / it fails.
+        if briefing.use_agent:
+            spoken = await self._async_agent_briefing(facts, ctx.name, options)
+            if spoken:
+                return spoken
+        return facts
+
+    async def _async_agent_briefing(
+        self, facts: str, name: str, options: dict[str, object]
+    ) -> str | None:
+        """Have the bound Conversation agent voice the briefing from ``facts``.
+
+        Returns the agent's spoken text, or None if no agent is bound or the call
+        fails / yields nothing (the caller then speaks the plain ``facts``).
+        """
+        agent = _first_entity(options.get(ROLE_CONVERSATION))
+        if not agent:
+            return None
+        greeting = f" for {name}" if name else ""
+        prompt = (
+            f"Give a brief, warm spoken wake-up greeting{greeting} in "
+            f"{self.hass.config.language}. Two short sentences at most. Base it "
+            "only on these facts and do not invent anything: "
+            f"{facts or 'no additional information today'}"
+        )
+        try:
+            resp = await self.hass.services.async_call(
+                "conversation",
+                "process",
+                {
+                    "text": prompt,
+                    "agent_id": agent,
+                    "language": self.hass.config.language,
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception:
+            _LOGGER.warning(
+                "Aurora briefing: conversation agent '%s' failed", agent, exc_info=True
+            )
+            return None
+        speech = (
+            ((resp or {}).get("response") or {}).get("speech") or {}
+        ).get("plain") or {}
+        text = speech.get("speech")
+        return str(text) if text else None
 
     @callback
     def _profile_name(self, alarm: AuroraAlarm) -> str:

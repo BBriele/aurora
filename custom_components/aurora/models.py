@@ -289,11 +289,18 @@ class SnoozeFeature:
 
 @dataclass(slots=True)
 class BriefingFeature:
-    """Wake-up briefing content."""
+    """Wake-up briefing content.
+
+    ``use_agent`` routes the briefing through the bound Conversation agent: the
+    gathered facts (time/weather/calendar/todo) are handed to the agent, which
+    phrases a natural spoken greeting. Falls back to the plain composed briefing
+    if no agent is bound or the agent fails. A custom ``template`` still wins.
+    """
 
     enabled: bool = False
     blocks: list[str] = field(default_factory=list)  # time, weather, calendar, todo
     template: str | None = None
+    use_agent: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -301,6 +308,7 @@ class BriefingFeature:
             "enabled": self.enabled,
             "blocks": list(self.blocks),
             "template": self.template,
+            "use_agent": self.use_agent,
         }
 
     @classmethod
@@ -310,6 +318,7 @@ class BriefingFeature:
             enabled=bool(data.get("enabled", False)),
             blocks=list(data.get("blocks", [])),
             template=data.get("template"),
+            use_agent=bool(data.get("use_agent", False)),
         )
 
 

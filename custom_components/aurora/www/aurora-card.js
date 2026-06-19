@@ -242,6 +242,8 @@ const STRINGS = {
         "dialog.smart_min": "Smart window (min)",
         "dialog.briefing": "Wake-up briefing",
         "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
+        "dialog.briefing_agent": "Voice it with my assistant",
+        "dialog.briefing_agent_desc": "Hand the briefing facts to your conversation agent so it phrases a natural greeting (falls back to the plain briefing).",
         "dialog.briefing_template": "Custom briefing text (optional)",
         "dialog.briefing_template_ph": "Overrides the auto briefing. Supports templates, e.g. Good morning! It's {{ now().strftime('%H:%M') }}.",
         "dialog.display": "Wake overlay (display surface)",
@@ -318,6 +320,8 @@ const STRINGS = {
         "devices.this_profile": "this profile",
         "devices.vision_inherits": "Vision provider is set once in Shared settings. Here you only fine-tune the prompt, model and limits for this profile — leave a field blank to inherit the shared value.",
         "devices.save": "Save setup",
+        "devices.autodetect": "Auto-detect devices",
+        "devices.autodetect_hint": "Fill empty roles with the best match found. Review, then save.",
         "setup.group.audio": "Audio",
         "setup.group.wake": "Wake & display",
         "setup.group.notify": "Notifications",
@@ -358,6 +362,8 @@ const STRINGS = {
         "globals.weather": "Weather (weather entity)",
         "globals.briefing_calendars": "Briefing calendars",
         "globals.todo_lists": "To-do lists",
+        "globals.post_wake_action": "Post-wake action",
+        "globals.post_wake_action_hint": "A script, scene or automation Aurora turns on once you stop the alarm (after the briefing) - start the coffee, open the blinds, anything.",
         "globals.vision_intro": "Selfie wake check (AI vision) — the optional anti-snooze mission that confirms you are up. Aurora works with two providers: bind a Home Assistant AI Task entity, or install LLM Vision (auto-detected if no AI Task is set).",
         "globals.vision_provider": "AI Task vision entity",
         "globals.vision_active_aitask": "Active: {name} (Home Assistant AI Task).",
@@ -480,6 +486,8 @@ const STRINGS = {
         "dialog.smart_min": "Finestra anticipo (min)",
         "dialog.briefing": "Briefing al risveglio",
         "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
+        "dialog.briefing_agent": "Falla dire al mio assistente",
+        "dialog.briefing_agent_desc": "Passa i contenuti del briefing al tuo agente conversazionale che li trasforma in un saluto naturale (ripiega sul briefing semplice).",
         "dialog.briefing_template": "Testo briefing personalizzato (opzionale)",
         "dialog.briefing_template_ph": "Sostituisce il briefing automatico. Supporta i template, es. Buongiorno! Sono le {{ now().strftime('%H:%M') }}.",
         "dialog.display": "Overlay risveglio (superficie display)",
@@ -551,6 +559,8 @@ const STRINGS = {
         "devices.this_profile": "questo profilo",
         "devices.vision_inherits": "Il provider di visione si imposta una sola volta nelle impostazioni Condivise. Qui regoli solo prompt, modello e limiti per questo profilo — lascia vuoto un campo per ereditare il valore condiviso.",
         "devices.save": "Salva setup",
+        "devices.autodetect": "Rileva dispositivi",
+        "devices.autodetect_hint": "Riempi i ruoli vuoti con la corrispondenza migliore trovata. Controlla, poi salva.",
         "setup.group.audio": "Audio",
         "setup.group.wake": "Risveglio & display",
         "setup.group.notify": "Notifiche",
@@ -588,6 +598,8 @@ const STRINGS = {
         "globals.weather": "Meteo (entità weather)",
         "globals.briefing_calendars": "Calendari del briefing",
         "globals.todo_lists": "Liste di cose da fare",
+        "globals.post_wake_action": "Azione post-risveglio",
+        "globals.post_wake_action_hint": "Uno script, scena o automazione che Aurora attiva quando fermi la sveglia (dopo il briefing) - avvia il caffè, apri le tapparelle, qualsiasi cosa.",
         "globals.vision_intro": "Verifica del risveglio con selfie (visione IA) — la missione anti-snooze opzionale che conferma che sei sveglio. Aurora funziona con due provider: collega un'entità AI Task di Home Assistant, oppure installa LLM Vision (rilevato in automatico se non imposti un'AI Task).",
         "globals.vision_provider": "Entità di visione AI Task",
         "globals.vision_active_aitask": "Attivo: {name} (AI Task di Home Assistant).",
@@ -1047,6 +1059,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._briefing = false;
         this._briefingBlocks = [...BRIEFING_BLOCKS];
         this._briefingTemplate = "";
+        this._briefingAgent = false;
         this._enabled = true;
         this._saving = false;
         this._display = false;
@@ -1145,6 +1158,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             ? [...a.features.briefing.blocks]
             : [...BRIEFING_BLOCKS];
         this._briefingTemplate = a?.features.briefing.template ?? "";
+        this._briefingAgent = a?.features.briefing.use_agent ?? false;
         this._display = a?.features.display?.enabled ?? false;
         this._displayTargets = [...(a?.features.display?.targets ?? [])];
         this._audioTarget = a?.features.audio.target ?? "";
@@ -1506,6 +1520,18 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
           @input=${(e) => (this._briefingTemplate = e.target.value)}
         ></ha-textarea>
       </div>
+      ${this._hasRole("conversation")
+            ? b `<div class="togglerow">
+            <ha-switch
+              .checked=${this._briefingAgent}
+              @change=${(e) => (this._briefingAgent = e.target.checked)}
+            ></ha-switch>
+            <div class="spacer">
+              ${localize(lang, "dialog.briefing_agent")}
+              <div class="sub">${localize(lang, "dialog.briefing_agent_desc")}</div>
+            </div>
+          </div>`
+            : A}
     `;
     }
     // A subtle footnote when role-gating has hidden one or more feature sections,
@@ -1593,6 +1619,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                         ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
                         : [],
                     template: this._briefingTemplate.trim() || null,
+                    use_agent: this._briefing && this._briefingAgent && this._hasRole("conversation"),
                 },
                 display: {
                     ...prev?.display,
@@ -2118,6 +2145,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_briefingTemplate", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_briefingAgent", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_enabled", void 0);
@@ -5112,6 +5142,37 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         this._bindings = { ...this._bindings, [key]: value };
         this._saved = false;
     }
+    /** Pre-fill every still-unbound role with its strongest detected candidate.
+     *  Non-destructive: existing bindings are kept; the user reviews then saves. */
+    _autodetect() {
+        const roles = this._entities?.roles ?? {};
+        const next = { ...this._bindings };
+        let changed = false;
+        for (const g of GROUPS) {
+            for (const r of g.roles) {
+                const cur = next[r.key];
+                const isEmpty = cur == null || cur === "" || (Array.isArray(cur) && cur.length === 0);
+                const candidates = roles[r.key] ?? [];
+                if (isEmpty && candidates.length) {
+                    next[r.key] = r.multiple ? [candidates[0]] : candidates[0];
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            this._bindings = next;
+            this._saved = false;
+        }
+    }
+    /** Whether any role still has no binding but a detectable candidate exists. */
+    _hasSuggestions() {
+        const roles = this._entities?.roles ?? {};
+        return GROUPS.some((g) => g.roles.some((r) => {
+            const cur = this._bindings[r.key];
+            const isEmpty = cur == null || cur === "" || (Array.isArray(cur) && cur.length === 0);
+            return isEmpty && (roles[r.key] ?? []).length > 0;
+        }));
+    }
     _setVision(key, value) {
         this._vision = { ...this._vision, [key]: value };
         this._saved = false;
@@ -5157,6 +5218,14 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
             name: this.userName || localize(lang, "devices.this_profile"),
         })}
       </p>
+      ${this._hasSuggestions()
+            ? b `<div class="autobar">
+            <button class="btn" @click=${this._autodetect}>
+              ${localize(lang, "devices.autodetect")}
+            </button>
+            <span class="autohint">${localize(lang, "devices.autodetect_hint")}</span>
+          </div>`
+            : A}
       <div class="grid">${GROUPS.map((g) => this._card(g))}${this._visionCard()}</div>
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>
@@ -5252,6 +5321,17 @@ AuroraDevicesView.styles = [
       .who {
         font-weight: 700;
         color: var(--aurora-text);
+      }
+      .autobar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 0 0 16px;
+      }
+      .autohint {
+        font-size: 0.83rem;
+        color: var(--aurora-dim);
       }
       .vision-chips {
         display: flex;
@@ -5388,6 +5468,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
                 weather: this._options["weather"] ?? "",
                 briefing_calendars: this._options["briefing_calendars"] ?? [],
                 todo_lists: this._options["todo_lists"] ?? [],
+                post_wake_action: this._options["post_wake_action"] || undefined,
                 vision_provider: this._options["vision_provider"] ?? "",
                 vision_prompt: this._options["vision_prompt"] || undefined,
                 vision_model: this._options["vision_model"] || undefined,
@@ -5473,6 +5554,16 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         ${this._pickerRow("weather", localize(lang, "globals.weather"), this._entities.weather ?? [], false)}
         ${this._pickerRow("briefing_calendars", localize(lang, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
         ${this._pickerRow("todo_lists", localize(lang, "globals.todo_lists"), this._entities.todo ?? [], true)}
+        <div class="role">
+          <div class="name">${localize(lang, "globals.post_wake_action")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ entity: { domain: ["script", "scene", "automation"] } }}
+            .value=${this._options["post_wake_action"] ?? ""}
+            @value-changed=${(e) => this._setOption("post_wake_action", e.detail.value)}
+          ></ha-selector>
+          <p class="note">${localize(lang, "globals.post_wake_action_hint")}</p>
+        </div>
       </div>
     `;
     }

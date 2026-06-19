@@ -67,6 +67,7 @@ export class AuroraGlobalsView extends LitElement {
         weather: this._options["weather"] ?? "",
         briefing_calendars: this._options["briefing_calendars"] ?? [],
         todo_lists: this._options["todo_lists"] ?? [],
+        post_wake_action: this._options["post_wake_action"] || undefined,
         vision_provider: this._options["vision_provider"] ?? "",
         vision_prompt: this._options["vision_prompt"] || undefined,
         vision_model: this._options["vision_model"] || undefined,
@@ -273,6 +274,17 @@ export class AuroraGlobalsView extends LitElement {
           true
         )}
         ${this._pickerRow("todo_lists", localize(lang, "globals.todo_lists"), this._entities!.todo ?? [], true)}
+        <div class="role">
+          <div class="name">${localize(lang, "globals.post_wake_action")}</div>
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ entity: { domain: ["script", "scene", "automation"] } }}
+            .value=${(this._options["post_wake_action"] as string) ?? ""}
+            @value-changed=${(e: CustomEvent) =>
+              this._setOption("post_wake_action", e.detail.value)}
+          ></ha-selector>
+          <p class="note">${localize(lang, "globals.post_wake_action_hint")}</p>
+        </div>
       </div>
     `;
   }

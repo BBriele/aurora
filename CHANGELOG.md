@@ -4,6 +4,25 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.0 - 2026-06-19
+
+### Added
+- **Onboarding auto-detect**: the Setup (devices) page now offers an
+  "Auto-detect devices" action that fills every still-empty role with the
+  strongest matching entity it finds. It is non-destructive (existing bindings
+  are kept) and only appears while there is something left to suggest - review,
+  then save. Brings the first-run experience closer to "single click, nothing
+  to fill in".
+- **Post-wake action**: a global setting binds a script, scene or automation
+  that Aurora turns on once you stop the alarm and the briefing (if any) has
+  finished - start the coffee, raise the blinds, run any morning routine. Runs
+  even when no briefing is configured.
+- **AI-voiced briefing**: when a Conversation agent is bound, an alarm's
+  wake-up briefing can be handed to that agent, which phrases the gathered facts
+  (time, weather, agenda, to-dos) as a natural spoken greeting. Falls back to
+  the plain composed briefing if the agent is unavailable or errors; a custom
+  briefing template still takes precedence.
+
 ## 0.25.0 - 2026-06-19
 
 ### Added

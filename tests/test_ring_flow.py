@@ -9,7 +9,7 @@ entity states / coordinator.data. Only the coordinator reference is accessed
 for public async methods (.data, async_dismiss, async_snooze, etc.).
 """
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -378,6 +378,36 @@ async def test_condition_template_gates_fire(hass: HomeAssistant) -> None:
     assert coordinator._condition_passes(_alarm(None)) is True
     # Broken template -> fail open (ring), never silently swallow an alarm.
     assert coordinator._condition_passes(_alarm("{{ nope.")) is True
+
+
+async def test_post_wake_action_runs_on_dismiss(hass: HomeAssistant) -> None:
+    """A configured post-wake action is turned on after the ring is dismissed.
+
+    Covers: coordinator.async_dismiss (enters POST_WAKE when an action is set
+    even without a briefing); _async_run_post_wake_action (homeassistant.turn_on).
+    """
+    from homeassistant.core import ServiceCall
+
+    calls: list[ServiceCall] = []
+
+    @callback
+    def _record(call: ServiceCall) -> None:
+        calls.append(call)
+
+    hass.services.async_register("homeassistant", "turn_on", _record)
+
+    await _setup(hass, options={"post_wake_action": "script.morning"})
+    await _add_alarm(hass)
+
+    await _trigger_now(hass)
+    assert _state(hass) == "ringing"
+
+    await _dismiss(hass)
+    await hass.async_block_till_done()
+
+    assert any(
+        c.data.get("entity_id") == "script.morning" for c in calls
+    ), "post-wake action script.morning was not turned on"
 
 
 async def test_snooze_timer_cancelled_on_dismiss(

@@ -107,6 +107,43 @@ export class AuroraDevicesView extends LitElement {
     this._saved = false;
   }
 
+  /** Pre-fill every still-unbound role with its strongest detected candidate.
+   *  Non-destructive: existing bindings are kept; the user reviews then saves. */
+  private _autodetect(): void {
+    const roles = this._entities?.roles ?? {};
+    const next = { ...this._bindings };
+    let changed = false;
+    for (const g of GROUPS) {
+      for (const r of g.roles) {
+        const cur = next[r.key];
+        const isEmpty =
+          cur == null || cur === "" || (Array.isArray(cur) && cur.length === 0);
+        const candidates = roles[r.key] ?? [];
+        if (isEmpty && candidates.length) {
+          next[r.key] = r.multiple ? [candidates[0]] : candidates[0];
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      this._bindings = next;
+      this._saved = false;
+    }
+  }
+
+  /** Whether any role still has no binding but a detectable candidate exists. */
+  private _hasSuggestions(): boolean {
+    const roles = this._entities?.roles ?? {};
+    return GROUPS.some((g) =>
+      g.roles.some((r) => {
+        const cur = this._bindings[r.key];
+        const isEmpty =
+          cur == null || cur === "" || (Array.isArray(cur) && cur.length === 0);
+        return isEmpty && (roles[r.key] ?? []).length > 0;
+      })
+    );
+  }
+
   private _setVision(key: string, value: unknown): void {
     this._vision = { ...this._vision, [key]: value };
     this._saved = false;
@@ -157,6 +194,17 @@ export class AuroraDevicesView extends LitElement {
       .who {
         font-weight: 700;
         color: var(--aurora-text);
+      }
+      .autobar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 0 0 16px;
+      }
+      .autohint {
+        font-size: 0.83rem;
+        color: var(--aurora-dim);
       }
       .vision-chips {
         display: flex;
@@ -228,6 +276,14 @@ export class AuroraDevicesView extends LitElement {
           name: this.userName || localize(lang, "devices.this_profile"),
         })}
       </p>
+      ${this._hasSuggestions()
+        ? html`<div class="autobar">
+            <button class="btn" @click=${this._autodetect}>
+              ${localize(lang, "devices.autodetect")}
+            </button>
+            <span class="autohint">${localize(lang, "devices.autodetect_hint")}</span>
+          </div>`
+        : nothing}
       <div class="grid">${GROUPS.map((g) => this._card(g))}${this._visionCard()}</div>
       <div class="savebar">
         <button class="btn primary" ?disabled=${this._saving} @click=${this._save}>

@@ -7,6 +7,7 @@ import pytest
 from custom_components.aurora.models import (
     AlarmSchedule,
     AuroraAlarm,
+    BriefingFeature,
     MissionType,
     RepeatMode,
     SmartWindowFeature,
@@ -83,6 +84,15 @@ def test_condition_template_round_trips() -> None:
         {"id": "b", "time": "07:00", "schedule": {"condition_template": ""}}
     )
     assert blank.schedule.condition_template is None
+
+
+def test_briefing_use_agent_round_trips_and_defaults_false() -> None:
+    """BriefingFeature.use_agent serialises, and defaults to False when absent."""
+    feat = BriefingFeature(enabled=True, use_agent=True)
+    assert feat.as_dict()["use_agent"] is True
+    assert BriefingFeature.from_dict(feat.as_dict()).use_agent is True
+    # Legacy dicts without the key load as False (not enabled by surprise).
+    assert BriefingFeature.from_dict({"enabled": True}).use_agent is False
 
 
 def test_defaults_are_sane() -> None:

@@ -65,6 +65,7 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _briefing = false;
   @state() private _briefingBlocks: string[] = [...BRIEFING_BLOCKS];
   @state() private _briefingTemplate = "";
+  @state() private _briefingAgent = false;
   @state() private _enabled = true;
   @state() private _saving = false;
   @state() private _display = false;
@@ -165,6 +166,7 @@ export class AuroraAlarmDialog extends LitElement {
       ? [...a.features.briefing.blocks]
       : [...BRIEFING_BLOCKS];
     this._briefingTemplate = a?.features.briefing.template ?? "";
+    this._briefingAgent = a?.features.briefing.use_agent ?? false;
     this._display = a?.features.display?.enabled ?? false;
     this._displayTargets = [...(a?.features.display?.targets ?? [])];
     this._audioTarget = a?.features.audio.target ?? "";
@@ -607,6 +609,19 @@ export class AuroraAlarmDialog extends LitElement {
             (this._briefingTemplate = (e.target as HTMLTextAreaElement).value)}
         ></ha-textarea>
       </div>
+      ${this._hasRole("conversation")
+        ? html`<div class="togglerow">
+            <ha-switch
+              .checked=${this._briefingAgent}
+              @change=${(e: Event) =>
+                (this._briefingAgent = (e.target as HTMLInputElement).checked)}
+            ></ha-switch>
+            <div class="spacer">
+              ${localize(lang, "dialog.briefing_agent")}
+              <div class="sub">${localize(lang, "dialog.briefing_agent_desc")}</div>
+            </div>
+          </div>`
+        : nothing}
     `;
   }
 
@@ -697,6 +712,7 @@ export class AuroraAlarmDialog extends LitElement {
             ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
             : [],
           template: this._briefingTemplate.trim() || null,
+          use_agent: this._briefing && this._briefingAgent && this._hasRole("conversation"),
         },
         display: {
           ...prev?.display,
