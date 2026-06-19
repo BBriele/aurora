@@ -934,20 +934,25 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 self._publish()
 
     async def _async_run_post_wake_action(self, alarm: AuroraAlarm) -> None:
-        """Turn on the configured post-wake entity (script/scene/automation/...).
+        """Run the configured post-wake entity (script/scene/automation/...).
 
-        Generic on purpose: ``homeassistant.turn_on`` activates a script, scene,
-        automation, light or switch alike, so the user wires any routine they
-        like. Best-effort - a failure is logged, never raised into the cycle.
+        An automation is *triggered* (``automation.trigger``) rather than merely
+        enabled; everything else goes through the generic ``homeassistant.turn_on``
+        which runs a script, applies a scene or turns on a light/switch alike.
+        Best-effort - a failure is logged, never raised into the cycle.
         """
         options = self._effective_options(alarm)
         entity_id = _first_entity(options.get(CONF_POST_WAKE_ACTION))
         if not entity_id:
             return
+        if entity_id.startswith("automation."):
+            domain, service = "automation", "trigger"
+        else:
+            domain, service = "homeassistant", "turn_on"
         try:
             await self.hass.services.async_call(
-                "homeassistant",
-                "turn_on",
+                domain,
+                service,
                 {"entity_id": entity_id},
                 blocking=False,
             )

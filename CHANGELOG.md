@@ -4,6 +4,13 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.1 - 2026-06-19
+
+### Fixed
+- Post-wake action: an automation target is now *triggered* (`automation.trigger`)
+  rather than only enabled, so binding an automation runs it as expected. Scripts
+  and scenes are unchanged (still via `homeassistant.turn_on`).
+
 ## 0.26.0 - 2026-06-19
 
 ### Added
