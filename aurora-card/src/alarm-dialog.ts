@@ -72,6 +72,7 @@ export class AuroraAlarmDialog extends LitElement {
   @state() private _displayOptions: string[] = [];
   @state() private _audioTarget = "";
   @state() private _onDate = "";
+  @state() private _condition = "";
   @state() private _visionPrompt = "";
   // Profile role bindings, for progressive disclosure (show only the features
   // whose roles are actually configured). null = not loaded yet → show all.
@@ -168,6 +169,7 @@ export class AuroraAlarmDialog extends LitElement {
     this._displayTargets = [...(a?.features.display?.targets ?? [])];
     this._audioTarget = a?.features.audio.target ?? "";
     this._onDate = a?.schedule.on_date ?? "";
+    this._condition = a?.schedule.condition_template ?? "";
     this._visionPrompt = a?.features.mission.vision_prompt ?? "";
     this._enabled = a?.enabled ?? true;
     this._saving = false;
@@ -653,6 +655,7 @@ export class AuroraAlarmDialog extends LitElement {
         repeat_mode: this._repeat,
         weekdays: this._days,
         on_date: this._repeat === "once" ? (this._onDate || null) : null,
+        condition_template: this._condition.trim() || null,
       },
       features: {
         ...prev,
@@ -1038,6 +1041,19 @@ export class AuroraAlarmDialog extends LitElement {
               <div class="hint">${localize(lang, "dialog.on_date_hint")}</div>
             </div>`
           : nothing}
+
+        <div class="block">
+          <ha-textarea
+            .hass=${this.hass}
+            .label=${localize(lang, "dialog.condition")}
+            .placeholder=${localize(lang, "dialog.condition_ph")}
+            .value=${this._condition}
+            autogrow
+            @input=${(e: Event) =>
+              (this._condition = (e.target as HTMLTextAreaElement).value)}
+          ></ha-textarea>
+          <div class="hint">${localize(lang, "dialog.condition_hint")}</div>
+        </div>
 
         <div class="cols">
           <div class="col">

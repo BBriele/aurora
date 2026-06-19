@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.25.0 - 2026-06-19
+
+### Added
+- **Conditional alarms**: each alarm can carry an optional template condition,
+  checked the moment it is due. When it renders falsey the alarm stays armed but
+  skips that one ring - e.g. `{{ is_state('binary_sensor.workday_sensor', 'on') }}`
+  to ring only on workdays, or gate on presence, weather, or any helper. An empty
+  condition always rings, and a broken template fails open (rings) so a typo can
+  never silently swallow an alarm. Smart-wake honours the same condition.
+
 ## 0.24.1 - 2026-06-19
 
 ### Fixed

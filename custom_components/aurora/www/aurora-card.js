@@ -248,6 +248,9 @@ const STRINGS = {
         "dialog.display_none": "No display surfaces bound in Setup for this profile.",
         "dialog.on_date": "Date",
         "dialog.on_date_hint": "Leave empty to ring on the next occurrence of this time.",
+        "dialog.condition": "Condition (optional)",
+        "dialog.condition_ph": "{{ is_state('binary_sensor.workday_sensor', 'on') }}",
+        "dialog.condition_hint": "Template checked when the alarm is due. If it evaluates to false the alarm stays armed but skips this ring (e.g. only on workdays). Leave empty to always ring.",
         "dialog.audio_target": "Play on (this alarm)",
         "dialog.audio_inherit": "Profile default",
         "dialog.light_color": "Custom color temperature",
@@ -483,6 +486,9 @@ const STRINGS = {
         "dialog.display_none": "Nessuna superficie display associata nel Setup per questo profilo.",
         "dialog.on_date": "Data",
         "dialog.on_date_hint": "Lascia vuoto per suonare alla prossima occorrenza di questo orario.",
+        "dialog.condition": "Condizione (opzionale)",
+        "dialog.condition_ph": "{{ is_state('binary_sensor.workday_sensor', 'on') }}",
+        "dialog.condition_hint": "Template valutato quando la sveglia scatta. Se risulta falso la sveglia resta attiva ma salta questa suonata (es. solo nei giorni lavorativi). Lascia vuoto per suonare sempre.",
         "dialog.audio_target": "Riproduci su (questa sveglia)",
         "dialog.audio_inherit": "Predefinito del profilo",
         "dialog.light_color": "Temperatura colore personalizzata",
@@ -1048,6 +1054,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._displayOptions = [];
         this._audioTarget = "";
         this._onDate = "";
+        this._condition = "";
         this._visionPrompt = "";
         // Profile role bindings, for progressive disclosure (show only the features
         // whose roles are actually configured). null = not loaded yet → show all.
@@ -1142,6 +1149,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._displayTargets = [...(a?.features.display?.targets ?? [])];
         this._audioTarget = a?.features.audio.target ?? "";
         this._onDate = a?.schedule.on_date ?? "";
+        this._condition = a?.schedule.condition_template ?? "";
         this._visionPrompt = a?.features.mission.vision_prompt ?? "";
         this._enabled = a?.enabled ?? true;
         this._saving = false;
@@ -1543,6 +1551,7 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 repeat_mode: this._repeat,
                 weekdays: this._days,
                 on_date: this._repeat === "once" ? (this._onDate || null) : null,
+                condition_template: this._condition.trim() || null,
             },
             features: {
                 ...prev,
@@ -1692,6 +1701,18 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               <div class="hint">${localize(lang, "dialog.on_date_hint")}</div>
             </div>`
             : A}
+
+        <div class="block">
+          <ha-textarea
+            .hass=${this.hass}
+            .label=${localize(lang, "dialog.condition")}
+            .placeholder=${localize(lang, "dialog.condition_ph")}
+            .value=${this._condition}
+            autogrow
+            @input=${(e) => (this._condition = e.target.value)}
+          ></ha-textarea>
+          <div class="hint">${localize(lang, "dialog.condition_hint")}</div>
+        </div>
 
         <div class="cols">
           <div class="col">
@@ -2118,6 +2139,9 @@ __decorate([
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_onDate", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_condition", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_visionPrompt", void 0);

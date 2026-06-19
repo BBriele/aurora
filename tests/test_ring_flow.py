@@ -347,6 +347,39 @@ async def test_watchdog_cancelled_on_dismiss(
     assert _state(hass) == "idle"
 
 
+async def test_condition_template_gates_fire(hass: HomeAssistant) -> None:
+    """A falsey condition_template skips the ring; truthy / errored allow it.
+
+    Covers: coordinator._condition_passes (truthy rings, falsey skips, empty
+    rings, render error fails open).
+    """
+    from datetime import time as dt_time
+
+    from custom_components.aurora.models import AlarmSchedule, AuroraAlarm
+
+    entry = await _setup(hass)
+    coordinator = entry.runtime_data.coordinator
+
+    def _alarm(template: str | None) -> AuroraAlarm:
+        return AuroraAlarm(
+            id="c",
+            alarm_time=dt_time(7, 0),
+            schedule=AlarmSchedule(condition_template=template),
+        )
+
+    hass.states.async_set("binary_sensor.workday", "on")
+    on_tpl = "{{ is_state('binary_sensor.workday', 'on') }}"
+    assert coordinator._condition_passes(_alarm(on_tpl)) is True
+
+    hass.states.async_set("binary_sensor.workday", "off")
+    assert coordinator._condition_passes(_alarm(on_tpl)) is False
+
+    # No template -> always ring.
+    assert coordinator._condition_passes(_alarm(None)) is True
+    # Broken template -> fail open (ring), never silently swallow an alarm.
+    assert coordinator._condition_passes(_alarm("{{ nope.")) is True
+
+
 async def test_snooze_timer_cancelled_on_dismiss(
     hass: HomeAssistant, freezer
 ) -> None:

@@ -67,6 +67,24 @@ def test_once_with_on_date_round_trips() -> None:
     assert restored == alarm
 
 
+def test_condition_template_round_trips() -> None:
+    """Verify the schedule condition_template survives serialisation; empty -> None."""
+    cond = "{{ is_state('binary_sensor.workday_sensor', 'on') }}"
+    alarm = AuroraAlarm(
+        id="cond",
+        alarm_time=time(7, 0),
+        schedule=AlarmSchedule(condition_template=cond),
+    )
+    restored = AuroraAlarm.from_dict(alarm.as_dict())
+    assert restored.schedule.condition_template == cond
+    assert restored == alarm
+    # Empty/blank normalises to None (so "always ring" is unambiguous).
+    blank = AuroraAlarm.from_dict(
+        {"id": "b", "time": "07:00", "schedule": {"condition_template": ""}}
+    )
+    assert blank.schedule.condition_template is None
+
+
 def test_defaults_are_sane() -> None:
     """Verify AuroraAlarm default field values are sensible for a new alarm."""
     alarm = AuroraAlarm(id="x", alarm_time=time(6, 0))

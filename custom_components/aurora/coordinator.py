@@ -494,9 +494,36 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             return
         alarm = self._get_alarm(fired.alarm_id)
         if alarm is not None:
-            self._snooze_count = 0
-            self._begin_ring(alarm)
+            if self._condition_passes(alarm):
+                self._snooze_count = 0
+                self._begin_ring(alarm)
+            else:
+                _LOGGER.info("Aurora: condition skipped alarm '%s'", alarm.id)
         self._rearm()  # arm the following occurrence
+
+    @callback
+    def _condition_passes(self, alarm: AuroraAlarm) -> bool:
+        """Whether the alarm's optional fire-time condition allows ringing now.
+
+        Renders the schedule's ``condition_template``; a falsey result skips this
+        occurrence. An empty template or a render error fails open (rings) so a
+        broken condition can never silently swallow an alarm.
+        """
+        template = alarm.schedule.condition_template
+        if not template:
+            return True
+        try:
+            result = Template(template, self.hass).async_render(parse_result=True)
+        except (TemplateError, ValueError):
+            _LOGGER.warning(
+                "Aurora: condition template for '%s' failed; ringing anyway",
+                alarm.id,
+                exc_info=True,
+            )
+            return True
+        if isinstance(result, str):
+            return result.strip().lower() not in ("", "false", "none", "no", "off", "0")
+        return bool(result)
 
     @callback
     def _compute_next_alarm(self) -> NextAlarm | None:
@@ -791,6 +818,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 )
             )
         if self._fusion.add(fuse(scores)):
+            if not self._condition_passes(alarm):
+                _LOGGER.info("Aurora smart-wake: condition skipped '%s'", alarm.id)
+                self._cancel_prewake()
+                return
             _LOGGER.info("Aurora smart-wake: early wake for '%s'", alarm.id)
             if self._unsub_timer is not None:
                 self._unsub_timer()

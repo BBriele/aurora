@@ -79,6 +79,7 @@ export interface AlarmSchedule {
   repeat_mode: RepeatMode;
   weekdays: number[];
   on_date?: string | null;
+  condition_template?: string | null;
 }
 
 export interface AlarmFeatures {

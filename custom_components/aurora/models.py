@@ -73,6 +73,11 @@ class AlarmSchedule:
     repeat_mode: RepeatMode = RepeatMode.DAILY
     weekdays: frozenset[int] = field(default_factory=lambda: frozenset(WEEKDAYS))
     on_date: date | None = None  # used when repeat_mode == ONCE
+    # Optional Jinja condition evaluated at fire time: when it renders falsey the
+    # occurrence is skipped (the alarm stays armed for its next one). Empty/None
+    # means "always ring". A render error fails open (rings) so a broken template
+    # never silently swallows an alarm.
+    condition_template: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -80,15 +85,18 @@ class AlarmSchedule:
             "repeat_mode": self.repeat_mode.value,
             "weekdays": sorted(self.weekdays),
             "on_date": self.on_date.isoformat() if self.on_date else None,
+            "condition_template": self.condition_template,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
         """Deserialise from a stored dict."""
+        template = data.get("condition_template")
         return cls(
             repeat_mode=RepeatMode(data.get("repeat_mode", RepeatMode.DAILY)),
             weekdays=frozenset(data.get("weekdays", WEEKDAYS)),
             on_date=_parse_date(data.get("on_date")),
+            condition_template=str(template) if template else None,
         )
 
 
