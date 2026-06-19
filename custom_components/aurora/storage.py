@@ -28,6 +28,7 @@ CREATE_FIELDS: dict[Any, Any] = {
     vol.Optional("profile_id"): vol.Any(None, str),
     vol.Optional("enabled", default=True): bool,
     vol.Optional("skip_next", default=False): bool,
+    vol.Optional("skip_date"): vol.Any(None, str),
     vol.Optional("schedule"): dict,
     vol.Optional("features"): dict,
 }
@@ -39,6 +40,7 @@ UPDATE_FIELDS: dict[Any, Any] = {
     vol.Optional("profile_id"): vol.Any(None, str),
     vol.Optional("enabled"): bool,
     vol.Optional("skip_next"): bool,
+    vol.Optional("skip_date"): vol.Any(None, str),
     vol.Optional("schedule"): dict,
     vol.Optional("features"): dict,
 }

@@ -30,7 +30,7 @@ def test_round_trip_serialisation() -> None:
 
 
 def test_smart_window_sensitivity_round_trip_and_clamp() -> None:
-    """sensitivity round-trips and is clamped into [0, 1] on load."""
+    """Sensitivity round-trips and is clamped into [0, 1] on load."""
     sw = SmartWindowFeature(enabled=True, minutes=20, sensitivity=0.85)
     assert SmartWindowFeature.from_dict(sw.as_dict()) == sw
     # Out-of-range values are clamped; a missing key defaults to 0.5.

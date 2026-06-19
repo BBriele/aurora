@@ -20,6 +20,7 @@ from enum import StrEnum
 import logging
 import os
 import time
+from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
@@ -34,6 +35,7 @@ from homeassistant.helpers.event import (
     async_track_time_change,
     async_track_time_interval,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.template import Template
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -228,6 +230,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._active_alarm_id: str | None = None
         self._active_alarm: AuroraAlarm | None = None
         self._snooze_count: int = 0
+        self._snooze_end_utc: datetime | None = None
         self._next: NextAlarm | None = None
         self._unsub_timer: CALLBACK_TYPE | None = None
         self._unsub_watchdog: CALLBACK_TYPE | None = None
@@ -247,6 +250,11 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             CIRCUIT_FAILURE_THRESHOLD, CIRCUIT_RECOVERY_S
         )
         self._vision_latency = LatencyWindow(LATENCY_WINDOW)
+        # Guards against re-entrant skip normalisation (each persist re-fires the
+        # collection-change listener).
+        self._normalizing = False
+        # Crash-safe ring state so an HA restart mid-ring resumes the ring.
+        self._ring_store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.ring_state")
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -269,8 +277,10 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             )
         )
         self.config_entry.async_on_unload(self.async_shutdown_timer)
-        # Initial skip-date load also performs the first arm.
+        # Initial skip-date load normalises skips and performs the first arm.
         await self._async_refresh_skip_dates()
+        # Resume a ring that was interrupted by an HA restart.
+        await self._async_restore_ring()
         self._async_check_issues()
 
     @callback
@@ -312,6 +322,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 for event in cal.get("events", []):
                     dates |= _event_dates(event)
         self._skip_dates = dates
+        await self._async_normalize_skips()
         self._rearm()
 
     @callback
@@ -440,6 +451,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
 
     async def _handle_collection_change(self, change_set: object) -> None:
         """Alarm definitions changed → recompute the next timer + repair issues."""
+        await self._async_normalize_skips()
         self._rearm()
         self._async_check_issues()
 
@@ -512,6 +524,104 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                     fire_at_utc=fire_utc,
                 )
         return best
+
+    async def _async_normalize_skips(self) -> None:
+        """Pin/clear each alarm's skip target so re-arms never double-skip.
+
+        - skip_next set but no pinned date -> pin the next occurrence's date.
+        - pinned date already in the past   -> the skip is consumed; clear both.
+        - skip_next cleared but date lingers -> drop the stale pinned date.
+        """
+        if self._normalizing:
+            return
+        self._normalizing = True
+        try:
+            today = dt_util.now().date()
+            tz = dt_util.get_default_time_zone()
+            now_local = dt_util.now()
+            for raw in list(self.alarms.async_items()):
+                try:
+                    alarm = AuroraAlarm.from_dict(raw)
+                except ValueError:
+                    continue
+                updates: dict[str, Any] = {}
+                if not alarm.skip_next:
+                    if alarm.skip_date is not None:
+                        updates["skip_date"] = None
+                elif alarm.skip_date is None:
+                    fire = next_occurrence(
+                        alarm, now_local, tz, self._skip_dates, respect_skip=False
+                    )
+                    if fire is not None:
+                        updates["skip_date"] = fire.date().isoformat()
+                elif alarm.skip_date < today:
+                    updates["skip_next"] = False
+                    updates["skip_date"] = None
+                if updates:
+                    await self.alarms.async_update_item(alarm.id, updates)
+        finally:
+            self._normalizing = False
+
+    # --- Ring-state persistence (resume across restart) ---------------------
+
+    @callback
+    def _persist_ring(self) -> None:
+        """Schedule a crash-safe save of the current ring state (best effort)."""
+        snooze_end: str | None = None
+        if self._state is AuroraState.SNOOZED and self._snooze_end_utc is not None:
+            snooze_end = self._snooze_end_utc.isoformat()
+        data: dict[str, Any] = {
+            "state": self._state.value,
+            "active_alarm_id": self._active_alarm_id,
+            "snooze_count": self._snooze_count,
+            "snooze_end": snooze_end,
+        }
+        # Save immediately (not delayed): ring transitions are rare and a crash
+        # within a delay window would lose the resume state.
+        self.config_entry.async_create_task(
+            self.hass, self._ring_store.async_save(data), "aurora_ring_persist"
+        )
+
+    async def _async_restore_ring(self) -> None:
+        """Re-enter a ring/snooze that an HA restart interrupted."""
+        try:
+            data = await self._ring_store.async_load()
+        except Exception:  # never block setup on a corrupt/unreadable store
+            data = None
+        if not data:
+            return
+        # A clean shutdown clears the store, so any persisted active state means
+        # the restart happened mid-ring.
+        state = data.get("state")
+        alarm_id = data.get("active_alarm_id")
+        if not alarm_id or state not in (
+            AuroraState.RINGING.value,
+            AuroraState.MISSION.value,
+            AuroraState.SNOOZED.value,
+        ):
+            await self._ring_store.async_remove()
+            return
+        alarm = self._get_alarm(alarm_id)
+        if alarm is None:
+            await self._ring_store.async_remove()
+            return
+        self._snooze_count = int(data.get("snooze_count", 0))
+        if state == AuroraState.SNOOZED.value:
+            end = dt_util.parse_datetime(data.get("snooze_end") or "")
+            remaining = (end - dt_util.utcnow()).total_seconds() if end else 0
+            self._active_alarm = alarm
+            self._active_alarm_id = alarm.id
+            if remaining > 1:
+                self._state = AuroraState.SNOOZED
+                self._snooze_end_utc = end
+                self._unsub_snooze = async_call_later(
+                    self.hass, remaining, self._on_snooze_end
+                )
+                self._publish()
+                _LOGGER.info("Aurora: resumed snooze for '%s' after restart", alarm.id)
+                return
+        _LOGGER.info("Aurora: resumed ring for '%s' after restart", alarm_id)
+        self._begin_ring(alarm)
 
     # --- Ring lifecycle / state machine -------------------------------------
 
@@ -712,6 +822,8 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_watchdog = async_call_later(
             self.hass, max_duration, self._on_watchdog
         )
+        self._snooze_end_utc = None
+        self._persist_ring()
         _LOGGER.info("Aurora alarm '%s' is ringing", alarm.id)
         self._publish()
 
@@ -755,14 +867,19 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._active_alarm = None
         self._active_alarm_id = None
         self._snooze_count = 0
+        self._snooze_end_utc = None
+        # The ring is over: persist a non-resumable state so a later restart does
+        # not re-ring (set the final state first so the snapshot is accurate).
         if alarm is not None and alarm.features.briefing.enabled:
             self._state = AuroraState.POST_WAKE
+            self._persist_ring()
             self._publish()
             self.config_entry.async_create_task(
                 self.hass, self._async_post_wake(alarm), "aurora_post_wake"
             )
             return
         self._state = AuroraState.IDLE
+        self._persist_ring()
         self._publish()
 
     async def _async_post_wake(self, alarm: AuroraAlarm) -> None:
@@ -792,9 +909,12 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._cancel_ring_timers()
         await self._ring.async_stop()
         self._state = AuroraState.SNOOZED
+        duration = float(alarm.features.snooze.duration)
+        self._snooze_end_utc = dt_util.utcnow() + timedelta(seconds=duration)
         self._unsub_snooze = async_call_later(
-            self.hass, float(alarm.features.snooze.duration), self._on_snooze_end
+            self.hass, duration, self._on_snooze_end
         )
+        self._persist_ring()
         self._publish()
 
     async def async_trigger_now(self, alarm_id: str | None = None) -> None:

@@ -55,6 +55,42 @@ def test_skip_next_skips_first_occurrence() -> None:
     assert nxt == datetime(2026, 6, 16, 7, 0, tzinfo=TZ)
 
 
+def test_pinned_skip_date_is_stable_across_recompute() -> None:
+    """A pinned skip_date skips exactly that day, even if 'now' moves past it.
+
+    This is the fix for the boolean-skip drift: re-arming after the skipped
+    occurrence has passed must NOT skip the following occurrence too.
+    """
+    alarm = AuroraAlarm(
+        id="a",
+        alarm_time=time(7, 0),
+        skip_next=True,
+        skip_date=date(2026, 6, 15),
+        schedule=AlarmSchedule(repeat_mode=RepeatMode.DAILY),
+    )
+    expected = datetime(2026, 6, 16, 7, 0, tzinfo=TZ)
+    # Before the skipped day: 15th is skipped → 16th.
+    before = next_occurrence(alarm, datetime(2026, 6, 15, 6, 0, tzinfo=TZ), TZ)
+    # After the skipped day has passed: the 16th must NOT be skipped.
+    after = next_occurrence(alarm, datetime(2026, 6, 15, 8, 0, tzinfo=TZ), TZ)
+    assert before == expected
+    assert after == expected
+
+
+def test_respect_skip_false_ignores_skip() -> None:
+    """respect_skip=False finds the occurrence to pin, ignoring skip entirely."""
+    alarm = AuroraAlarm(
+        id="a",
+        alarm_time=time(7, 0),
+        skip_next=True,
+        schedule=AlarmSchedule(repeat_mode=RepeatMode.DAILY),
+    )
+    now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)
+    assert next_occurrence(alarm, now, TZ, respect_skip=False) == datetime(
+        2026, 6, 15, 7, 0, tzinfo=TZ
+    )
+
+
 def test_once_on_specific_date() -> None:
     """Verify a ONCE alarm with an explicit on_date fires on that exact date."""
     now = datetime(2026, 6, 15, 6, 0, tzinfo=TZ)

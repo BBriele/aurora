@@ -4,6 +4,19 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.23.0 - 2026-06-19
+
+### Added
+- A ring interrupted by a Home Assistant restart now **resumes**: the ringing
+  (or snoozed, with its remaining time) state is persisted crash-safely and
+  restored on startup, so a restart mid-alarm never silently drops it.
+
+### Fixed
+- Skip-next no longer drifts. The skipped occurrence is now pinned to a specific
+  date, so re-arming (calendar refresh, edits) can't push the skip onto a later
+  occurrence or skip every other cycle; once the pinned day passes the flag
+  clears automatically.
+
 ## 0.22.0 - 2026-06-19
 
 ### Added

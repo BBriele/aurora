@@ -31,16 +31,21 @@ def next_occurrence(
     now_local: datetime,
     tz: tzinfo,
     skip_dates: frozenset[date] | set[date] | None = None,
+    respect_skip: bool = True,
 ) -> datetime | None:
     """Return the next local wall-clock datetime for ``alarm`` strictly after now.
 
-    Honours ``skip_next`` (skips the first otherwise-matching occurrence) and any
-    ``skip_dates`` (e.g. holidays / busy days from calendars). The returned
-    datetime is timezone-aware in ``tz``; the caller converts to UTC once.
-    Returns None if no occurrence falls within the search horizon.
+    Honours ``skip_next`` and any ``skip_dates`` (holidays / busy days). The skip
+    is *pinned* to ``alarm.skip_date`` when set, so recomputing never re-skips a
+    different occurrence; if ``skip_next`` is set without a pinned date (not yet
+    normalised), the first matching occurrence is skipped as a fallback. Pass
+    ``respect_skip=False`` to ignore ``skip_next`` entirely (used to find the date
+    to pin). The result is timezone-aware in ``tz``; the caller converts to UTC
+    once. Returns None if no occurrence falls within the search horizon.
     """
     target = alarm.alarm_time
-    skip = alarm.skip_next
+    # Unpinned skip falls back to "skip the first matching occurrence".
+    fallback_skip = respect_skip and alarm.skip_next and alarm.skip_date is None
     start_day = now_local.date()
 
     for offset in range(SEARCH_HORIZON_DAYS):
@@ -54,8 +59,10 @@ def next_occurrence(
             continue
         if skip_dates and day in skip_dates:
             continue
-        if skip:
-            skip = False
+        if respect_skip and alarm.skip_next and alarm.skip_date == day:
+            continue
+        if fallback_skip:
+            fallback_skip = False
             continue
         return candidate
     return None

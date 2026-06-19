@@ -436,6 +436,52 @@ async def test_coordinator_data_reflects_ringing_alarm_id(
     assert coordinator.data.state == "idle"
 
 
+async def test_ring_resumes_after_restart(hass: HomeAssistant) -> None:
+    """A ring interrupted by an HA restart resumes ringing on the next setup.
+
+    Covers: coordinator._persist_ring (crash-safe ring state) +
+    _async_restore_ring (re-enter RINGING for the active alarm at setup).
+    Simulates a restart by unloading and re-setting-up the same config entry.
+    """
+    entry = await _setup(hass)
+    await _add_alarm(hass)
+
+    await _trigger_now(hass)
+    assert _state(hass) == "ringing"
+
+    # Simulate an HA restart: unload + re-setup the same entry (a fresh
+    # coordinator that must restore the ring from the persisted store).
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert _state(hass) == "ringing"
+    assert _ringing(hass) == "on"
+
+
+async def test_ring_does_not_resume_after_clean_dismiss(hass: HomeAssistant) -> None:
+    """After a dismiss, a subsequent restart must NOT resurrect the ring.
+
+    Covers: async_dismiss persisting a non-resumable state + _async_restore_ring
+    treating idle persisted state as nothing to resume.
+    """
+    entry = await _setup(hass)
+    await _add_alarm(hass)
+
+    await _trigger_now(hass)
+    await _dismiss(hass)
+    assert _state(hass) == "idle"
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert _state(hass) == "idle"
+    assert _ringing(hass) == "off"
+
+
 async def test_multiple_ring_dismiss_cycles(hass: HomeAssistant) -> None:
     """Running multiple ring-dismiss cycles does not corrupt the state machine.
 

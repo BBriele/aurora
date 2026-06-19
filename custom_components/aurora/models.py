@@ -355,6 +355,10 @@ class AuroraAlarm:
     profile_id: str | None = None  # HA user id this alarm belongs to (per-user)
     enabled: bool = True
     skip_next: bool = False
+    # The specific date being skipped, pinned when skip_next is set so re-arming
+    # (calendar refresh, edits) never re-skips a different occurrence. The
+    # coordinator maintains this; None means "not yet pinned / nothing to skip".
+    skip_date: date | None = None
     schedule: AlarmSchedule = field(default_factory=AlarmSchedule)
     features: AlarmFeatures = field(default_factory=AlarmFeatures)
 
@@ -368,6 +372,7 @@ class AuroraAlarm:
             "profile_id": self.profile_id,
             "enabled": self.enabled,
             "skip_next": self.skip_next,
+            "skip_date": self.skip_date.isoformat() if self.skip_date else None,
             "schedule": self.schedule.as_dict(),
             "features": self.features.as_dict(),
         }
@@ -391,6 +396,7 @@ class AuroraAlarm:
             profile_id=data.get("profile_id"),
             enabled=bool(data.get("enabled", True)),
             skip_next=bool(data.get("skip_next", False)),
+            skip_date=_parse_date(data.get("skip_date")),
             schedule=AlarmSchedule.from_dict(data.get("schedule", {})),
             features=AlarmFeatures.from_dict(data.get("features", {})),
         )
