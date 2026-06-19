@@ -98,7 +98,7 @@ export interface AlarmFeatures {
     volume_end_mode?: VolumeEndMode;
     volume_end?: number | null;
   };
-  smart_window: { enabled: boolean; minutes: number; signals: string[] };
+  smart_window: { enabled: boolean; minutes: number; signals: string[]; sensitivity?: number };
   mission: { type: MissionType; params: Record<string, unknown>; vision_prompt?: string | null };
   snooze: { max: number; duration: number };
   briefing: { enabled: boolean; blocks: string[]; template?: string | null };

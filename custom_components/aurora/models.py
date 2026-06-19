@@ -164,7 +164,7 @@ class AudioFeature:
     volume_profile: VolumeProfile = VolumeProfile.FADE_IN
     volume_max: float = 0.7
     volume_end_mode: VolumeEndMode = VolumeEndMode.NONE
-    volume_end: float | None = None  # 0–1, used when volume_end_mode is FIXED
+    volume_end: float | None = None  # 0-1, used when volume_end_mode is FIXED
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -201,11 +201,17 @@ class AudioFeature:
 
 @dataclass(slots=True)
 class SmartWindowFeature:
-    """Sleep-aware early-wake window. Always falls back to the exact time."""
+    """Sleep-aware early-wake window. Always falls back to the exact time.
+
+    ``sensitivity`` (0-1) tunes how eagerly the fusion declares you awake: higher
+    wakes at the first sign of stirring, lower waits until you are clearly awake.
+    0.5 is the neutral default (maps to the historical 0.6 fusion threshold).
+    """
 
     enabled: bool = False
     minutes: int = 30
     signals: list[str] = field(default_factory=list)  # role-binding entity_ids
+    sensitivity: float = 0.5
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dict."""
@@ -213,6 +219,7 @@ class SmartWindowFeature:
             "enabled": self.enabled,
             "minutes": self.minutes,
             "signals": list(self.signals),
+            "sensitivity": self.sensitivity,
         }
 
     @classmethod
@@ -222,6 +229,7 @@ class SmartWindowFeature:
             enabled=bool(data.get("enabled", False)),
             minutes=int(data.get("minutes", 30)),
             signals=list(data.get("signals", [])),
+            sensitivity=max(0.0, min(1.0, float(data.get("sensitivity", 0.5)))),
         )
 
 

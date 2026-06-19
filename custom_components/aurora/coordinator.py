@@ -640,16 +640,21 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_prewake_start = None
         # Hook A: fire a best-effort prewarm for the pre-wake alarm so the model
         # is loaded before the first real selfie check.
+        sensitivity = 0.5
         if self._prewake_alarm_id is not None:
             alarm = self._get_alarm(self._prewake_alarm_id)
             if alarm is not None:
+                sensitivity = alarm.features.smart_window.sensitivity
                 self.config_entry.async_create_task(
                     self.hass,
                     self._async_vision_prewarm(alarm),
                     "aurora_vision_prewarm_prewake",
                 )
         self._state = AuroraState.PRE_WAKE
-        self._fusion = SleepFusion()
+        # Map sensitivity (0-1, higher = wake earlier) to the fusion's awake-ness
+        # threshold; keep a 0.2 hysteresis band below it. sensitivity 0.5 -> 0.6.
+        high = 0.8 - 0.4 * max(0.0, min(1.0, sensitivity))
+        self._fusion = SleepFusion(high=high, low=max(0.15, high - 0.2))
         self._publish()
         self._evaluate_prewake(None)
         self._unsub_prewake_eval = async_track_time_interval(

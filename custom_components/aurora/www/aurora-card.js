@@ -237,8 +237,27 @@ const STRINGS = {
         "dialog.smart_min": "Smart window (min)",
         "dialog.briefing": "Wake-up briefing",
         "dialog.briefing_desc": "Speak time, weather and agenda when you stop the alarm",
+        "dialog.briefing_template": "Custom briefing text (optional)",
+        "dialog.briefing_template_ph": "Overrides the auto briefing. Supports templates, e.g. Good morning! It's {{ now().strftime('%H:%M') }}.",
         "dialog.display": "Wake overlay (display surface)",
         "dialog.display_none": "No display surfaces bound in Setup for this profile.",
+        "dialog.on_date": "Date",
+        "dialog.on_date_hint": "Leave empty to ring on the next occurrence of this time.",
+        "dialog.audio_target": "Play on (this alarm)",
+        "dialog.audio_inherit": "Profile default",
+        "dialog.light_color": "Custom color temperature",
+        "dialog.light_post_stop": "When the alarm stops",
+        "dialog.post_off": "Turn off",
+        "dialog.post_keep": "Keep on",
+        "dialog.post_dim": "Dim",
+        "dialog.smart_sensitivity": "Wake sensitivity",
+        "dialog.smart_sensitivity_hint": "Higher wakes you at the first sign of stirring; lower waits until you're clearly awake.",
+        "dialog.sens_low": "Deep sleeper",
+        "dialog.sens_medium": "Balanced",
+        "dialog.sens_high": "Light sleeper",
+        "dialog.smart_signals": "Signals for this alarm (optional)",
+        "dialog.smart_signals_hint": "Leave empty to use the profile's signals.",
+        "dialog.gated_note": "Some features are hidden until you bind their devices in Setup.",
         "mparam.difficulty": "Difficulty",
         "mparam.easy": "Easy",
         "mparam.medium": "Medium",
@@ -450,8 +469,27 @@ const STRINGS = {
         "dialog.smart_min": "Finestra anticipo (min)",
         "dialog.briefing": "Briefing al risveglio",
         "dialog.briefing_desc": "Pronuncia ora, meteo e impegni quando fermi la sveglia",
+        "dialog.briefing_template": "Testo briefing personalizzato (opzionale)",
+        "dialog.briefing_template_ph": "Sostituisce il briefing automatico. Supporta i template, es. Buongiorno! Sono le {{ now().strftime('%H:%M') }}.",
         "dialog.display": "Overlay risveglio (superficie display)",
         "dialog.display_none": "Nessuna superficie display associata nel Setup per questo profilo.",
+        "dialog.on_date": "Data",
+        "dialog.on_date_hint": "Lascia vuoto per suonare alla prossima occorrenza di questo orario.",
+        "dialog.audio_target": "Riproduci su (questa sveglia)",
+        "dialog.audio_inherit": "Predefinito del profilo",
+        "dialog.light_color": "Temperatura colore personalizzata",
+        "dialog.light_post_stop": "Quando la sveglia si ferma",
+        "dialog.post_off": "Spegni",
+        "dialog.post_keep": "Lascia accesa",
+        "dialog.post_dim": "Attenua",
+        "dialog.smart_sensitivity": "Sensibilità risveglio",
+        "dialog.smart_sensitivity_hint": "Più alta ti sveglia al primo movimento; più bassa aspetta che tu sia chiaramente sveglio.",
+        "dialog.sens_low": "Sonno pesante",
+        "dialog.sens_medium": "Bilanciato",
+        "dialog.sens_high": "Sonno leggero",
+        "dialog.smart_signals": "Segnali per questa sveglia (opzionale)",
+        "dialog.smart_signals_hint": "Lascia vuoto per usare i segnali del profilo.",
+        "dialog.gated_note": "Alcune funzioni restano nascoste finché non associ i dispositivi nel Setup.",
         "mparam.difficulty": "Difficoltà",
         "mparam.easy": "Facile",
         "mparam.medium": "Media",
@@ -983,16 +1021,27 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         this._volEnd = 30;
         this._light = false;
         this._lightMin = 30;
+        this._lightKelvin = null;
+        this._lightPostStop = "off";
         this._smart = false;
         this._smartMin = 30;
+        this._smartSens = 0.5;
+        this._smartSignals = [];
         this._briefing = false;
         this._briefingBlocks = [...BRIEFING_BLOCKS];
+        this._briefingTemplate = "";
         this._enabled = true;
         this._saving = false;
         this._display = false;
         this._displayTargets = [];
         this._displayOptions = [];
+        this._audioTarget = "";
+        this._onDate = "";
         this._visionPrompt = "";
+        // Profile role bindings, for progressive disclosure (show only the features
+        // whose roles are actually configured). null = not loaded yet → show all.
+        this._bindings = null;
+        this._signalOptions = [];
         // HA more-info style: click the header title to grow the dialog sideways.
         // Default expanded (two columns); CSS clamps to viewport so narrow screens
         // collapse to one column on their own — never a horizontal scrollbar.
@@ -1009,20 +1058,40 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         if (!pid) {
             this._presets = [];
             this._displayOptions = [];
+            this._signalOptions = [];
+            this._bindings = {};
             return;
         }
         try {
             const settings = await getSettings(this.hass);
             const profiles = settings.options.profiles ?? {};
             this._presets = profiles[pid]?.audio_presets ?? [];
-            const bindings = profiles[pid]?.bindings;
-            const bound = bindings?.["display_surface"];
-            this._displayOptions = Array.isArray(bound) ? bound : bound ? [String(bound)] : [];
+            const bindings = profiles[pid]?.bindings ?? {};
+            this._bindings = bindings;
+            this._displayOptions = this._roleEntities(bindings, "display_surface");
+            this._signalOptions = [
+                ...this._roleEntities(bindings, "sleep_signal"),
+                ...this._roleEntities(bindings, "presence_signal"),
+            ];
         }
         catch {
             this._presets = [];
             this._displayOptions = [];
+            this._signalOptions = [];
+            this._bindings = {};
         }
+    }
+    // A binding may be a single entity_id or a list; normalise to a string[].
+    _roleEntities(bindings, role) {
+        const bound = bindings[role];
+        return Array.isArray(bound) ? bound.map(String) : bound ? [String(bound)] : [];
+    }
+    // Progressive disclosure: a feature section shows only when its role is bound.
+    // Until bindings load (null), show everything so nothing flickers/vanishes.
+    _hasRole(...roles) {
+        if (this._bindings === null)
+            return true;
+        return roles.some((r) => this._roleEntities(this._bindings ?? {}, r).length > 0);
     }
     _populate() {
         const a = this.alarm;
@@ -1047,14 +1116,21 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 : 30;
         this._light = a?.features.light.enabled ?? false;
         this._lightMin = a?.features.light.duration_min ?? 30;
+        this._lightKelvin = a?.features.light.color_temp_kelvin ?? null;
+        this._lightPostStop = a?.features.light.post_stop ?? "off";
         this._smart = a?.features.smart_window.enabled ?? false;
         this._smartMin = a?.features.smart_window.minutes ?? 30;
+        this._smartSens = a?.features.smart_window.sensitivity ?? 0.5;
+        this._smartSignals = [...(a?.features.smart_window.signals ?? [])];
         this._briefing = a?.features.briefing.enabled ?? false;
         this._briefingBlocks = a?.features.briefing.blocks?.length
             ? [...a.features.briefing.blocks]
             : [...BRIEFING_BLOCKS];
+        this._briefingTemplate = a?.features.briefing.template ?? "";
         this._display = a?.features.display?.enabled ?? false;
         this._displayTargets = [...(a?.features.display?.targets ?? [])];
+        this._audioTarget = a?.features.audio.target ?? "";
+        this._onDate = a?.schedule.on_date ?? "";
         this._visionPrompt = a?.features.mission.vision_prompt ?? "";
         this._enabled = a?.enabled ?? true;
         this._saving = false;
@@ -1289,6 +1365,145 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
       @value-changed=${(e) => onChange(Number(e.detail.value ?? 0))}
     ></ha-selector>`;
     }
+    // Per-alarm audio output override: pick one of the profile's bound audio sinks,
+    // or inherit the profile default. Only shown when more than one sink exists.
+    _audioTargetField(lang) {
+        const opts = this._roleEntities(this._bindings ?? {}, "audio_sink");
+        if (opts.length < 2)
+            return A;
+        const options = [
+            { value: "", label: localize(lang, "dialog.audio_inherit") },
+            ...opts.map((id) => ({
+                value: id,
+                label: this.hass.states[id]?.attributes.friendly_name ?? id,
+            })),
+        ];
+        return this._selector({ select: { mode: "dropdown", options } }, localize(lang, "dialog.audio_target"), this._audioTarget, (v) => (this._audioTarget = v ?? ""));
+    }
+    // Sunrise depth: duration + color temperature (auto or a custom kelvin) + what
+    // the light does once the alarm stops.
+    _sunriseBlock(lang) {
+        const posts = ["off", "keep", "dim"];
+        return b `
+      ${this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.sunrise_min"), this._lightMin, (v) => (this._lightMin = Number(v ?? 0)))}
+      <div class="block">
+        <div class="togglerow" style="border-top:none;padding-bottom:4px">
+          <ha-switch
+            .checked=${this._lightKelvin !== null}
+            @change=${(e) => (this._lightKelvin = e.target.checked ? 3000 : null)}
+          ></ha-switch>
+          <div class="spacer">${localize(lang, "dialog.light_color")}</div>
+        </div>
+        ${this._lightKelvin !== null
+            ? b `<div class="sliderrow">
+              <ha-icon icon="mdi:thermometer"></ha-icon>
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ number: { min: 2000, max: 6500, step: 100, mode: "slider" } }}
+                .value=${this._lightKelvin}
+                @value-changed=${(e) => (this._lightKelvin = Number(e.detail.value ?? 3000))}
+              ></ha-selector>
+              <span class="pct">${this._lightKelvin}K</span>
+            </div>`
+            : A}
+      </div>
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.light_post_stop")}</label>
+        <div class="seg">
+          ${posts.map((p) => b `<button
+              class=${this._lightPostStop === p ? "on" : ""}
+              @click=${() => (this._lightPostStop = p)}
+            >
+              ${localize(lang, "dialog.post_" + p)}
+            </button>`)}
+        </div>
+      </div>
+    `;
+    }
+    // Smart-wake depth: window minutes + wake sensitivity + optional per-alarm
+    // signal override (defaults to the profile's bound sleep/presence signals).
+    _smartBlock(lang) {
+        const levels = [
+            ["low", 0.15],
+            ["medium", 0.5],
+            ["high", 0.85],
+        ];
+        const cur = this._smartSens >= 0.7 ? "high" : this._smartSens <= 0.3 ? "low" : "medium";
+        return b `
+      ${this._selector({ number: { min: 5, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.smart_min"), this._smartMin, (v) => (this._smartMin = Number(v ?? 0)))}
+      <div class="block">
+        <label class="field">${localize(lang, "dialog.smart_sensitivity")}</label>
+        <div class="seg">
+          ${levels.map(([name, val]) => b `<button
+              class=${cur === name ? "on" : ""}
+              @click=${() => (this._smartSens = val)}
+            >
+              ${localize(lang, "dialog.sens_" + name)}
+            </button>`)}
+        </div>
+        <div class="hint">${localize(lang, "dialog.smart_sensitivity_hint")}</div>
+      </div>
+      ${this._signalOptions.length
+            ? b `<div class="block">
+            <label class="field">${localize(lang, "dialog.smart_signals")}</label>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{
+                select: {
+                    multiple: true,
+                    options: this._signalOptions.map((id) => ({
+                        value: id,
+                        label: this.hass.states[id]?.attributes.friendly_name ?? id,
+                    })),
+                },
+            }}
+              .value=${this._smartSignals}
+              @value-changed=${(e) => (this._smartSignals = e.detail.value)}
+            ></ha-selector>
+            <div class="hint">${localize(lang, "dialog.smart_signals_hint")}</div>
+          </div>`
+            : A}
+    `;
+    }
+    // Briefing depth: block chips + an optional free-text template (overrides the
+    // auto-composed briefing when set).
+    _briefingBlockEl(lang) {
+        return b `
+      <div class="chips">
+        ${BRIEFING_BLOCKS.map((b$1) => b `<button
+            class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
+            @click=${() => this._toggleBlock(b$1)}
+          >
+            ${localize(lang, "briefing.block." + b$1)}
+          </button>`)}
+      </div>
+      <div class="block">
+        <ha-textarea
+          .hass=${this.hass}
+          .label=${localize(lang, "dialog.briefing_template")}
+          .placeholder=${localize(lang, "dialog.briefing_template_ph")}
+          .value=${this._briefingTemplate}
+          autogrow
+          @input=${(e) => (this._briefingTemplate = e.target.value)}
+        ></ha-textarea>
+      </div>
+    `;
+    }
+    // A subtle footnote when role-gating has hidden one or more feature sections,
+    // so the controls don't seem to have silently vanished.
+    _hiddenNote(lang) {
+        if (this._bindings === null)
+            return A;
+        const hidden = !this._hasRole("audio_sink") ||
+            !this._hasRole("wake_light") ||
+            !this._hasRole("display_surface") ||
+            !this._hasRole("sleep_signal", "presence_signal");
+        return hidden
+            ? b `<div class="hint" style="margin-top:14px">
+          ${localize(lang, "dialog.gated_note")}
+        </div>`
+            : A;
+    }
     _onSoundSelect(value) {
         if (value === SOUND_CUSTOM) {
             this._audioCustom = true;
@@ -1312,7 +1527,12 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             label: this._label,
             profile_id: this.alarm?.profile_id ?? this.profileId,
             enabled: this._enabled,
-            schedule: { ...this.alarm?.schedule, repeat_mode: this._repeat, weekdays: this._days },
+            schedule: {
+                ...this.alarm?.schedule,
+                repeat_mode: this._repeat,
+                weekdays: this._days,
+                on_date: this._repeat === "once" ? (this._onDate || null) : null,
+            },
             features: {
                 ...prev,
                 mission: {
@@ -1325,20 +1545,34 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 audio: {
                     ...prev?.audio,
                     enabled: this._audioSource !== "",
+                    target: this._audioTarget || null,
                     source: this._audioSource || null,
                     volume_profile: this._audioFade ? "fade_in" : "fixed",
                     volume_max: this._volume / 100,
                     volume_end_mode: this._volEndMode,
                     volume_end: this._volEndMode === "fixed" ? this._volEnd / 100 : null,
                 },
-                light: { ...prev?.light, enabled: this._light, duration_min: this._lightMin },
-                smart_window: { ...prev?.smart_window, enabled: this._smart, minutes: this._smartMin },
+                light: {
+                    ...prev?.light,
+                    enabled: this._light,
+                    duration_min: this._lightMin,
+                    color_temp_kelvin: this._lightKelvin,
+                    post_stop: this._lightPostStop,
+                },
+                smart_window: {
+                    ...prev?.smart_window,
+                    enabled: this._smart,
+                    minutes: this._smartMin,
+                    sensitivity: this._smartSens,
+                    signals: this._smartSignals,
+                },
                 briefing: {
                     ...prev?.briefing,
                     enabled: this._briefing,
                     blocks: this._briefing
                         ? BRIEFING_BLOCKS.filter((b) => this._briefingBlocks.includes(b))
                         : [],
+                    template: this._briefingTemplate.trim() || null,
                 },
                 display: {
                     ...prev?.display,
@@ -1441,6 +1675,12 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
               ></aurora-weekday-chips>
             </div>`
             : A}
+        ${this._repeat === "once"
+            ? b `<div class="block">
+              ${this._selector({ date: {} }, localize(lang, "dialog.on_date"), this._onDate, (v) => (this._onDate = v ?? ""))}
+              <div class="hint">${localize(lang, "dialog.on_date_hint")}</div>
+            </div>`
+            : A}
 
         <div class="cols">
           <div class="col">
@@ -1454,7 +1694,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
             },
         }, localize(lang, "dialog.mission"), this._mission, (v) => (this._mission = v ?? "tap"))}
             ${this._missionParamsBlock()}
-            ${this._soundField(lang)}
+            ${this._hasRole("audio_sink")
+            ? b `${this._soundField(lang)}${this._audioTargetField(lang)}`
+            : A}
             <div class="grid2">
               ${this._selector({ number: { min: 0, max: 10, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_max"), this._snoozeMax, (v) => (this._snoozeMax = Number(v ?? 0)), "")}
               ${this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.snooze_duration"), this._snoozeMin, (v) => (this._snoozeMin = Number(v ?? 0)), "")}
@@ -1462,40 +1704,42 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
           </div>
 
           <div class="col">
-            <div class="togglerow">
-              <ha-switch
-                .checked=${this._audioFade}
-                @change=${(e) => (this._audioFade = e.target.checked)}
-              ></ha-switch>
-              <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
-            </div>
-
-            ${this._volumeBlock(lang)}
-            ${this._displayBlock(lang)}
-
-            <div class="togglerow">
-              <ha-switch
-                .checked=${this._light}
-                @change=${(e) => (this._light = e.target.checked)}
-              ></ha-switch>
-              <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
-            </div>
-            ${this._light
-            ? this._selector({ number: { min: 1, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.sunrise_min"), this._lightMin, (v) => (this._lightMin = Number(v ?? 0)))
+            ${this._hasRole("audio_sink")
+            ? b `<div class="togglerow">
+                    <ha-switch
+                      .checked=${this._audioFade}
+                      @change=${(e) => (this._audioFade = e.target.checked)}
+                    ></ha-switch>
+                    <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
+                  </div>
+                  ${this._volumeBlock(lang)}`
             : A}
 
-            <div class="togglerow">
-              <ha-switch
-                .checked=${this._smart}
-                @change=${(e) => (this._smart = e.target.checked)}
-              ></ha-switch>
-              <div class="spacer">
-                ${localize(lang, "dialog.smart")}
-                <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
-              </div>
-            </div>
-            ${this._smart
-            ? this._selector({ number: { min: 5, max: 60, step: 1, mode: "box" } }, localize(lang, "dialog.smart_min"), this._smartMin, (v) => (this._smartMin = Number(v ?? 0)))
+            ${this._hasRole("display_surface") ? this._displayBlock(lang) : A}
+
+            ${this._hasRole("wake_light")
+            ? b `<div class="togglerow">
+                    <ha-switch
+                      .checked=${this._light}
+                      @change=${(e) => (this._light = e.target.checked)}
+                    ></ha-switch>
+                    <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
+                  </div>
+                  ${this._light ? this._sunriseBlock(lang) : A}`
+            : A}
+
+            ${this._hasRole("sleep_signal", "presence_signal")
+            ? b `<div class="togglerow">
+                    <ha-switch
+                      .checked=${this._smart}
+                      @change=${(e) => (this._smart = e.target.checked)}
+                    ></ha-switch>
+                    <div class="spacer">
+                      ${localize(lang, "dialog.smart")}
+                      <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
+                    </div>
+                  </div>
+                  ${this._smart ? this._smartBlock(lang) : A}`
             : A}
 
             <div class="togglerow">
@@ -1508,16 +1752,9 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
                 <div class="sub">${localize(lang, "dialog.briefing_desc")}</div>
               </div>
             </div>
-            ${this._briefing
-            ? b `<div class="chips">
-                  ${BRIEFING_BLOCKS.map((b$1) => b `<button
-                      class=${this._briefingBlocks.includes(b$1) ? "on" : ""}
-                      @click=${() => this._toggleBlock(b$1)}
-                    >
-                      ${localize(lang, "briefing.block." + b$1)}
-                    </button>`)}
-                </div>`
-            : A}
+            ${this._briefing ? this._briefingBlockEl(lang) : A}
+
+            ${this._hiddenNote(lang)}
           </div>
         </div>
 
@@ -1824,16 +2061,31 @@ __decorate([
 ], AuroraAlarmDialog.prototype, "_lightMin", void 0);
 __decorate([
     r()
+], AuroraAlarmDialog.prototype, "_lightKelvin", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_lightPostStop", void 0);
+__decorate([
+    r()
 ], AuroraAlarmDialog.prototype, "_smart", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_smartMin", void 0);
 __decorate([
     r()
+], AuroraAlarmDialog.prototype, "_smartSens", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_smartSignals", void 0);
+__decorate([
+    r()
 ], AuroraAlarmDialog.prototype, "_briefing", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_briefingBlocks", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_briefingTemplate", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_enabled", void 0);
@@ -1851,7 +2103,19 @@ __decorate([
 ], AuroraAlarmDialog.prototype, "_displayOptions", void 0);
 __decorate([
     r()
+], AuroraAlarmDialog.prototype, "_audioTarget", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_onDate", void 0);
+__decorate([
+    r()
 ], AuroraAlarmDialog.prototype, "_visionPrompt", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_bindings", void 0);
+__decorate([
+    r()
+], AuroraAlarmDialog.prototype, "_signalOptions", void 0);
 __decorate([
     r()
 ], AuroraAlarmDialog.prototype, "_large", void 0);

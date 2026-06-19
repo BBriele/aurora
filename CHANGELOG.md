@@ -4,7 +4,24 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.21.2 - 2026-06-19
+## 0.22.0 - 2026-06-19
+
+### Added
+- Alarm editor depth — much deeper per-alarm personalization:
+  - One-shot alarms can now set a specific **date** (and ring on the next
+    occurrence of the time when left empty).
+  - Sunrise: custom **color temperature** and a **post-stop** behaviour
+    (turn off / keep on / dim).
+  - Smart wake: a **wake sensitivity** (deep sleeper … light sleeper) and an
+    optional per-alarm **signal override**.
+  - Briefing: an optional **custom briefing template** per alarm.
+  - Audio: a per-alarm **output override** when a profile has more than one
+    bound audio sink.
+
+### Changed
+- The alarm editor now uses **progressive disclosure by configured role**:
+  sunrise, audio, smart-wake and display sections appear only when their
+  device role is bound for the profile, with a hint when something is hidden.
 
 ### Changed
 - Reworded the Global page intro to drop "shared" now that the tab is named

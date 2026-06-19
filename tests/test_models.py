@@ -9,6 +9,7 @@ from custom_components.aurora.models import (
     AuroraAlarm,
     MissionType,
     RepeatMode,
+    SmartWindowFeature,
 )
 
 
@@ -26,6 +27,16 @@ def test_round_trip_serialisation() -> None:
     alarm.features.mission.type = MissionType.MATH
     restored = AuroraAlarm.from_dict(alarm.as_dict())
     assert restored == alarm
+
+
+def test_smart_window_sensitivity_round_trip_and_clamp() -> None:
+    """sensitivity round-trips and is clamped into [0, 1] on load."""
+    sw = SmartWindowFeature(enabled=True, minutes=20, sensitivity=0.85)
+    assert SmartWindowFeature.from_dict(sw.as_dict()) == sw
+    # Out-of-range values are clamped; a missing key defaults to 0.5.
+    assert SmartWindowFeature.from_dict({"sensitivity": 5}).sensitivity == 1.0
+    assert SmartWindowFeature.from_dict({"sensitivity": -3}).sensitivity == 0.0
+    assert SmartWindowFeature.from_dict({}).sensitivity == 0.5
 
 
 def test_from_dict_requires_time() -> None:
