@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.24.1 - 2026-06-19
+
+### Fixed
+- Media picker: the player's tree (e.g. Music Assistant) also lists the
+  `media-source://` providers, but browsing into them via the player fails, so
+  "My media" and friends appeared duplicated — the first copy broken, the
+  second working. The player branch now drops those entries and the dedicated
+  media-source transport owns them, leaving a single working set. A non-string
+  browse error no longer renders as "[object Object]".
+
 ## 0.24.0 - 2026-06-19
 
 ### Added

@@ -3979,21 +3979,44 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
             this._stack = [...this._stack, result];
         }
         catch (err) {
-            this._error = String(err);
+            this._error = this._errText(err);
         }
         finally {
             this._loading = false;
         }
     }
-    // The root merges the bound player's library (e.g. Music Assistant) with HA's
-    // media sources, so local files (my_media/sounds) are always reachable even
-    // when a Music Assistant speaker is bound (which hides them on its own).
+    // HA WS errors are objects ({code, message}); avoid rendering "[object Object]".
+    _errText(err) {
+        if (typeof err === "string")
+            return err;
+        if (err && typeof err === "object") {
+            const m = err.message;
+            if (typeof m === "string")
+                return m;
+            try {
+                return JSON.stringify(err);
+            }
+            catch {
+                return "Error";
+            }
+        }
+        return String(err);
+    }
+    // The root merges the bound player's own library (e.g. Music Assistant) with
+    // Home Assistant's media sources, so local files (my_media/sounds) are always
+    // reachable even when a Music Assistant speaker is bound.
+    //
+    // A player's tree often *also* lists the `media-source://` providers, but
+    // browsing into them via the player frequently fails (Music Assistant can't
+    // traverse HA media sources). So we drop those from the player branch and let
+    // the dedicated media-source transport own them — no broken duplicates.
     async _root() {
         const children = [];
         if (this.entityId) {
             try {
                 const player = await browsePlayer(this.hass, this.entityId);
-                children.push(...this._tag(player.children, "player"));
+                const native = (player.children ?? []).filter((c) => !c.media_content_id?.startsWith("media-source://"));
+                children.push(...this._tag(native, "player"));
             }
             catch {
                 /* player offline / no tree — still show media sources below */
