@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.3 - 2026-06-22
+
+### Fixed
+- **Narrow mobile overflow**: on very narrow phone screens the alarm rows
+  overflowed the viewport and clipped the on/off toggle (the page scrolled
+  sideways). The single-column list track used `1fr` (i.e. `minmax(auto,1fr)`),
+  which sized to the longest label and the fixed time width; switched to
+  `minmax(0, 1fr)` so each row shrinks to fit. The multi-column breakpoints
+  already did this.
+
 ## 0.26.2 - 2026-06-21
 
 ### Fixed

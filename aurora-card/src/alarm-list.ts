@@ -143,7 +143,10 @@ export class AuroraAlarmList extends LitElement {
       .list {
         display: grid;
         gap: 10px;
-        grid-template-columns: 1fr;
+        /* minmax(0, 1fr) — bare 1fr is minmax(auto,1fr), whose auto track sizes
+           to max-content (full label + 96px time), blowing the row past a narrow
+           viewport and clipping the toggle. minmax(0,...) lets it shrink. */
+        grid-template-columns: minmax(0, 1fr);
       }
       @media (min-width: 720px) {
         .list {
