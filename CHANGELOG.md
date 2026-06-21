@@ -4,6 +4,18 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.2 - 2026-06-21
+
+### Fixed
+- **Mobile navigation**: the panel now shows a sidebar (hamburger) button on
+  narrow screens. Aurora is a custom panel, so Home Assistant strips its app
+  header - on mobile that left no way to open the sidebar and reach other
+  dashboards. The button fires the same toggle Home Assistant's own menu uses.
+
+### Changed
+- Tighter panel header, tabs and content padding below 480px so the brand,
+  profile selector and the new menu button fit without horizontal overflow.
+
 ## 0.26.1 - 2026-06-19
 
 ### Fixed

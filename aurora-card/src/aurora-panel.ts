@@ -18,6 +18,8 @@ const ALL = "__all__";
 export class AuroraPanel extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ attribute: false }) route?: { path: string };
+  // Set by ha-panel-custom; true when the sidebar is collapsed (mobile).
+  @property({ type: Boolean }) narrow = false;
 
   @state() private _tab: Tab = "alarms";
   @state() private _selected = "";
@@ -42,6 +44,15 @@ export class AuroraPanel extends LitElement {
     } catch {
       this._profiles = {};
     }
+  }
+
+  // Opens HA's sidebar. ha-panel-custom strips the app header, so on mobile the
+  // only way back to other dashboards is this button firing the same event
+  // HA's own ha-menu-button uses. composed:true crosses the shadow boundary.
+  private _toggleMenu(): void {
+    this.dispatchEvent(
+      new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true })
+    );
   }
 
   private get _isAdmin(): boolean {
@@ -79,11 +90,45 @@ export class AuroraPanel extends LitElement {
         padding: 18px 22px 6px;
         background: var(--primary-background-color, #f3f3f7);
       }
+      .menu {
+        appearance: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--aurora-text);
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        margin: -8px -2px -8px -10px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .menu:hover {
+        background: var(--aurora-surface);
+      }
       .brand {
         font-size: 1.5rem;
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 0;
+      }
+      /* Narrow: tighten the bar so brand + selector + avatar + menu fit. */
+      @media (max-width: 480px) {
+        .bar {
+          padding: 12px 14px 4px;
+          gap: 8px;
+        }
+        .brand {
+          font-size: 1.2rem;
+        }
+        .tabs {
+          padding: 8px 14px 0;
+        }
+        .content {
+          padding: 14px 12px 80px;
+        }
       }
       .who {
         margin-left: auto;
@@ -179,6 +224,17 @@ export class AuroraPanel extends LitElement {
     const tab: Tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
     return html`
       <div class="bar">
+        ${this.narrow
+          ? html`<button
+              class="menu"
+              @click=${this._toggleMenu}
+              aria-label=${localize(this.hass?.language, "panel.menu")}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+              </svg>
+            </button>`
+          : nothing}
         <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
         <div class="who">
           ${this._isAdmin

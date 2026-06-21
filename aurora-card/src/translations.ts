@@ -167,6 +167,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "rel.in_days": "in {n} days",
 
     // panel
+    "panel.menu": "Open sidebar",
     "panel.all": "Everyone",
     "panel.profile": "Profile",
     "panel.tab_alarms": "Alarms",
@@ -430,6 +431,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "rel.in_day": "tra 1 giorno",
     "rel.in_days": "tra {n} giorni",
 
+    "panel.menu": "Apri la barra laterale",
     "panel.all": "Tutti",
     "panel.profile": "Profilo",
     "panel.tab_alarms": "Sveglie",

@@ -308,6 +308,7 @@ const STRINGS = {
         "rel.in_day": "in 1 day",
         "rel.in_days": "in {n} days",
         // panel
+        "panel.menu": "Open sidebar",
         "panel.all": "Everyone",
         "panel.profile": "Profile",
         "panel.tab_alarms": "Alarms",
@@ -548,6 +549,7 @@ const STRINGS = {
         "rel.in_h": "tra {h}h",
         "rel.in_day": "tra 1 giorno",
         "rel.in_days": "tra {n} giorni",
+        "panel.menu": "Apri la barra laterale",
         "panel.all": "Tutti",
         "panel.profile": "Profilo",
         "panel.tab_alarms": "Sveglie",
@@ -5823,6 +5825,8 @@ const ALL = "__all__";
 let AuroraPanel = class AuroraPanel extends i {
     constructor() {
         super(...arguments);
+        // Set by ha-panel-custom; true when the sidebar is collapsed (mobile).
+        this.narrow = false;
         this._tab = "alarms";
         this._selected = "";
         this._profiles = {};
@@ -5847,6 +5851,12 @@ let AuroraPanel = class AuroraPanel extends i {
         catch {
             this._profiles = {};
         }
+    }
+    // Opens HA's sidebar. ha-panel-custom strips the app header, so on mobile the
+    // only way back to other dashboards is this button firing the same event
+    // HA's own ha-menu-button uses. composed:true crosses the shadow boundary.
+    _toggleMenu() {
+        this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
     }
     get _isAdmin() {
         return this.hass.user?.is_admin ?? false;
@@ -5876,6 +5886,17 @@ let AuroraPanel = class AuroraPanel extends i {
         const tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
         return b `
       <div class="bar">
+        ${this.narrow
+            ? b `<button
+              class="menu"
+              @click=${this._toggleMenu}
+              aria-label=${localize(this.hass?.language, "panel.menu")}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+              </svg>
+            </button>`
+            : A}
         <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
         <div class="who">
           ${this._isAdmin
@@ -5963,11 +5984,45 @@ AuroraPanel.styles = [
         padding: 18px 22px 6px;
         background: var(--primary-background-color, #f3f3f7);
       }
+      .menu {
+        appearance: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--aurora-text);
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        margin: -8px -2px -8px -10px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .menu:hover {
+        background: var(--aurora-surface);
+      }
       .brand {
         font-size: 1.5rem;
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 0;
+      }
+      /* Narrow: tighten the bar so brand + selector + avatar + menu fit. */
+      @media (max-width: 480px) {
+        .bar {
+          padding: 12px 14px 4px;
+          gap: 8px;
+        }
+        .brand {
+          font-size: 1.2rem;
+        }
+        .tabs {
+          padding: 8px 14px 0;
+        }
+        .content {
+          padding: 14px 12px 80px;
+        }
       }
       .who {
         margin-left: auto;
@@ -6058,6 +6113,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AuroraPanel.prototype, "route", void 0);
+__decorate([
+    n({ type: Boolean })
+], AuroraPanel.prototype, "narrow", void 0);
 __decorate([
     r()
 ], AuroraPanel.prototype, "_tab", void 0);
