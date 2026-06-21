@@ -28,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # manifest.json version, appended to the card URL for cache-busting.
-_CARD_VERSION = "0.26.3"
+_CARD_VERSION = "0.26.4"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

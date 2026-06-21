@@ -80,15 +80,19 @@ export class AuroraPanel extends LitElement {
         min-height: 100vh;
         background: var(--primary-background-color, #f3f3f7);
       }
-      .bar {
+      /* Brand bar + tabs stick as ONE block — no magic per-element top offset,
+         so nothing scrolls through a gap between them. */
+      .header {
         position: sticky;
         top: 0;
         z-index: 4;
+        background: var(--primary-background-color, #f3f3f7);
+      }
+      .bar {
         display: flex;
         align-items: center;
         gap: 14px;
         padding: 18px 22px 6px;
-        background: var(--primary-background-color, #f3f3f7);
       }
       .menu {
         appearance: none;
@@ -114,7 +118,7 @@ export class AuroraPanel extends LitElement {
         gap: 8px;
         min-width: 0;
       }
-      /* Narrow: tighten the bar so brand + selector + avatar + menu fit. */
+      /* Narrow: tighten the header so the brand + menu button stay compact. */
       @media (max-width: 480px) {
         .bar {
           padding: 12px 14px 4px;
@@ -130,37 +134,10 @@ export class AuroraPanel extends LitElement {
           padding: 14px 12px 80px;
         }
       }
-      .who {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--aurora-dim);
-        font-weight: 600;
-      }
-      .who select {
-        width: auto;
-        padding: 6px 34px 6px 12px;
-      }
-      .avatar {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: var(--aurora-grad);
-        color: #fff;
-        display: grid;
-        place-items: center;
-        font-weight: 700;
-        font-size: 0.85rem;
-      }
       .tabs {
         display: flex;
         gap: 6px;
-        padding: 8px 22px 0;
-        position: sticky;
-        top: 60px;
-        background: var(--primary-background-color, #f3f3f7);
-        z-index: 4;
+        padding: 8px 22px 8px;
         flex-wrap: wrap;
       }
       .tab {
@@ -219,54 +196,38 @@ export class AuroraPanel extends LitElement {
     if (this.route?.path === "/ring") {
       return html`<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
     }
-    const initial = (this._selectedName[0] ?? "A").toUpperCase();
     // Globals is admin-only; a non-admin never lands on it (e.g. stale state).
     const tab: Tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
     return html`
-      <div class="bar">
-        ${this.narrow
-          ? html`<button
-              class="menu"
-              @click=${this._toggleMenu}
-              aria-label=${localize(this.hass?.language, "panel.menu")}
-            >
-              <svg viewBox="0 0 24 24" width="24" height="24">
-                <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
-              </svg>
-            </button>`
-          : nothing}
-        <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
-        <div class="who">
-          ${this._isAdmin
-            ? html`<select
-                .value=${this._selected}
-                @change=${(e: Event) =>
-                  (this._selected = (e.target as HTMLSelectElement).value)}
+      <div class="header">
+        <div class="bar">
+          ${this.narrow
+            ? html`<button
+                class="menu"
+                @click=${this._toggleMenu}
+                aria-label=${localize(this.hass?.language, "panel.menu")}
               >
-                ${Object.entries(this._names).map(
-                  ([id, name]) => html`<option value=${id} ?selected=${id === this._selected}>
-                    ${name}
-                  </option>`
-                )}
-                <option value=${ALL} ?selected=${this._selected === ALL}>${localize(this.hass?.language, "panel.all")}</option>
-              </select>`
-            : html`<span>${this._selectedName}</span>`}
-          <div class="avatar">${initial}</div>
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+                </svg>
+              </button>`
+            : nothing}
+          <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
         </div>
-      </div>
 
-      <div class="tabs">
-        <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
-          ${localize(this.hass?.language, "panel.tab_alarms")}
-        </button>
-        <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
-          ${localize(this.hass?.language, "panel.tab_devices")}
-        </button>
-        ${this._isAdmin
-          ? html`<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-              ${localize(this.hass?.language, "panel.tab_globals")}
-            </button>`
-          : nothing}
+        <div class="tabs">
+          <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
+            ${localize(this.hass?.language, "panel.tab_alarms")}
+          </button>
+          <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
+            ${localize(this.hass?.language, "panel.tab_devices")}
+          </button>
+          ${this._isAdmin
+            ? html`<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
+                ${localize(this.hass?.language, "panel.tab_globals")}
+              </button>`
+            : nothing}
+        </div>
       </div>
 
       <div class="content wide">

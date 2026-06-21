@@ -4,6 +4,20 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.4 - 2026-06-22
+
+### Changed
+- **Sticky header rework**: the brand bar and the Alarms/Setup/Global tabs now
+  stick to the top as a single block instead of two independently-pinned rows.
+  Previously the tabs were offset by a fixed 60px, which left a gap on short
+  (mobile) headers where scrolling content showed through.
+- **Mobile schedule**: the week-at-a-glance no longer stacks into seven tall
+  rows (redundant with the alarm list and very long). On narrow screens it is
+  now a compact, horizontally swipeable strip of day columns showing just the
+  times, with today first.
+- Removed the profile selector / avatar from the top-right of the panel header.
+  The panel now always operates on the signed-in user's profile.
+
 ## 0.26.3 - 2026-06-22
 
 ### Fixed

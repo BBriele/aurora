@@ -193,27 +193,40 @@ export class AuroraScheduleCard extends LitElement {
         opacity: 0.5;
         font-size: 1.1rem;
       }
-      /* Mobile: the 7 columns become rows (weekday → row of time chips). */
+      /* Mobile: stacking 7 days into rows was tall and redundant with the alarm
+         list below. Keep the week-at-a-glance columns but make them a compact,
+         horizontally swipeable strip (time-only chips, today first). */
       @media (max-width: 640px) {
         .week {
-          grid-template-columns: 1fr;
+          grid-template-columns: none;
+          grid-auto-flow: column;
+          grid-auto-columns: 62px;
           gap: 8px;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          margin: 0 -6px;
+          padding: 0 6px 6px;
         }
         .day {
-          flex-direction: row;
-          align-items: center;
-          min-height: 0;
-          padding: 10px 12px;
+          scroll-snap-align: start;
+          min-height: 86px;
+          padding: 9px 8px 10px;
         }
         .dh {
-          flex: 0 0 76px;
           flex-direction: column;
+          align-items: center;
           gap: 0;
-          align-items: flex-start;
         }
         .chips {
-          flex-direction: row;
-          flex-wrap: wrap;
+          align-items: center;
+        }
+        .chip {
+          font-size: 0.76rem;
+          padding: 3px 7px;
+        }
+        /* Time only on the narrow strip; full label stays in the alarm list. */
+        .chip small {
+          display: none;
         }
       }
     `,

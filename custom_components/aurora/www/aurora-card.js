@@ -3790,27 +3790,40 @@ AuroraScheduleCard.styles = [
         opacity: 0.5;
         font-size: 1.1rem;
       }
-      /* Mobile: the 7 columns become rows (weekday → row of time chips). */
+      /* Mobile: stacking 7 days into rows was tall and redundant with the alarm
+         list below. Keep the week-at-a-glance columns but make them a compact,
+         horizontally swipeable strip (time-only chips, today first). */
       @media (max-width: 640px) {
         .week {
-          grid-template-columns: 1fr;
+          grid-template-columns: none;
+          grid-auto-flow: column;
+          grid-auto-columns: 62px;
           gap: 8px;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          margin: 0 -6px;
+          padding: 0 6px 6px;
         }
         .day {
-          flex-direction: row;
-          align-items: center;
-          min-height: 0;
-          padding: 10px 12px;
+          scroll-snap-align: start;
+          min-height: 86px;
+          padding: 9px 8px 10px;
         }
         .dh {
-          flex: 0 0 76px;
           flex-direction: column;
+          align-items: center;
           gap: 0;
-          align-items: flex-start;
         }
         .chips {
-          flex-direction: row;
-          flex-wrap: wrap;
+          align-items: center;
+        }
+        .chip {
+          font-size: 0.76rem;
+          padding: 3px 7px;
+        }
+        /* Time only on the narrow strip; full label stays in the alarm list. */
+        .chip small {
+          display: none;
         }
       }
     `,
@@ -5884,51 +5897,38 @@ let AuroraPanel = class AuroraPanel extends i {
         if (this.route?.path === "/ring") {
             return b `<aurora-ring-display .hass=${this.hass}></aurora-ring-display>`;
         }
-        const initial = (this._selectedName[0] ?? "A").toUpperCase();
         // Globals is admin-only; a non-admin never lands on it (e.g. stale state).
         const tab = this._tab === "globals" && !this._isAdmin ? "alarms" : this._tab;
         return b `
-      <div class="bar">
-        ${this.narrow
+      <div class="header">
+        <div class="bar">
+          ${this.narrow
             ? b `<button
-              class="menu"
-              @click=${this._toggleMenu}
-              aria-label=${localize(this.hass?.language, "panel.menu")}
-            >
-              <svg viewBox="0 0 24 24" width="24" height="24">
-                <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
-              </svg>
-            </button>`
-            : A}
-        <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
-        <div class="who">
-          ${this._isAdmin
-            ? b `<select
-                .value=${this._selected}
-                @change=${(e) => (this._selected = e.target.value)}
+                class="menu"
+                @click=${this._toggleMenu}
+                aria-label=${localize(this.hass?.language, "panel.menu")}
               >
-                ${Object.entries(this._names).map(([id, name]) => b `<option value=${id} ?selected=${id === this._selected}>
-                    ${name}
-                  </option>`)}
-                <option value=${ALL} ?selected=${this._selected === ALL}>${localize(this.hass?.language, "panel.all")}</option>
-              </select>`
-            : b `<span>${this._selectedName}</span>`}
-          <div class="avatar">${initial}</div>
-        </div>
-      </div>
-
-      <div class="tabs">
-        <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
-          ${localize(this.hass?.language, "panel.tab_alarms")}
-        </button>
-        <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
-          ${localize(this.hass?.language, "panel.tab_devices")}
-        </button>
-        ${this._isAdmin
-            ? b `<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
-              ${localize(this.hass?.language, "panel.tab_globals")}
-            </button>`
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+                </svg>
+              </button>`
             : A}
+          <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab ${tab === "alarms" ? "on" : ""}" @click=${() => (this._tab = "alarms")}>
+            ${localize(this.hass?.language, "panel.tab_alarms")}
+          </button>
+          <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
+            ${localize(this.hass?.language, "panel.tab_devices")}
+          </button>
+          ${this._isAdmin
+            ? b `<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
+                ${localize(this.hass?.language, "panel.tab_globals")}
+              </button>`
+            : A}
+        </div>
       </div>
 
       <div class="content wide">
@@ -5977,15 +5977,19 @@ AuroraPanel.styles = [
         min-height: 100vh;
         background: var(--primary-background-color, #f3f3f7);
       }
-      .bar {
+      /* Brand bar + tabs stick as ONE block — no magic per-element top offset,
+         so nothing scrolls through a gap between them. */
+      .header {
         position: sticky;
         top: 0;
         z-index: 4;
+        background: var(--primary-background-color, #f3f3f7);
+      }
+      .bar {
         display: flex;
         align-items: center;
         gap: 14px;
         padding: 18px 22px 6px;
-        background: var(--primary-background-color, #f3f3f7);
       }
       .menu {
         appearance: none;
@@ -6011,7 +6015,7 @@ AuroraPanel.styles = [
         gap: 8px;
         min-width: 0;
       }
-      /* Narrow: tighten the bar so brand + selector + avatar + menu fit. */
+      /* Narrow: tighten the header so the brand + menu button stay compact. */
       @media (max-width: 480px) {
         .bar {
           padding: 12px 14px 4px;
@@ -6027,37 +6031,10 @@ AuroraPanel.styles = [
           padding: 14px 12px 80px;
         }
       }
-      .who {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--aurora-dim);
-        font-weight: 600;
-      }
-      .who select {
-        width: auto;
-        padding: 6px 34px 6px 12px;
-      }
-      .avatar {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: var(--aurora-grad);
-        color: #fff;
-        display: grid;
-        place-items: center;
-        font-weight: 700;
-        font-size: 0.85rem;
-      }
       .tabs {
         display: flex;
         gap: 6px;
-        padding: 8px 22px 0;
-        position: sticky;
-        top: 60px;
-        background: var(--primary-background-color, #f3f3f7);
-        z-index: 4;
+        padding: 8px 22px 8px;
         flex-wrap: wrap;
       }
       .tab {
