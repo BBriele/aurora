@@ -28,5 +28,8 @@ Thumbs.db
 .storage/
 config/
 
-# Local-only: personal smart-home fixture (PII). Kept on disk, never published.
+# Local-only: kept on disk, never published (see CLAUDE.md).
 AURORA_DEV_PROMPT.md
+design/
+docs/UX-IA.md
+tools/wf_tests.js
