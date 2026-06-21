@@ -2328,7 +2328,6 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
           </div>
           <div class="when">${summarize(a, this.hass?.language)}</div>
         </div>
-        <span class="spacer"></span>
         <button
           class="icon-btn"
           title=${localize(this.hass?.language, "alarms.skip_title")}
@@ -2452,13 +2451,16 @@ AuroraAlarmList.styles = [
       }
       .time {
         font-size: 1.9rem;
-        min-width: 96px;
+        flex: none;
       }
+      /* meta fills the slack between time and the actions (no separate spacer),
+         so the label and weekday line get all the room that's left. */
       .meta {
+        flex: 1 1 auto;
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 2px;
-        min-width: 0;
       }
       .meta .name {
         font-weight: 600;
@@ -2470,6 +2472,20 @@ AuroraAlarmList.styles = [
         font-size: 0.82rem;
         color: var(--aurora-dim);
         letter-spacing: 0.06em;
+        /* one clean line; never wrap the weekday string into a ragged block */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Narrow phones: smaller time + tighter row frees space for the label. */
+      @media (max-width: 480px) {
+        .item {
+          gap: 10px;
+          padding: 12px 12px;
+        }
+        .time {
+          font-size: 1.55rem;
+        }
       }
       .badge {
         font-size: 0.68rem;

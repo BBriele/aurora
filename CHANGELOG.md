@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.5 - 2026-06-22
+
+### Changed
+- **Alarm row layout**: the label and weekday line now flex to fill the row
+  instead of being squeezed by a fixed-width time column and a spacer. The label
+  gets the available width (still ellipsised when long) and the weekday string
+  stays on a single line. The time column drops its fixed 96px width (tabular
+  digits keep rows aligned) and shrinks slightly on narrow phones.
+
 ## 0.26.4 - 2026-06-22
 
 ### Changed
