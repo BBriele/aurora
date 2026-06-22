@@ -81,6 +81,22 @@ export async function getVisionModels(hass: HomeAssistant): Promise<string[]> {
 export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss") =>
   hass.callService("aurora", service, {});
 
+/** One entry in the activity log (how an alarm behaved), newest first. */
+export interface ActivityEvent {
+  ts: string;
+  kind: "ringing" | "snoozed" | "dismissed" | "timeout";
+  alarm_id: string | null;
+  label: string | null;
+  profile_id: string | null;
+  detail?: { mission?: string; count?: number };
+}
+
+/** Recent activity for the signed-in user (server scopes non-admins to their profile). */
+export async function fetchActivity(hass: HomeAssistant): Promise<ActivityEvent[]> {
+  const res = await hass.callWS<{ events: ActivityEvent[] }>({ type: "aurora/activity/list" });
+  return res.events ?? [];
+}
+
 /** Which transport a browse node belongs to (so navigation stays consistent). */
 export type BrowseVia = "player" | "source";
 

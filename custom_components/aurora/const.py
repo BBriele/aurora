@@ -20,6 +20,9 @@ STORAGE_MINOR_VERSION: Final = 1
 STORAGE_KEY_CONFIG: Final = f"{DOMAIN}.config"
 STORAGE_KEY_ALARMS: Final = f"{DOMAIN}.alarms"
 
+# Rolling activity-log cap (how many recent alarm events to keep/show).
+ACTIVITY_MAX: Final = 50
+
 # --- Config-entry subentries ------------------------------------------------
 SUBENTRY_TYPE_ALARM: Final = "alarm"
 

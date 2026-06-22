@@ -6,12 +6,13 @@ import "./ring-display";
 import "./schedule-card";
 import "./devices-view";
 import "./globals-view";
+import "./activity-view";
 import { getSettings } from "./api";
 import { auroraStyles } from "./theme";
 import { localize } from "./localize";
 import type { HomeAssistant, Profiles } from "./types";
 
-type Tab = "alarms" | "devices" | "globals";
+type Tab = "alarms" | "devices" | "activity" | "globals";
 const ALL = "__all__";
 
 @customElement("aurora-panel")
@@ -222,6 +223,9 @@ export class AuroraPanel extends LitElement {
           <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
             ${localize(this.hass?.language, "panel.tab_devices")}
           </button>
+          <button class="tab ${tab === "activity" ? "on" : ""}" @click=${() => (this._tab = "activity")}>
+            ${localize(this.hass?.language, "panel.tab_activity")}
+          </button>
           ${this._isAdmin
             ? html`<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
                 ${localize(this.hass?.language, "panel.tab_globals")}
@@ -235,7 +239,9 @@ export class AuroraPanel extends LitElement {
           ? this._alarmsTab()
           : tab === "devices"
             ? this._setupTab()
-            : html`<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
+            : tab === "activity"
+              ? html`<aurora-activity-view .hass=${this.hass}></aurora-activity-view>`
+              : html`<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
       </div>
     `;
   }

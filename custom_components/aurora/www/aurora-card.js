@@ -120,6 +120,11 @@ async function getVisionModels(hass) {
     return res.models ?? [];
 }
 const ringAction = (hass, service) => hass.callService("aurora", service, {});
+/** Recent activity for the signed-in user (server scopes non-admins to their profile). */
+async function fetchActivity(hass) {
+    const res = await hass.callWS({ type: "aurora/activity/list" });
+    return res.events ?? [];
+}
 /**
  * Browse a media player's own tree (its providers, e.g. Music Assistant). This
  * is the richest source for that player but, crucially, a Music Assistant player
@@ -318,7 +323,16 @@ const STRINGS = {
         "panel.profile": "Profile",
         "panel.tab_alarms": "Alarms",
         "panel.tab_devices": "Setup",
+        "panel.tab_activity": "Activity",
         "panel.tab_globals": "Global",
+        "activity.title": "Recent activity",
+        "activity.empty": "No activity yet.",
+        "activity.refresh": "Refresh",
+        "activity.mission": "mission",
+        "activity.kind_ringing": "Rang",
+        "activity.kind_snoozed": "Snoozed",
+        "activity.kind_dismissed": "Dismissed",
+        "activity.kind_timeout": "Timed out (no dismiss)",
         "panel.select_profile": "Select a profile to configure its devices.",
         // devices view
         "devices.loading": "Loading devices…",
@@ -564,7 +578,16 @@ const STRINGS = {
         "panel.profile": "Profilo",
         "panel.tab_alarms": "Sveglie",
         "panel.tab_devices": "Setup",
+        "panel.tab_activity": "Attività",
         "panel.tab_globals": "Globale",
+        "activity.title": "Attività recente",
+        "activity.empty": "Nessuna attività recente.",
+        "activity.refresh": "Aggiorna",
+        "activity.mission": "missione",
+        "activity.kind_ringing": "Ha suonato",
+        "activity.kind_snoozed": "Posticipata",
+        "activity.kind_dismissed": "Disattivata",
+        "activity.kind_timeout": "Scaduta (nessuna disattivazione)",
         "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
         "devices.loading": "Caricamento dispositivi…",
         "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
@@ -5941,6 +5964,213 @@ AuroraGlobalsView = __decorate([
     t("aurora-globals-view")
 ], AuroraGlobalsView);
 
+/** mdi icon per activity kind — harmonised with the rest of the panel. */
+const KIND_ICON = {
+    ringing: "mdi:bell-ring",
+    snoozed: "mdi:alarm-snooze",
+    dismissed: "mdi:check-circle-outline",
+    timeout: "mdi:timer-alert-outline",
+};
+/**
+ * "Activity" tab: a per-profile, non-admin-readable timeline of how recent
+ * alarms behaved (rang / snoozed / dismissed / timed out, with the mission).
+ * Answers "why didn't my AI alarm work?" without needing the HA logs.
+ */
+let AuroraActivityView = class AuroraActivityView extends i {
+    constructor() {
+        super(...arguments);
+        this._events = [];
+        this._loaded = false;
+    }
+    firstUpdated() {
+        void this._load();
+    }
+    async _load() {
+        try {
+            this._events = await fetchActivity(this.hass);
+        }
+        catch {
+            this._events = [];
+        }
+        finally {
+            this._loaded = true;
+        }
+    }
+    _when(ts) {
+        const d = new Date(ts);
+        if (Number.isNaN(d.getTime()))
+            return ts;
+        return d.toLocaleString(this.hass?.language, {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }
+    _describe(e) {
+        const lang = this.hass?.language;
+        if (e.kind === "ringing") {
+            const mission = e.detail?.mission;
+            const base = localize(lang, "activity.kind_ringing");
+            if (mission && mission !== "tap") {
+                return `${base} — ${localize(lang, "activity.mission")}: ${localize(lang, "mission." + mission)}`;
+            }
+            return base;
+        }
+        if (e.kind === "snoozed") {
+            const n = e.detail?.count ?? 1;
+            return `${localize(lang, "activity.kind_snoozed")} (×${n})`;
+        }
+        return localize(lang, "activity.kind_" + e.kind);
+    }
+    render() {
+        const lang = this.hass?.language;
+        return b `
+      <div class="card">
+        <div class="head">
+          <h3>${localize(lang, "activity.title")}</h3>
+          <span class="spacer"></span>
+          <button
+            class="refresh"
+            @click=${this._load}
+            aria-label=${localize(lang, "activity.refresh")}
+          >
+            <ha-icon icon="mdi:refresh"></ha-icon>
+          </button>
+        </div>
+        ${!this._loaded
+            ? b `<div class="empty">${localize(lang, "common.loading")}</div>`
+            : this._events.length === 0
+                ? b `<div class="empty">
+                <div><ha-icon icon="mdi:history"></ha-icon></div>
+                ${localize(lang, "activity.empty")}
+              </div>`
+                : this._events.map((e) => b `<div class="row">
+                  <div class="ic ${e.kind}"><ha-icon icon=${KIND_ICON[e.kind]}></ha-icon></div>
+                  <div class="meta">
+                    <span class="label">${e.label || localize(lang, "alarms.default_label")}</span>
+                    <span class="desc">${this._describe(e)}</span>
+                  </div>
+                  <span class="when">${this._when(e.ts)}</span>
+                </div>`)}
+      </div>
+    `;
+    }
+};
+AuroraActivityView.styles = [
+    auroraStyles,
+    i$3 `
+      .card {
+        background: var(--aurora-surface);
+        border: 1px solid var(--aurora-divider);
+        border-radius: var(--aurora-radius);
+        padding: 18px 20px;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .head h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .head .spacer {
+        flex: 1;
+      }
+      .refresh {
+        appearance: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--aurora-dim);
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+      }
+      .refresh:hover {
+        background: var(--aurora-grad-soft);
+        color: var(--aurora-text);
+      }
+      .refresh ha-icon {
+        --mdc-icon-size: 20px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 2px;
+        border-top: 1px solid var(--aurora-divider);
+      }
+      .row:first-of-type {
+        border-top: none;
+      }
+      .ic {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: var(--aurora-grad-soft);
+        flex: none;
+      }
+      .ic ha-icon {
+        --mdc-icon-size: 20px;
+        color: var(--aurora-accent);
+      }
+      .ic.timeout ha-icon {
+        color: var(--aurora-warn, #e0a030);
+      }
+      .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        flex: 1;
+      }
+      .meta .label {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .meta .desc {
+        font-size: 0.82rem;
+        color: var(--aurora-dim);
+      }
+      .when {
+        font-size: 0.78rem;
+        color: var(--aurora-dim);
+        white-space: nowrap;
+        flex: none;
+      }
+      .empty {
+        text-align: center;
+        padding: 30px 12px;
+        color: var(--aurora-dim);
+      }
+      .empty ha-icon {
+        --mdc-icon-size: 42px;
+        color: var(--aurora-dim);
+      }
+    `,
+];
+__decorate([
+    n({ attribute: false })
+], AuroraActivityView.prototype, "hass", void 0);
+__decorate([
+    r()
+], AuroraActivityView.prototype, "_events", void 0);
+__decorate([
+    r()
+], AuroraActivityView.prototype, "_loaded", void 0);
+AuroraActivityView = __decorate([
+    t("aurora-activity-view")
+], AuroraActivityView);
+
 const ALL = "__all__";
 let AuroraPanel = class AuroraPanel extends i {
     constructor() {
@@ -6027,6 +6257,9 @@ let AuroraPanel = class AuroraPanel extends i {
           <button class="tab ${tab === "devices" ? "on" : ""}" @click=${() => (this._tab = "devices")}>
             ${localize(this.hass?.language, "panel.tab_devices")}
           </button>
+          <button class="tab ${tab === "activity" ? "on" : ""}" @click=${() => (this._tab = "activity")}>
+            ${localize(this.hass?.language, "panel.tab_activity")}
+          </button>
           ${this._isAdmin
             ? b `<button class="tab ${tab === "globals" ? "on" : ""}" @click=${() => (this._tab = "globals")}>
                 ${localize(this.hass?.language, "panel.tab_globals")}
@@ -6040,7 +6273,9 @@ let AuroraPanel = class AuroraPanel extends i {
             ? this._alarmsTab()
             : tab === "devices"
                 ? this._setupTab()
-                : b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
+                : tab === "activity"
+                    ? b `<aurora-activity-view .hass=${this.hass}></aurora-activity-view>`
+                    : b `<aurora-globals-view .hass=${this.hass}></aurora-globals-view>`}
       </div>
     `;
     }

@@ -4,6 +4,17 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.27.0 - 2026-06-22
+
+### Added
+- **Activity view**: a new "Activity" tab in the panel shows a recent timeline
+  of how alarms behaved — rang (with the mission), snoozed, dismissed, or timed
+  out — so you can tell, for example, that an AI vision alarm rang but was never
+  dismissed and timed out. Readable by any signed-in user (not admin-only);
+  non-admins see only their own profile's events. The coordinator records these
+  events to a small rolling, crash-safe log (last 50), exposed via the
+  `aurora/activity/list` WebSocket command.
+
 ## 0.26.8 - 2026-06-22
 
 ### Changed

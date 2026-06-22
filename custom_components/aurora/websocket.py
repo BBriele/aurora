@@ -128,6 +128,25 @@ async def ws_vision_check(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command({vol.Required("type"): "aurora/activity/list"})
+@callback
+def ws_activity_list(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the recent activity log (how alarms behaved).
+
+    Deliberately NOT admin-only — any signed-in user may see how their own
+    alarms behaved. Non-admins are scoped to their own profile (plus
+    profile-less events); admins see everything.
+    """
+    coordinator = _coordinator(hass)
+    events: list[dict[str, Any]] = coordinator.activity_events() if coordinator else []
+    user = connection.user
+    if not user.is_admin:
+        events = [e for e in events if e.get("profile_id") in (None, user.id)]
+    connection.send_result(msg["id"], {"events": events})
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register the Aurora custom websocket commands."""
@@ -136,3 +155,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_options_entities)
     websocket_api.async_register_command(hass, ws_vision_models)
     websocket_api.async_register_command(hass, ws_vision_check)
+    websocket_api.async_register_command(hass, ws_activity_list)

@@ -48,6 +48,7 @@ from .briefing import (
 )
 from .capabilities import get_llm_vision_providers
 from .const import (
+    ACTIVITY_MAX,
     CIRCUIT_FAILURE_THRESHOLD,
     CIRCUIT_RECOVERY_S,
     CONF_BRIEFING_CALENDARS,
@@ -257,6 +258,12 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._normalizing = False
         # Crash-safe ring state so an HA restart mid-ring resumes the ring.
         self._ring_store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.ring_state")
+        # Rolling human-readable activity log (how each alarm behaved) so even a
+        # non-admin can see what happened — fed to the panel's Activity view.
+        self._activity_store: Store[list[dict[str, Any]]] = Store(
+            hass, 1, f"{DOMAIN}.activity"
+        )
+        self._activity: list[dict[str, Any]] = []
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -283,6 +290,8 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         await self._async_refresh_skip_dates()
         # Resume a ring that was interrupted by an HA restart.
         await self._async_restore_ring()
+        # Load the persisted activity log (best effort).
+        self._activity = await self._activity_store.async_load() or []
         self._async_check_issues()
 
     @callback
@@ -591,6 +600,35 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         finally:
             self._normalizing = False
 
+    # --- Activity log (how each alarm behaved) ------------------------------
+
+    def activity_events(self) -> list[dict[str, Any]]:
+        """Return the rolling activity log, newest first."""
+        return list(reversed(self._activity))
+
+    @callback
+    def _record_activity(
+        self, alarm: AuroraAlarm | None, kind: str, detail: dict[str, Any] | None = None
+    ) -> None:
+        """Append one human-readable activity event and persist (best effort)."""
+        event: dict[str, Any] = {
+            "ts": dt_util.utcnow().isoformat(),
+            "kind": kind,
+            "alarm_id": alarm.id if alarm else None,
+            "label": alarm.label if alarm else None,
+            "profile_id": alarm.profile_id if alarm else None,
+        }
+        if detail:
+            event["detail"] = detail
+        self._activity.append(event)
+        if len(self._activity) > ACTIVITY_MAX:
+            self._activity = self._activity[-ACTIVITY_MAX:]
+        self.config_entry.async_create_task(
+            self.hass,
+            self._activity_store.async_save(self._activity),
+            "aurora_activity_persist",
+        )
+
     # --- Ring-state persistence (resume across restart) ---------------------
 
     @callback
@@ -858,6 +896,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._snooze_end_utc = None
         self._persist_ring()
         _LOGGER.info("Aurora alarm '%s' is ringing", alarm.id)
+        self._record_activity(
+            alarm, "ringing", {"mission": alarm.features.mission.type}
+        )
         self._publish()
 
     @callback
@@ -865,7 +906,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         """Safety auto-stop if a ring runs past its maximum duration."""
         self._unsub_watchdog = None
         self.config_entry.async_create_task(
-            self.hass, self.async_dismiss(), "aurora_watchdog_dismiss"
+            self.hass, self.async_dismiss(reason="timeout"), "aurora_watchdog_dismiss"
         )
 
     @callback
@@ -887,8 +928,12 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 return candidate
         return None
 
-    async def async_dismiss(self) -> None:
-        """Stop the current ring; speak the wake-up briefing if enabled, then idle."""
+    async def async_dismiss(self, reason: str = "dismissed") -> None:
+        """Stop the current ring; speak the wake-up briefing if enabled, then idle.
+
+        ``reason`` records how the ring ended for the activity log: ``"dismissed"``
+        (user/mission stopped it) or ``"timeout"`` (rang out the max duration).
+        """
         # Once we're in the post-wake (briefing) phase nothing is ringing, so a
         # repeat dismiss is a no-op — and it must not clobber the running task.
         if self._state is AuroraState.POST_WAKE:
@@ -897,6 +942,8 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._cancel_mission_watch()
         await self._ring.async_stop()
         alarm = self._active_alarm
+        if alarm is not None:
+            self._record_activity(alarm, reason)
         self._active_alarm = None
         self._active_alarm_id = None
         self._snooze_count = 0
@@ -981,6 +1028,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             self.hass, duration, self._on_snooze_end
         )
         self._persist_ring()
+        self._record_activity(alarm, "snoozed", {"count": self._snooze_count})
         self._publish()
 
     async def async_trigger_now(self, alarm_id: str | None = None) -> None:
