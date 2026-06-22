@@ -4,6 +4,15 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.8 - 2026-06-22
+
+### Changed
+- **Alarm editor sections**: the create/edit alarm modal is now organised into
+  collapsible sections. Time, label and repeat stay visible at the top and the
+  Sound section is open by default; Snooze & dismiss, Sunrise, Display, Smart
+  wake, Briefing and Advanced (condition) collapse so the modal reads cleanly
+  at first glance. Section state resets each time the dialog opens.
+
 ## 0.26.7 - 2026-06-22
 
 ### Changed

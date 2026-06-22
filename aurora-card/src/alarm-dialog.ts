@@ -83,6 +83,9 @@ export class AuroraAlarmDialog extends LitElement {
   // Default expanded (two columns); CSS clamps to viewport so narrow screens
   // collapse to one column on their own — never a horizontal scrollbar.
   @state() private _large = true;
+  // Which collapsible sections are expanded. Common ones open by default; the
+  // rest stay collapsed so the modal reads cleanly at first glance.
+  @state() private _open = new Set<string>(["sound"]);
 
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("open") && this.open) {
@@ -175,6 +178,26 @@ export class AuroraAlarmDialog extends LitElement {
     this._visionPrompt = a?.features.mission.vision_prompt ?? "";
     this._enabled = a?.enabled ?? true;
     this._saving = false;
+    // Reset disclosure to the elegant default every time the dialog opens.
+    this._open = new Set(["sound"]);
+  }
+
+  private _setOpen(key: string, expanded: boolean): void {
+    const next = new Set(this._open);
+    expanded ? next.add(key) : next.delete(key);
+    this._open = next;
+  }
+
+  // A collapsible section. Controlled open-state (via _open) so re-renders from
+  // unrelated field edits never snap a user-opened panel shut.
+  private _panel(key: string, header: string, content: TemplateResult): TemplateResult {
+    return html`<ha-expansion-panel
+      .header=${header}
+      .expanded=${this._open.has(key)}
+      @expanded-changed=${(e: CustomEvent) => this._setOpen(key, e.detail.expanded)}
+    >
+      <div class="panelbody">${content}</div>
+    </ha-expansion-panel>`;
   }
 
   private _close(): void {
@@ -758,27 +781,6 @@ export class AuroraAlarmDialog extends LitElement {
       ha-dialog.large {
         --ha-dialog-width-md: 1040px;
       }
-      .cols {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0 28px;
-        align-items: start;
-      }
-      ha-dialog.large .cols {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      }
-      .col {
-        min-width: 0;
-      }
-      .col .togglerow:first-child {
-        border-top: none;
-      }
-      /* Small screens stay one column even when "large" — clamp handles width. */
-      @media (max-width: 640px) {
-        ha-dialog.large .cols {
-          grid-template-columns: 1fr;
-        }
-      }
       .dlg-title {
         font-size: 1.2rem;
         font-weight: 600;
@@ -955,6 +957,30 @@ export class AuroraAlarmDialog extends LitElement {
         margin-top: 6px;
         font-style: italic;
       }
+      /* Collapsible sections — keep the modal calm at first glance. */
+      ha-expansion-panel {
+        display: block;
+        margin-top: 10px;
+        border: 1px solid var(--aurora-divider);
+        border-radius: 12px;
+        overflow: hidden;
+        --expansion-panel-content-padding: 0;
+        --ha-card-border-radius: 12px;
+      }
+      ha-expansion-panel[expanded] {
+        border-color: color-mix(in srgb, var(--aurora-accent) 40%, var(--aurora-divider));
+      }
+      .panelbody {
+        padding: 2px 14px 14px;
+      }
+      .panelbody > .block:first-child,
+      .panelbody > .togglerow:first-child {
+        margin-top: 0;
+      }
+      .togglerow.first {
+        border-top: none;
+        padding-top: 0;
+      }
     `,
   ];
 
@@ -1058,21 +1084,29 @@ export class AuroraAlarmDialog extends LitElement {
             </div>`
           : nothing}
 
-        <div class="block">
-          <ha-textarea
-            .hass=${this.hass}
-            .label=${localize(lang, "dialog.condition")}
-            .placeholder=${localize(lang, "dialog.condition_ph")}
-            .value=${this._condition}
-            autogrow
-            @input=${(e: Event) =>
-              (this._condition = (e.target as HTMLTextAreaElement).value)}
-          ></ha-textarea>
-          <div class="hint">${localize(lang, "dialog.condition_hint")}</div>
-        </div>
+        ${this._hasRole("audio_sink")
+          ? this._panel(
+              "sound",
+              localize(lang, "dialog.section_sound"),
+              html`
+                ${this._soundField(lang)}${this._audioTargetField(lang)}
+                <div class="togglerow">
+                  <ha-switch
+                    .checked=${this._audioFade}
+                    @change=${(e: Event) =>
+                      (this._audioFade = (e.target as HTMLInputElement).checked)}
+                  ></ha-switch>
+                  <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
+                </div>
+                ${this._volumeBlock(lang)}
+              `
+            )
+          : nothing}
 
-        <div class="cols">
-          <div class="col">
+        ${this._panel(
+          "dismiss",
+          localize(lang, "dialog.section_dismiss"),
+          html`
             ${this._selector(
               {
                 select: {
@@ -1088,9 +1122,6 @@ export class AuroraAlarmDialog extends LitElement {
               (v) => (this._mission = (v as MissionType) ?? "tap")
             )}
             ${this._missionParamsBlock()}
-            ${this._hasRole("audio_sink")
-              ? html`${this._soundField(lang)}${this._audioTargetField(lang)}`
-              : nothing}
             <div class="grid2">
               ${this._selector(
                 { number: { min: 0, max: 10, step: 1, mode: "box" } },
@@ -1107,65 +1138,88 @@ export class AuroraAlarmDialog extends LitElement {
                 ""
               )}
             </div>
-          </div>
+          `
+        )}
 
-          <div class="col">
-            ${this._hasRole("audio_sink")
-              ? html`<div class="togglerow">
-                    <ha-switch
-                      .checked=${this._audioFade}
-                      @change=${(e: Event) =>
-                        (this._audioFade = (e.target as HTMLInputElement).checked)}
-                    ></ha-switch>
-                    <div class="spacer">${localize(lang, "dialog.fade_in")}</div>
+        ${this._hasRole("wake_light")
+          ? this._panel(
+              "light",
+              localize(lang, "dialog.sunrise"),
+              html`
+                <div class="togglerow first">
+                  <ha-switch
+                    .checked=${this._light}
+                    @change=${(e: Event) =>
+                      (this._light = (e.target as HTMLInputElement).checked)}
+                  ></ha-switch>
+                  <div class="spacer">${localize(lang, "dialog.enable")}</div>
+                </div>
+                ${this._light ? this._sunriseBlock(lang) : nothing}
+              `
+            )
+          : nothing}
+
+        ${this._hasRole("display_surface")
+          ? this._panel("display", localize(lang, "dialog.section_display"), this._displayBlock(lang))
+          : nothing}
+
+        ${this._hasRole("sleep_signal", "presence_signal")
+          ? this._panel(
+              "smart",
+              localize(lang, "dialog.smart"),
+              html`
+                <div class="togglerow first">
+                  <ha-switch
+                    .checked=${this._smart}
+                    @change=${(e: Event) =>
+                      (this._smart = (e.target as HTMLInputElement).checked)}
+                  ></ha-switch>
+                  <div class="spacer">
+                    ${localize(lang, "dialog.enable")}
+                    <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
                   </div>
-                  ${this._volumeBlock(lang)}`
-              : nothing}
+                </div>
+                ${this._smart ? this._smartBlock(lang) : nothing}
+              `
+            )
+          : nothing}
 
-            ${this._hasRole("display_surface") ? this._displayBlock(lang) : nothing}
-
-            ${this._hasRole("wake_light")
-              ? html`<div class="togglerow">
-                    <ha-switch
-                      .checked=${this._light}
-                      @change=${(e: Event) =>
-                        (this._light = (e.target as HTMLInputElement).checked)}
-                    ></ha-switch>
-                    <div class="spacer">${localize(lang, "dialog.sunrise")}</div>
-                  </div>
-                  ${this._light ? this._sunriseBlock(lang) : nothing}`
-              : nothing}
-
-            ${this._hasRole("sleep_signal", "presence_signal")
-              ? html`<div class="togglerow">
-                    <ha-switch
-                      .checked=${this._smart}
-                      @change=${(e: Event) =>
-                        (this._smart = (e.target as HTMLInputElement).checked)}
-                    ></ha-switch>
-                    <div class="spacer">
-                      ${localize(lang, "dialog.smart")}
-                      <div class="sub">${localize(lang, "dialog.smart_desc")}</div>
-                    </div>
-                  </div>
-                  ${this._smart ? this._smartBlock(lang) : nothing}`
-              : nothing}
-
-            <div class="togglerow">
+        ${this._panel(
+          "briefing",
+          localize(lang, "dialog.briefing"),
+          html`
+            <div class="togglerow first">
               <ha-switch
                 .checked=${this._briefing}
                 @change=${(e: Event) => (this._briefing = (e.target as HTMLInputElement).checked)}
               ></ha-switch>
               <div class="spacer">
-                ${localize(lang, "dialog.briefing")}
+                ${localize(lang, "dialog.enable")}
                 <div class="sub">${localize(lang, "dialog.briefing_desc")}</div>
               </div>
             </div>
             ${this._briefing ? this._briefingBlockEl(lang) : nothing}
+          `
+        )}
 
-            ${this._hiddenNote(lang)}
-          </div>
-        </div>
+        ${this._panel(
+          "advanced",
+          localize(lang, "dialog.section_advanced"),
+          html`
+            <ha-textarea
+              .hass=${this.hass}
+              .label=${localize(lang, "dialog.condition")}
+              .placeholder=${localize(lang, "dialog.condition_ph")}
+              .value=${this._condition}
+              autogrow
+              @input=${(e: Event) =>
+                (this._condition = (e.target as HTMLTextAreaElement).value)}
+            ></ha-textarea>
+            <div class="hint">${localize(lang, "dialog.condition_hint")}</div>
+          `
+        )}
+
+        ${this._hiddenNote(lang)}
 
         <div class="footer-actions" slot="footer">
           <ha-button appearance="plain" @click=${this._close}>
