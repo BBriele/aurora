@@ -98,6 +98,10 @@ VISION_BACKOFF_CAP_S: Final = 10
 CIRCUIT_FAILURE_THRESHOLD: Final = 3
 CIRCUIT_RECOVERY_S: Final = 60
 LATENCY_WINDOW: Final = 20
+# Backend vision-dismiss loop: snapshot the bound camera + re-check on this
+# cadence while the alarm rings (no display surface required).
+VISION_MISSION_FIRST_S: Final = 4
+VISION_MISSION_INTERVAL_S: Final = 6
 PREWARM_LEAD_S: Final = 60  # seconds before alarm fire_at to run a warm-up inference
 
 # --- Frontend card ----------------------------------------------------------

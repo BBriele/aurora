@@ -4,6 +4,28 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.28.0 - 2026-06-22
+
+### Added
+- **Wake-proof dismiss missions run backend-side — no display required.** The
+  vision, switch and button missions (joining the existing open-door) are now
+  resolved by the coordinator itself rather than delegated to a connected
+  screen. An alarm can prove you're awake and stop ringing even when no
+  SmartClock/display is online:
+  - **Vision**: pick a camera in the alarm editor; while the alarm rings Aurora
+    periodically snapshots that camera and runs the AI awake-check, dismissing
+    once you're confirmed awake and out of bed.
+  - **Switch / button**: bind a `switch`/`input_boolean`/`light` or a
+    `button`/`input_button`; flipping or pressing it dismisses the alarm.
+- **Granular vision telemetry in the Activity view.** Each vision check is
+  logged with the model's raw output, the model name, latency and the awake
+  verdict — so you can see exactly how the LLM reasoned about each frame and
+  tune prompts/models over time, not just a bare yes/no.
+
+### Changed
+- The Activity view now renders the new `mission` (dismissed by mission) and
+  `vision_check` event kinds, including the per-check LLM reasoning.
+
 ## 0.27.0 - 2026-06-22
 
 ### Added

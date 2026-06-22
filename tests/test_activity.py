@@ -23,7 +23,11 @@ from custom_components.aurora.const import (
     SERVICE_DISMISS,
     SERVICE_TRIGGER_NOW,
 )
-from custom_components.aurora.models import AuroraAlarm
+from custom_components.aurora.models import (
+    AuroraAlarm,
+    MissionFeature,
+    MissionType,
+)
 
 
 async def _setup(hass: HomeAssistant) -> MockConfigEntry:
@@ -90,6 +94,24 @@ async def test_timeout_records_timeout(hass: HomeAssistant, freezer) -> None:
     await hass.async_block_till_done()
 
     assert _coord(hass).activity_events()[0]["kind"] == "timeout"
+
+
+async def test_vision_mission_without_camera_logs_reason(hass: HomeAssistant) -> None:
+    """A vision mission with no bound camera logs why it can't run.
+
+    Without this, the alarm would ring out to the watchdog with no explanation;
+    the Activity view needs the 'no_camera' breadcrumb instead of silence.
+    """
+    await _setup(hass)
+    coord = _coord(hass)
+
+    alarm = AuroraAlarm(id="v1", alarm_time=dt_time(7, 0), label="Vision")
+    alarm.features.mission = MissionFeature(type=MissionType.VISION, params={})
+    coord._start_vision_loop(alarm)
+
+    event = coord.activity_events()[0]
+    assert event["kind"] == "vision_check"
+    assert event["detail"]["error"] == "no_camera"
 
 
 async def test_activity_cap_and_order(hass: HomeAssistant) -> None:

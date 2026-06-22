@@ -208,6 +208,8 @@ const STRINGS = {
         "mission.qr": "QR code",
         "mission.shake": "Shake",
         "mission.open_door": "Open door",
+        "mission.switch": "Flip a switch",
+        "mission.button": "Press a button",
         "mission.vision": "Selfie (AI)",
         // repeat modes
         "repeat.once": "Once",
@@ -285,6 +287,9 @@ const STRINGS = {
         "mparam.shake_count": "Shakes needed",
         "mparam.qr_value": "Expected QR text (optional)",
         "mparam.door_entity": "Door sensor (binary_sensor.…)",
+        "mparam.switch_entity": "Switch to flip",
+        "mparam.button_entity": "Button to press",
+        "mparam.vision_camera": "Camera to watch",
         "mission.vision_prompt": "Custom vision prompt (optional)",
         "mission.vision_prompt_ph": "e.g. Is the person in the photo visibly awake and out of bed?",
         // briefing blocks
@@ -333,6 +338,13 @@ const STRINGS = {
         "activity.kind_snoozed": "Snoozed",
         "activity.kind_dismissed": "Dismissed",
         "activity.kind_timeout": "Timed out (no dismiss)",
+        "activity.kind_mission": "Dismissed by mission",
+        "activity.kind_vision_check": "Vision check",
+        "activity.vision_awake": "awake",
+        "activity.vision_asleep": "not awake yet",
+        "activity.vision_error": "error",
+        "activity.vision_model": "model",
+        "activity.vision_latency": "latency",
         "panel.select_profile": "Select a profile to configure its devices.",
         // devices view
         "devices.loading": "Loading devices…",
@@ -470,6 +482,8 @@ const STRINGS = {
         "mission.qr": "Codice QR",
         "mission.shake": "Scuoti",
         "mission.open_door": "Apri porta",
+        "mission.switch": "Aziona un interruttore",
+        "mission.button": "Premi un pulsante",
         "mission.vision": "Selfie (AI)",
         "repeat.once": "Una volta",
         "repeat.daily": "Ogni giorno",
@@ -544,6 +558,9 @@ const STRINGS = {
         "mparam.shake_count": "Scuotimenti richiesti",
         "mparam.qr_value": "Testo QR atteso (opzionale)",
         "mparam.door_entity": "Sensore porta (binary_sensor.…)",
+        "mparam.switch_entity": "Interruttore da azionare",
+        "mparam.button_entity": "Pulsante da premere",
+        "mparam.vision_camera": "Telecamera da osservare",
         "mission.vision_prompt": "Prompt di visione personalizzato (opzionale)",
         "mission.vision_prompt_ph": "Es. La persona nella foto è visibilmente sveglia e fuori dal letto?",
         "briefing.block.time": "Ora e saluto",
@@ -588,6 +605,13 @@ const STRINGS = {
         "activity.kind_snoozed": "Posticipata",
         "activity.kind_dismissed": "Disattivata",
         "activity.kind_timeout": "Scaduta (nessuna disattivazione)",
+        "activity.kind_mission": "Disattivata dalla missione",
+        "activity.kind_vision_check": "Controllo visione",
+        "activity.vision_awake": "sveglio",
+        "activity.vision_asleep": "non ancora sveglio",
+        "activity.vision_error": "errore",
+        "activity.vision_model": "modello",
+        "activity.vision_latency": "latenza",
         "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
         "devices.loading": "Caricamento dispositivi…",
         "devices.intro": "Dispositivi di {name} — tutto opzionale. Cerca e aggiungi solo ciò che ti serve; l'orario esatto è sempre garantito.",
@@ -1064,6 +1088,8 @@ const MISSION_TYPES = [
     "qr",
     "shake",
     "open_door",
+    "switch",
+    "button",
     "vision",
 ];
 
@@ -1365,8 +1391,15 @@ let AuroraAlarmDialog = class AuroraAlarmDialog extends i {
         if (this._mission === "open_door") {
             return this._selector({ entity: { filter: [{ domain: "binary_sensor" }] } }, localize(lang, "mparam.door_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
         }
+        if (this._mission === "switch") {
+            return this._selector({ entity: { filter: [{ domain: ["switch", "input_boolean", "light"] }] } }, localize(lang, "mparam.switch_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
+        }
+        if (this._mission === "button") {
+            return this._selector({ entity: { filter: [{ domain: ["button", "input_button"] }] } }, localize(lang, "mparam.button_entity"), String(p["entity_id"] ?? ""), (v) => this._setParam("entity_id", v ?? ""));
+        }
         if (this._mission === "vision") {
             return b `<div class="block">
+        ${this._selector({ entity: { filter: [{ domain: "camera" }] } }, localize(lang, "mparam.vision_camera"), String(p["camera"] ?? ""), (v) => this._setParam("camera", v ?? ""))}
         <ha-textarea
           .hass=${this.hass}
           .label=${localize(lang, "mission.vision_prompt")}
@@ -5970,6 +6003,8 @@ const KIND_ICON = {
     snoozed: "mdi:alarm-snooze",
     dismissed: "mdi:check-circle-outline",
     timeout: "mdi:timer-alert-outline",
+    mission: "mdi:gesture-tap-button",
+    vision_check: "mdi:eye-outline",
 };
 /**
  * "Activity" tab: a per-profile, non-admin-readable timeline of how recent
@@ -6021,7 +6056,36 @@ let AuroraActivityView = class AuroraActivityView extends i {
             const n = e.detail?.count ?? 1;
             return `${localize(lang, "activity.kind_snoozed")} (×${n})`;
         }
+        if (e.kind === "vision_check") {
+            const d = e.detail ?? {};
+            if (d.error) {
+                return `${localize(lang, "activity.kind_vision_check")} — ${localize(lang, "activity.vision_error")}: ${d.error}`;
+            }
+            const verdict = d.awake
+                ? localize(lang, "activity.vision_awake")
+                : localize(lang, "activity.vision_asleep");
+            return `${localize(lang, "activity.kind_vision_check")} — ${verdict}`;
+        }
         return localize(lang, "activity.kind_" + e.kind);
+    }
+    /** Raw LLM telemetry (model + reasoning + latency) for a vision_check row. */
+    _visionDetail(e) {
+        if (e.kind !== "vision_check")
+            return null;
+        const d = e.detail ?? {};
+        const lang = this.hass?.language;
+        const bits = [];
+        if (d.model) {
+            bits.push(b `<span class="tele"><b>${localize(lang, "activity.vision_model")}:</b> ${d.model}</span>`);
+        }
+        if (typeof d.latency_ms === "number") {
+            bits.push(b `<span class="tele"><b>${localize(lang, "activity.vision_latency")}:</b> ${Math.round(d.latency_ms)} ms</span>`);
+        }
+        const raw = (d.raw ?? "").trim();
+        return b `
+      ${bits.length ? b `<div class="teleline">${bits}</div>` : null}
+      ${raw ? b `<div class="raw">${raw}</div>` : null}
+    `;
     }
     render() {
         const lang = this.hass?.language;
@@ -6050,6 +6114,7 @@ let AuroraActivityView = class AuroraActivityView extends i {
                   <div class="meta">
                     <span class="label">${e.label || localize(lang, "alarms.default_label")}</span>
                     <span class="desc">${this._describe(e)}</span>
+                    ${this._visionDetail(e)}
                   </div>
                   <span class="when">${this._when(e.ts)}</span>
                 </div>`)}
@@ -6140,6 +6205,28 @@ AuroraActivityView.styles = [
       .meta .desc {
         font-size: 0.82rem;
         color: var(--aurora-dim);
+      }
+      .teleline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin-top: 4px;
+        font-size: 0.74rem;
+        color: var(--aurora-dim);
+      }
+      .raw {
+        margin-top: 4px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: var(--aurora-grad-soft);
+        font-family: var(--ha-font-family-code, monospace);
+        font-size: 0.74rem;
+        line-height: 1.35;
+        color: var(--aurora-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 8.5em;
+        overflow: auto;
       }
       .when {
         font-size: 0.78rem;

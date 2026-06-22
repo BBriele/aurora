@@ -22,7 +22,7 @@ import os
 import time
 from typing import Any
 
-from homeassistant.components import persistent_notification
+from homeassistant.components import camera, persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
@@ -75,6 +75,8 @@ from .const import (
     VISION_BACKOFF_BASE_S,
     VISION_BACKOFF_CAP_S,
     VISION_MAX_ATTEMPTS,
+    VISION_MISSION_FIRST_S,
+    VISION_MISSION_INTERVAL_S,
     VISION_TIMEOUT_S,
 )
 from .models import AuroraAlarm, MissionType
@@ -91,6 +93,9 @@ from .vision import (
 
 _PREWAKE_EVAL_INTERVAL = timedelta(minutes=5)
 _SKIP_LOOKAHEAD_DAYS = 21
+
+# Wake-proof missions satisfied by a bound entity's transition (no screen).
+_ENTITY_MISSIONS = {MissionType.OPEN_DOOR, MissionType.SWITCH, MissionType.BUTTON}
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -239,6 +244,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_watchdog: CALLBACK_TYPE | None = None
         self._unsub_snooze: CALLBACK_TYPE | None = None
         self._unsub_mission: CALLBACK_TYPE | None = None
+        self._unsub_vision: CALLBACK_TYPE | None = None
         self._unsub_prewake_start: CALLBACK_TYPE | None = None
         self._unsub_prewake_eval: CALLBACK_TYPE | None = None
         self._fusion: SleepFusion | None = None
@@ -362,46 +368,120 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
 
     @callback
     def _cancel_mission_watch(self) -> None:
-        """Stop watching the active alarm's physical mission sensor (if any)."""
+        """Stop watching the active alarm's mission (sensor watch + vision loop)."""
         if self._unsub_mission is not None:
             self._unsub_mission()
             self._unsub_mission = None
+        if self._unsub_vision is not None:
+            self._unsub_vision()
+            self._unsub_vision = None
 
     @callback
     def _setup_mission_watch(self, alarm: AuroraAlarm) -> None:
-        """Watch a sensor-based mission so the physical act dismisses the alarm.
+        """Wire the active alarm's wake-proof dismiss mission, backend-side.
 
-        The ``open_door`` mission is satisfied by opening the bound binary_sensor
-        (an off→on transition) — no screen required. Screen-based missions
-        (math/QR/shake/selfie) still need a DisplaySurface and are handled by the
-        card overlay.
+        All wake-proof missions resolve in the backend now — no DisplaySurface
+        required: ``open_door``/``switch`` dismiss on a bound entity's off→on
+        transition, ``button`` on a press (state change), and ``vision`` runs a
+        periodic camera snapshot + AI check loop (see ``_vision_tick``). Tap/math/
+        QR/shake remain screen interactions handled by the card overlay.
         """
         self._cancel_mission_watch()
         mission = alarm.features.mission
-        if mission.type is not MissionType.OPEN_DOOR:
+        if mission.type is MissionType.VISION:
+            self._start_vision_loop(alarm)
             return
-        entity_id = mission.params.get("entity_id")
-        if not isinstance(entity_id, str) or not entity_id:
-            return
-        self._unsub_mission = async_track_state_change_event(
-            self.hass, [entity_id], self._on_mission_event
-        )
+        if mission.type in _ENTITY_MISSIONS:
+            entity_id = mission.params.get("entity_id")
+            if isinstance(entity_id, str) and entity_id:
+                self._unsub_mission = async_track_state_change_event(
+                    self.hass, [entity_id], self._on_mission_event
+                )
 
     @callback
     def _on_mission_event(self, event: Event) -> None:
-        """Dismiss the alarm on a fresh off→on transition of the door sensor."""
+        """Dismiss on the bound entity's activating transition (door/switch/button)."""
         if self._active_alarm is None:
             return
+        mission_type = self._active_alarm.features.mission.type
         new_state = event.data.get("new_state")
         old_state = event.data.get("old_state")
-        if new_state is None or new_state.state != "on":
+        if new_state is None or new_state.state in ("unknown", "unavailable"):
             return
-        if old_state is not None and old_state.state == "on":
-            return  # already open before the ring — require a real transition
-        _LOGGER.info("Aurora: open-door mission satisfied; dismissing")
+        if mission_type is MissionType.BUTTON:
+            # A press just changes the entity's state (e.g. a new timestamp);
+            # ignore the initial restore where there's no prior state to compare.
+            if old_state is None or new_state.state == old_state.state:
+                return
+        else:  # open_door / switch: require a real off→on transition
+            if new_state.state != "on":
+                return
+            if old_state is not None and old_state.state == "on":
+                return
+        _LOGGER.info("Aurora: %s mission satisfied; dismissing", mission_type.value)
         self.config_entry.async_create_task(
-            self.hass, self.async_dismiss(), "aurora_mission_dismiss"
+            self.hass, self.async_dismiss(reason="mission"), "aurora_mission_dismiss"
         )
+
+    # --- Vision (camera + AI) anti-snooze mission ---------------------------
+
+    @callback
+    def _start_vision_loop(self, alarm: AuroraAlarm) -> None:
+        """Begin the backend vision-dismiss loop for ``alarm`` (needs a camera)."""
+        camera_id = alarm.features.mission.params.get("camera")
+        if not isinstance(camera_id, str) or not camera_id:
+            # No camera bound → the check cannot run; log why so the Activity
+            # view explains the silent ring-out instead of leaving it a mystery.
+            self._record_activity(alarm, "vision_check", {"error": "no_camera"})
+            return
+        self._arm_vision(alarm, camera_id, VISION_MISSION_FIRST_S)
+
+    @callback
+    def _arm_vision(self, alarm: AuroraAlarm, camera_id: str, delay: float) -> None:
+        """Schedule the next vision tick after ``delay`` seconds."""
+        self._unsub_vision = async_call_later(
+            self.hass,
+            delay,
+            lambda _now: self.config_entry.async_create_task(
+                self.hass, self._vision_tick(alarm, camera_id), "aurora_vision_tick"
+            ),
+        )
+
+    async def _vision_tick(self, alarm: AuroraAlarm, camera_id: str) -> None:
+        """Snapshot the camera, run the AI check, log it, dismiss when awake."""
+        self._unsub_vision = None
+        if self._state is not AuroraState.RINGING or self._active_alarm is None:
+            return
+        try:
+            image = await camera.async_get_image(self.hass, camera_id, timeout=10)
+            image_b64 = base64.b64encode(image.content).decode()
+        except Exception:
+            _LOGGER.warning(
+                "Aurora vision: camera snapshot '%s' failed", camera_id, exc_info=True
+            )
+            self._record_activity(alarm, "vision_check", {"error": "snapshot_failed"})
+            if self._state is AuroraState.RINGING:
+                self._arm_vision(alarm, camera_id, VISION_MISSION_INTERVAL_S)
+            return
+        result = await self.async_vision_check(image_b64, alarm.id)
+        # Granular per-attempt log: the verdict *and* the model's raw answer +
+        # model id + latency, so behaviour can be reviewed and tuned later.
+        self._record_activity(
+            alarm,
+            "vision_check",
+            {
+                "awake": bool(result.get("awake")),
+                "raw": result.get("raw"),
+                "model": result.get("model"),
+                "latency_ms": result.get("latency_ms"),
+                "error": result.get("error"),
+            },
+        )
+        if result.get("awake"):
+            await self.async_dismiss(reason="mission")
+            return
+        if self._state is AuroraState.RINGING:
+            self._arm_vision(alarm, camera_id, VISION_MISSION_INTERVAL_S)
 
     @callback
     def _get_alarm(self, alarm_id: str) -> AuroraAlarm | None:
@@ -1487,8 +1567,17 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
                 "awake": False,
                 "error": "inference_failed",
                 "latency_ms": latency_ms,
+                "raw": "",
+                "model": v.get("model"),
             }
-        return {"awake": parse_verdict(text), "latency_ms": latency_ms}
+        # Return the model's raw answer + model id too, so the activity log can
+        # capture *why* the verdict was reached (granular LLM data for tuning).
+        return {
+            "awake": parse_verdict(text),
+            "latency_ms": latency_ms,
+            "raw": text,
+            "model": v.get("model"),
+        }
 
     def _sample_image_b64(self) -> str:
         """Generate a small solid-colour JPEG and return it as a base64 string.

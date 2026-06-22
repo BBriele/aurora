@@ -73,6 +73,8 @@ export type MissionType =
   | "qr"
   | "shake"
   | "open_door"
+  | "switch"
+  | "button"
   | "vision";
 
 export interface AlarmSchedule {
@@ -155,5 +157,7 @@ export const MISSION_TYPES: MissionType[] = [
   "qr",
   "shake",
   "open_door",
+  "switch",
+  "button",
   "vision",
 ];

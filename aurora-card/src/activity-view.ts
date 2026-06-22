@@ -12,6 +12,8 @@ const KIND_ICON: Record<ActivityEvent["kind"], string> = {
   snoozed: "mdi:alarm-snooze",
   dismissed: "mdi:check-circle-outline",
   timeout: "mdi:timer-alert-outline",
+  mission: "mdi:gesture-tap-button",
+  vision_check: "mdi:eye-outline",
 };
 
 /**
@@ -65,7 +67,36 @@ export class AuroraActivityView extends LitElement {
       const n = e.detail?.count ?? 1;
       return `${localize(lang, "activity.kind_snoozed")} (×${n})`;
     }
+    if (e.kind === "vision_check") {
+      const d = e.detail ?? {};
+      if (d.error) {
+        return `${localize(lang, "activity.kind_vision_check")} — ${localize(lang, "activity.vision_error")}: ${d.error}`;
+      }
+      const verdict = d.awake
+        ? localize(lang, "activity.vision_awake")
+        : localize(lang, "activity.vision_asleep");
+      return `${localize(lang, "activity.kind_vision_check")} — ${verdict}`;
+    }
     return localize(lang, "activity.kind_" + e.kind);
+  }
+
+  /** Raw LLM telemetry (model + reasoning + latency) for a vision_check row. */
+  private _visionDetail(e: ActivityEvent): TemplateResult | null {
+    if (e.kind !== "vision_check") return null;
+    const d = e.detail ?? {};
+    const lang = this.hass?.language;
+    const bits: TemplateResult[] = [];
+    if (d.model) {
+      bits.push(html`<span class="tele"><b>${localize(lang, "activity.vision_model")}:</b> ${d.model}</span>`);
+    }
+    if (typeof d.latency_ms === "number") {
+      bits.push(html`<span class="tele"><b>${localize(lang, "activity.vision_latency")}:</b> ${Math.round(d.latency_ms)} ms</span>`);
+    }
+    const raw = (d.raw ?? "").trim();
+    return html`
+      ${bits.length ? html`<div class="teleline">${bits}</div>` : null}
+      ${raw ? html`<div class="raw">${raw}</div>` : null}
+    `;
   }
 
   static styles = [
@@ -152,6 +183,28 @@ export class AuroraActivityView extends LitElement {
         font-size: 0.82rem;
         color: var(--aurora-dim);
       }
+      .teleline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin-top: 4px;
+        font-size: 0.74rem;
+        color: var(--aurora-dim);
+      }
+      .raw {
+        margin-top: 4px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: var(--aurora-grad-soft);
+        font-family: var(--ha-font-family-code, monospace);
+        font-size: 0.74rem;
+        line-height: 1.35;
+        color: var(--aurora-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 8.5em;
+        overflow: auto;
+      }
       .when {
         font-size: 0.78rem;
         color: var(--aurora-dim);
@@ -198,6 +251,7 @@ export class AuroraActivityView extends LitElement {
                   <div class="meta">
                     <span class="label">${e.label || localize(lang, "alarms.default_label")}</span>
                     <span class="desc">${this._describe(e)}</span>
+                    ${this._visionDetail(e)}
                   </div>
                   <span class="when">${this._when(e.ts)}</span>
                 </div>`

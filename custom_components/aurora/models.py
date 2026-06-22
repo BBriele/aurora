@@ -30,6 +30,8 @@ class MissionType(StrEnum):
     QR = "qr"
     SHAKE = "shake"
     OPEN_DOOR = "open_door"
+    SWITCH = "switch"
+    BUTTON = "button"
     VISION = "vision"
 
 

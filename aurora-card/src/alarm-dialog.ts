@@ -355,8 +355,30 @@ export class AuroraAlarmDialog extends LitElement {
         (v) => this._setParam("entity_id", (v as string) ?? "")
       );
     }
+    if (this._mission === "switch") {
+      return this._selector(
+        { entity: { filter: [{ domain: ["switch", "input_boolean", "light"] }] } },
+        localize(lang, "mparam.switch_entity"),
+        String(p["entity_id"] ?? ""),
+        (v) => this._setParam("entity_id", (v as string) ?? "")
+      );
+    }
+    if (this._mission === "button") {
+      return this._selector(
+        { entity: { filter: [{ domain: ["button", "input_button"] }] } },
+        localize(lang, "mparam.button_entity"),
+        String(p["entity_id"] ?? ""),
+        (v) => this._setParam("entity_id", (v as string) ?? "")
+      );
+    }
     if (this._mission === "vision") {
       return html`<div class="block">
+        ${this._selector(
+          { entity: { filter: [{ domain: "camera" }] } },
+          localize(lang, "mparam.vision_camera"),
+          String(p["camera"] ?? ""),
+          (v) => this._setParam("camera", (v as string) ?? "")
+        )}
         <ha-textarea
           .hass=${this.hass}
           .label=${localize(lang, "mission.vision_prompt")}

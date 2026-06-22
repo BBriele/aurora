@@ -53,6 +53,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mission.qr": "QR code",
     "mission.shake": "Shake",
     "mission.open_door": "Open door",
+    "mission.switch": "Flip a switch",
+    "mission.button": "Press a button",
     "mission.vision": "Selfie (AI)",
 
     // repeat modes
@@ -133,6 +135,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mparam.shake_count": "Shakes needed",
     "mparam.qr_value": "Expected QR text (optional)",
     "mparam.door_entity": "Door sensor (binary_sensor.…)",
+    "mparam.switch_entity": "Switch to flip",
+    "mparam.button_entity": "Button to press",
+    "mparam.vision_camera": "Camera to watch",
     "mission.vision_prompt": "Custom vision prompt (optional)",
     "mission.vision_prompt_ph": "e.g. Is the person in the photo visibly awake and out of bed?",
 
@@ -187,6 +192,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "activity.kind_snoozed": "Snoozed",
     "activity.kind_dismissed": "Dismissed",
     "activity.kind_timeout": "Timed out (no dismiss)",
+    "activity.kind_mission": "Dismissed by mission",
+    "activity.kind_vision_check": "Vision check",
+    "activity.vision_awake": "awake",
+    "activity.vision_asleep": "not awake yet",
+    "activity.vision_error": "error",
+    "activity.vision_model": "model",
+    "activity.vision_latency": "latency",
     "panel.select_profile": "Select a profile to configure its devices.",
 
     // devices view
@@ -338,6 +350,8 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mission.qr": "Codice QR",
     "mission.shake": "Scuoti",
     "mission.open_door": "Apri porta",
+    "mission.switch": "Aziona un interruttore",
+    "mission.button": "Premi un pulsante",
     "mission.vision": "Selfie (AI)",
 
     "repeat.once": "Una volta",
@@ -415,6 +429,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "mparam.shake_count": "Scuotimenti richiesti",
     "mparam.qr_value": "Testo QR atteso (opzionale)",
     "mparam.door_entity": "Sensore porta (binary_sensor.…)",
+    "mparam.switch_entity": "Interruttore da azionare",
+    "mparam.button_entity": "Pulsante da premere",
+    "mparam.vision_camera": "Telecamera da osservare",
     "mission.vision_prompt": "Prompt di visione personalizzato (opzionale)",
     "mission.vision_prompt_ph": "Es. La persona nella foto è visibilmente sveglia e fuori dal letto?",
 
@@ -465,6 +482,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     "activity.kind_snoozed": "Posticipata",
     "activity.kind_dismissed": "Disattivata",
     "activity.kind_timeout": "Scaduta (nessuna disattivazione)",
+    "activity.kind_mission": "Disattivata dalla missione",
+    "activity.kind_vision_check": "Controllo visione",
+    "activity.vision_awake": "sveglio",
+    "activity.vision_asleep": "non ancora sveglio",
+    "activity.vision_error": "errore",
+    "activity.vision_model": "modello",
+    "activity.vision_latency": "latenza",
     "panel.select_profile": "Seleziona un profilo per configurarne i dispositivi.",
 
     "devices.loading": "Caricamento dispositivi…",

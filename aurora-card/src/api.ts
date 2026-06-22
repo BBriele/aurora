@@ -84,11 +84,20 @@ export const ringAction = (hass: HomeAssistant, service: "snooze" | "dismiss") =
 /** One entry in the activity log (how an alarm behaved), newest first. */
 export interface ActivityEvent {
   ts: string;
-  kind: "ringing" | "snoozed" | "dismissed" | "timeout";
+  kind: "ringing" | "snoozed" | "dismissed" | "timeout" | "mission" | "vision_check";
   alarm_id: string | null;
   label: string | null;
   profile_id: string | null;
-  detail?: { mission?: string; count?: number };
+  detail?: {
+    mission?: string;
+    count?: number;
+    /** vision_check granular fields (LLM telemetry for future tuning). */
+    awake?: boolean;
+    raw?: string;
+    model?: string;
+    latency_ms?: number;
+    error?: string;
+  };
 }
 
 /** Recent activity for the signed-in user (server scopes non-admins to their profile). */
