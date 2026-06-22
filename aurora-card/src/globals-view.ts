@@ -169,6 +169,9 @@ export class AuroraGlobalsView extends LitElement {
       .refs a:hover {
         text-decoration: underline;
       }
+      .refs a ha-icon {
+        --mdc-icon-size: 16px;
+      }
       .bench {
         display: flex;
         align-items: center;
@@ -218,7 +221,7 @@ export class AuroraGlobalsView extends LitElement {
   }
 
   private _head(icon: string, title: string): TemplateResult {
-    return html`<div class="cardhead"><div class="ic">${icon}</div><h3>${title}</h3></div>`;
+    return html`<div class="cardhead"><div class="ic"><ha-icon icon=${icon}></ha-icon></div><h3>${title}</h3></div>`;
   }
 
   private _ringCard(): TemplateResult {
@@ -226,7 +229,7 @@ export class AuroraGlobalsView extends LitElement {
     const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
     return html`
       <div class="card">
-        ${this._head("🔔", localize(lang, "globals.card_ring"))}
+        ${this._head("mdi:bell", localize(lang, "globals.card_ring"))}
         <div class="role">
           <div class="name">${localize(lang, "globals.ring_max")}</div>
           <input
@@ -253,7 +256,7 @@ export class AuroraGlobalsView extends LitElement {
     const cals = this._entities!.calendars ?? [];
     return html`
       <div class="card">
-        ${this._head("📅", localize(lang, "globals.card_calendar"))}
+        ${this._head("mdi:calendar", localize(lang, "globals.card_calendar"))}
         ${this._pickerRow("skip_calendars", localize(lang, "globals.skip_calendars"), cals, true)}
         ${this._pickerRow("holiday_calendars", localize(lang, "globals.holiday_calendars"), cals, true)}
       </div>
@@ -264,7 +267,7 @@ export class AuroraGlobalsView extends LitElement {
     const lang = this.hass?.language;
     return html`
       <div class="card">
-        ${this._head("☀️", localize(lang, "globals.card_briefing"))}
+        ${this._head("mdi:weather-sunny", localize(lang, "globals.card_briefing"))}
         <p class="note">${localize(lang, "globals.briefing_intro")}</p>
         ${this._pickerRow("weather", localize(lang, "globals.weather"), this._entities!.weather ?? [], false)}
         ${this._pickerRow(
@@ -323,7 +326,7 @@ export class AuroraGlobalsView extends LitElement {
     const r = this._benchResult;
     return html`
       <div class="card">
-        ${this._head("👁️", localize(lang, "mission.vision"))}
+        ${this._head("mdi:eye", localize(lang, "mission.vision"))}
         <p class="note">${localize(lang, "globals.vision_intro")}</p>
 
         <div class="role">
@@ -375,10 +378,10 @@ export class AuroraGlobalsView extends LitElement {
         <div class="detected">${active}</div>
         <div class="refs">
           <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
-            ↗ ${localize(lang, "globals.vision_ref_aitask")}
+            <ha-icon icon="mdi:open-in-new"></ha-icon> ${localize(lang, "globals.vision_ref_aitask")}
           </a>
           <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
-            ↗ ${localize(lang, "globals.vision_ref_llm")}
+            <ha-icon icon="mdi:open-in-new"></ha-icon> ${localize(lang, "globals.vision_ref_llm")}
           </a>
         </div>
       </div>

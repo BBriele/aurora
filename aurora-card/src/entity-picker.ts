@@ -77,6 +77,11 @@ export class AuroraEntityPicker extends LitElement {
         font-size: 13px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .pill button ha-icon {
+        --mdc-icon-size: 15px;
       }
       .add {
         position: relative;
@@ -121,7 +126,7 @@ export class AuroraEntityPicker extends LitElement {
             ${value.map(
               (id) => html`<div class="pill" title=${id}>
                 <span>${this._name(id)}</span>
-                <button @click=${() => this._emit(value.filter((x) => x !== id))}>✕</button>
+                <button @click=${() => this._emit(value.filter((x) => x !== id))}><ha-icon icon="mdi:close"></ha-icon></button>
               </div>`
             )}
           </div>`

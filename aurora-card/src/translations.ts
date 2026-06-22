@@ -140,7 +140,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     // alarm list
     "alarms.title": "Alarms",
     "alarms.new": "+ New",
-    "alarms.nap": "💤 Nap",
+    "alarms.nap": "Nap",
     "alarms.nap_in": "Nap in",
     "alarms.nap_label": "Nap",
     "alarms.empty": "No alarms yet — tap “+ New” to create one.",
@@ -406,7 +406,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
 
     "alarms.title": "Sveglie",
     "alarms.new": "+ Nuova",
-    "alarms.nap": "💤 Pisolino",
+    "alarms.nap": "Pisolino",
     "alarms.nap_in": "Pisolino tra",
     "alarms.nap_label": "Pisolino",
     "alarms.empty": "Nessuna sveglia — tocca “+ Nuova” per crearne una.",

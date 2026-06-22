@@ -235,6 +235,10 @@ export class AuroraAlarmList extends LitElement {
         font-size: 2.4rem;
         margin-bottom: 8px;
       }
+      .empty .big ha-icon {
+        --mdc-icon-size: 46px;
+        color: var(--aurora-dim);
+      }
     `,
   ];
 
@@ -251,7 +255,7 @@ export class AuroraAlarmList extends LitElement {
           <h3>${localize(this.hass?.language, "alarms.title")}</h3>
           <span class="spacer"></span>
           <button class="btn" @click=${() => (this._napOpen = !this._napOpen)}>
-            ${localize(this.hass?.language, "alarms.nap")}
+            <ha-icon icon="mdi:power-sleep"></ha-icon>${localize(this.hass?.language, "alarms.nap")}
           </button>
           <button class="btn primary" @click=${this._add}>
             ${localize(this.hass?.language, "alarms.new")}
@@ -270,10 +274,10 @@ export class AuroraAlarmList extends LitElement {
           : nothing}
 
         ${!this._loaded
-          ? html`<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
+          ? html`<div class="empty"><div class="big"><ha-icon icon="mdi:timer-sand"></ha-icon></div>${localize(this.hass?.language, "common.loading")}</div>`
           : visible.length === 0
             ? html`<div class="empty">
-                <div class="big">🌙</div>
+                <div class="big"><ha-icon icon="mdi:weather-night"></ha-icon></div>
                 ${localize(this.hass?.language, "alarms.empty")}
               </div>`
             : html`<div class="list">
@@ -311,7 +315,7 @@ export class AuroraAlarmList extends LitElement {
             updateAlarm(this.hass, a.id, { skip_next: !a.skip_next });
           }}
         >
-          ${a.skip_next ? "⏭" : "⤼"}
+          <ha-icon icon=${a.skip_next ? "mdi:skip-next" : "mdi:skip-next-outline"}></ha-icon>
         </button>
         <button
           class="icon-btn"
@@ -321,7 +325,7 @@ export class AuroraAlarmList extends LitElement {
             deleteAlarm(this.hass, a.id);
           }}
         >
-          🗑
+          <ha-icon icon="mdi:delete-outline"></ha-icon>
         </button>
         <div
           class="switch"

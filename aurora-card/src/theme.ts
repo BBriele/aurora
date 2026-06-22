@@ -76,6 +76,12 @@ export const auroraStyles = css`
     color: var(--aurora-text);
     background: color-mix(in srgb, var(--aurora-accent) 12%, transparent);
     transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn ha-icon {
+    --mdc-icon-size: 18px;
   }
   .btn:hover {
     background: color-mix(in srgb, var(--aurora-accent) 20%, transparent);
@@ -112,6 +118,9 @@ export const auroraStyles = css`
   .icon-btn:hover {
     background: color-mix(in srgb, var(--aurora-accent) 14%, transparent);
     color: var(--aurora-text);
+  }
+  .icon-btn ha-icon {
+    --mdc-icon-size: 20px;
   }
   /* Inputs */
   input[type="time"],
@@ -234,6 +243,10 @@ export const auroraStyles = css`
     font-size: 19px;
     background: var(--aurora-grad-soft);
     flex: none;
+  }
+  .ic ha-icon {
+    --mdc-icon-size: 22px;
+    color: var(--aurora-accent);
   }
   .role {
     padding: 14px 0 2px;

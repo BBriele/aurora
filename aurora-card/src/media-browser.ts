@@ -236,6 +236,9 @@ export class AuroraMediaBrowser extends LitElement {
         line-height: 1;
         padding: 4px;
       }
+      .x ha-icon {
+        --mdc-icon-size: 20px;
+      }
       .crumbs {
         display: flex;
         flex-wrap: wrap;
@@ -291,6 +294,10 @@ export class AuroraMediaBrowser extends LitElement {
         background-size: cover;
         background-position: center;
       }
+      .row .ic ha-icon {
+        --mdc-icon-size: 19px;
+        color: var(--aurora-accent);
+      }
       .row .t {
         flex: 1;
         overflow: hidden;
@@ -309,10 +316,20 @@ export class AuroraMediaBrowser extends LitElement {
         font-size: 17px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .row .addbtn ha-icon {
+        --mdc-icon-size: 18px;
       }
       .row .chev {
         color: var(--aurora-dim);
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .row .chev ha-icon {
+        --mdc-icon-size: 20px;
       }
       .uri {
         display: flex;
@@ -358,6 +375,11 @@ export class AuroraMediaBrowser extends LitElement {
         font-size: 12px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .tray .pill button ha-icon {
+        --mdc-icon-size: 14px;
       }
       .foot {
         display: flex;
@@ -386,7 +408,7 @@ export class AuroraMediaBrowser extends LitElement {
         <div class="sheet">
           <div class="head">
             <h3>${localize(lang, "browser.title")}</h3>
-            <button class="x" @click=${this._close} aria-label=${localize(lang, "common.cancel")}>✕</button>
+            <button class="x" @click=${this._close} aria-label=${localize(lang, "common.cancel")}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
 
           ${this._stack.length
@@ -414,7 +436,7 @@ export class AuroraMediaBrowser extends LitElement {
                 ${this._selected.map(
                   (s) => html`<span class="pill" title=${s.media_content_id}>
                     <span>${s.title}</span>
-                    <button @click=${() => this._removeSelected(s.media_content_id)}>✕</button>
+                    <button @click=${() => this._removeSelected(s.media_content_id)}><ha-icon icon="mdi:close"></ha-icon></button>
                   </span>`
                 )}
               </div>`
@@ -461,7 +483,7 @@ export class AuroraMediaBrowser extends LitElement {
     const thumb = node.thumbnail
       ? `background-image:url("${node.thumbnail}")`
       : "";
-    const icon = node.can_expand ? "📁" : "🎵";
+    const icon = node.can_expand ? "mdi:folder" : "mdi:music-note";
     const onRow = node.can_expand
       ? () => this._browse(node)
       : node.can_play
@@ -469,7 +491,7 @@ export class AuroraMediaBrowser extends LitElement {
         : undefined;
     return html`
       <button class="row" @click=${onRow} ?disabled=${!onRow}>
-        <span class="ic" style=${thumb}>${thumb ? "" : icon}</span>
+        <span class="ic" style=${thumb}>${thumb ? nothing : html`<ha-icon icon=${icon}></ha-icon>`}</span>
         <span class="t" title=${node.media_content_id}>${node.title}</span>
         ${node.can_play && node.can_expand
           ? html`<span
@@ -479,10 +501,10 @@ export class AuroraMediaBrowser extends LitElement {
                 e.stopPropagation();
                 this._add(node);
               }}
-              >＋</span
+              ><ha-icon icon="mdi:plus"></ha-icon></span
             >`
           : nothing}
-        ${node.can_expand ? html`<span class="chev">›</span>` : nothing}
+        ${node.can_expand ? html`<span class="chev"><ha-icon icon="mdi:chevron-right"></ha-icon></span>` : nothing}
       </button>
     `;
   }

@@ -4,6 +4,18 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.6 - 2026-06-22
+
+### Changed
+- **Icons harmonized**: replaced the emoji used throughout the panel with Home
+  Assistant MDI icons (`ha-icon`) so they match the rest of the UI and theme
+  with the accent color. Covers the brand mark, the alarm row actions
+  (skip/delete) and empty/loading states, the Setup device-group and Global
+  card headers, the vision/eye marks, the media browser (folder/track/add/
+  chevron/close) and entity-picker chips, and the Nap button. A few emoji that
+  live inside native `<select>` options or toast text are left as-is (an icon
+  element can't be embedded there).
+
 ## 0.26.5 - 2026-06-22
 
 ### Changed

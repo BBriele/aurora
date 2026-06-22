@@ -285,7 +285,7 @@ const STRINGS = {
         // alarm list
         "alarms.title": "Alarms",
         "alarms.new": "+ New",
-        "alarms.nap": "💤 Nap",
+        "alarms.nap": "Nap",
         "alarms.nap_in": "Nap in",
         "alarms.nap_label": "Nap",
         "alarms.empty": "No alarms yet — tap “+ New” to create one.",
@@ -528,7 +528,7 @@ const STRINGS = {
         "briefing.block.todo": "Cose da fare",
         "alarms.title": "Sveglie",
         "alarms.new": "+ Nuova",
-        "alarms.nap": "💤 Pisolino",
+        "alarms.nap": "Pisolino",
         "alarms.nap_in": "Pisolino tra",
         "alarms.nap_label": "Pisolino",
         "alarms.empty": "Nessuna sveglia — tocca “+ Nuova” per crearne una.",
@@ -757,6 +757,12 @@ const auroraStyles = i$3 `
     color: var(--aurora-text);
     background: color-mix(in srgb, var(--aurora-accent) 12%, transparent);
     transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn ha-icon {
+    --mdc-icon-size: 18px;
   }
   .btn:hover {
     background: color-mix(in srgb, var(--aurora-accent) 20%, transparent);
@@ -793,6 +799,9 @@ const auroraStyles = i$3 `
   .icon-btn:hover {
     background: color-mix(in srgb, var(--aurora-accent) 14%, transparent);
     color: var(--aurora-text);
+  }
+  .icon-btn ha-icon {
+    --mdc-icon-size: 20px;
   }
   /* Inputs */
   input[type="time"],
@@ -915,6 +924,10 @@ const auroraStyles = i$3 `
     font-size: 19px;
     background: var(--aurora-grad-soft);
     flex: none;
+  }
+  .ic ha-icon {
+    --mdc-icon-size: 22px;
+    color: var(--aurora-accent);
   }
   .role {
     padding: 14px 0 2px;
@@ -2279,7 +2292,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
           <h3>${localize(this.hass?.language, "alarms.title")}</h3>
           <span class="spacer"></span>
           <button class="btn" @click=${() => (this._napOpen = !this._napOpen)}>
-            ${localize(this.hass?.language, "alarms.nap")}
+            <ha-icon icon="mdi:power-sleep"></ha-icon>${localize(this.hass?.language, "alarms.nap")}
           </button>
           <button class="btn primary" @click=${this._add}>
             ${localize(this.hass?.language, "alarms.new")}
@@ -2296,10 +2309,10 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
             : A}
 
         ${!this._loaded
-            ? b `<div class="empty"><div class="big">⏳</div>${localize(this.hass?.language, "common.loading")}</div>`
+            ? b `<div class="empty"><div class="big"><ha-icon icon="mdi:timer-sand"></ha-icon></div>${localize(this.hass?.language, "common.loading")}</div>`
             : visible.length === 0
                 ? b `<div class="empty">
-                <div class="big">🌙</div>
+                <div class="big"><ha-icon icon="mdi:weather-night"></ha-icon></div>
                 ${localize(this.hass?.language, "alarms.empty")}
               </div>`
                 : b `<div class="list">
@@ -2336,7 +2349,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
             updateAlarm(this.hass, a.id, { skip_next: !a.skip_next });
         }}
         >
-          ${a.skip_next ? "⏭" : "⤼"}
+          <ha-icon icon=${a.skip_next ? "mdi:skip-next" : "mdi:skip-next-outline"}></ha-icon>
         </button>
         <button
           class="icon-btn"
@@ -2346,7 +2359,7 @@ let AuroraAlarmList = class AuroraAlarmList extends i {
             deleteAlarm(this.hass, a.id);
         }}
         >
-          🗑
+          <ha-icon icon="mdi:delete-outline"></ha-icon>
         </button>
         <div
           class="switch"
@@ -2505,6 +2518,10 @@ AuroraAlarmList.styles = [
       .empty .big {
         font-size: 2.4rem;
         margin-bottom: 8px;
+      }
+      .empty .big ha-icon {
+        --mdc-icon-size: 46px;
+        color: var(--aurora-dim);
       }
     `,
 ];
@@ -3911,7 +3928,7 @@ let AuroraEntityPicker = class AuroraEntityPicker extends i {
             ? b `<div class="pills">
             ${value.map((id) => b `<div class="pill" title=${id}>
                 <span>${this._name(id)}</span>
-                <button @click=${() => this._emit(value.filter((x) => x !== id))}>✕</button>
+                <button @click=${() => this._emit(value.filter((x) => x !== id))}><ha-icon icon="mdi:close"></ha-icon></button>
               </div>`)}
           </div>`
             : A}
@@ -3980,6 +3997,11 @@ AuroraEntityPicker.styles = [
         font-size: 13px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .pill button ha-icon {
+        --mdc-icon-size: 15px;
       }
       .add {
         position: relative;
@@ -4195,7 +4217,7 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
         <div class="sheet">
           <div class="head">
             <h3>${localize(lang, "browser.title")}</h3>
-            <button class="x" @click=${this._close} aria-label=${localize(lang, "common.cancel")}>✕</button>
+            <button class="x" @click=${this._close} aria-label=${localize(lang, "common.cancel")}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
 
           ${this._stack.length
@@ -4220,7 +4242,7 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
             ? b `<div class="tray">
                 ${this._selected.map((s) => b `<span class="pill" title=${s.media_content_id}>
                     <span>${s.title}</span>
-                    <button @click=${() => this._removeSelected(s.media_content_id)}>✕</button>
+                    <button @click=${() => this._removeSelected(s.media_content_id)}><ha-icon icon="mdi:close"></ha-icon></button>
                   </span>`)}
               </div>`
             : A}
@@ -4264,7 +4286,7 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
         const thumb = node.thumbnail
             ? `background-image:url("${node.thumbnail}")`
             : "";
-        const icon = node.can_expand ? "📁" : "🎵";
+        const icon = node.can_expand ? "mdi:folder" : "mdi:music-note";
         const onRow = node.can_expand
             ? () => this._browse(node)
             : node.can_play
@@ -4272,7 +4294,7 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
                 : undefined;
         return b `
       <button class="row" @click=${onRow} ?disabled=${!onRow}>
-        <span class="ic" style=${thumb}>${thumb ? "" : icon}</span>
+        <span class="ic" style=${thumb}>${thumb ? A : b `<ha-icon icon=${icon}></ha-icon>`}</span>
         <span class="t" title=${node.media_content_id}>${node.title}</span>
         ${node.can_play && node.can_expand
             ? b `<span
@@ -4282,10 +4304,10 @@ let AuroraMediaBrowser = class AuroraMediaBrowser extends i {
                 e.stopPropagation();
                 this._add(node);
             }}
-              >＋</span
+              ><ha-icon icon="mdi:plus"></ha-icon></span
             >`
             : A}
-        ${node.can_expand ? b `<span class="chev">›</span>` : A}
+        ${node.can_expand ? b `<span class="chev"><ha-icon icon="mdi:chevron-right"></ha-icon></span>` : A}
       </button>
     `;
     }
@@ -4333,6 +4355,9 @@ AuroraMediaBrowser.styles = [
         font-size: 20px;
         line-height: 1;
         padding: 4px;
+      }
+      .x ha-icon {
+        --mdc-icon-size: 20px;
       }
       .crumbs {
         display: flex;
@@ -4389,6 +4414,10 @@ AuroraMediaBrowser.styles = [
         background-size: cover;
         background-position: center;
       }
+      .row .ic ha-icon {
+        --mdc-icon-size: 19px;
+        color: var(--aurora-accent);
+      }
       .row .t {
         flex: 1;
         overflow: hidden;
@@ -4407,10 +4436,20 @@ AuroraMediaBrowser.styles = [
         font-size: 17px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .row .addbtn ha-icon {
+        --mdc-icon-size: 18px;
       }
       .row .chev {
         color: var(--aurora-dim);
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .row .chev ha-icon {
+        --mdc-icon-size: 20px;
       }
       .uri {
         display: flex;
@@ -4456,6 +4495,11 @@ AuroraMediaBrowser.styles = [
         font-size: 12px;
         line-height: 1;
         flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .tray .pill button ha-icon {
+        --mdc-icon-size: 14px;
       }
       .foot {
         display: flex;
@@ -5100,19 +5144,19 @@ function renderVisionTuning(hass, vals, models, lang, onChange) {
 
 // Roles grouped into themed cards (mirrors the Alarms page's card layout).
 const GROUPS = [
-    { key: "audio", icon: "🔊", roles: [{ key: "audio_sink", multiple: false }] },
+    { key: "audio", icon: "mdi:volume-high", roles: [{ key: "audio_sink", multiple: false }] },
     {
         key: "wake",
-        icon: "🌅",
+        icon: "mdi:weather-sunset-up",
         roles: [
             { key: "wake_light", multiple: false },
             { key: "display_surface", multiple: true },
         ],
     },
-    { key: "notify", icon: "🔔", roles: [{ key: "notify_channel", multiple: true }] },
+    { key: "notify", icon: "mdi:bell", roles: [{ key: "notify_channel", multiple: true }] },
     {
         key: "presence",
-        icon: "😴",
+        icon: "mdi:power-sleep",
         roles: [
             { key: "sleep_signal", multiple: true },
             { key: "presence_signal", multiple: true },
@@ -5120,7 +5164,7 @@ const GROUPS = [
     },
     {
         key: "voice",
-        icon: "🗣️",
+        icon: "mdi:account-voice",
         roles: [
             { key: "conversation", multiple: false },
             { key: "tts", multiple: false },
@@ -5273,7 +5317,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         return b `
       <div class="card">
         <div class="cardhead">
-          <div class="ic">${group.icon}</div>
+          <div class="ic"><ha-icon icon=${group.icon}></ha-icon></div>
           <h3>${localize(this.hass?.language, "setup.group." + group.key)}</h3>
         </div>
         ${group.roles.map((r) => this._role(r.key, r.multiple))}
@@ -5300,7 +5344,7 @@ let AuroraDevicesView = class AuroraDevicesView extends i {
         return b `
       <div class="card">
         <div class="cardhead">
-          <div class="ic">👁️</div>
+          <div class="ic"><ha-icon icon="mdi:eye"></ha-icon></div>
           <h3>${localize(lang, "mission.vision")}</h3>
         </div>
         <p class="desc inherit">${localize(lang, "devices.vision_inherits")}</p>
@@ -5540,14 +5584,14 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
     `;
     }
     _head(icon, title) {
-        return b `<div class="cardhead"><div class="ic">${icon}</div><h3>${title}</h3></div>`;
+        return b `<div class="cardhead"><div class="ic"><ha-icon icon=${icon}></ha-icon></div><h3>${title}</h3></div>`;
     }
     _ringCard() {
         const lang = this.hass?.language;
         const ringMin = Math.round(Number(this._options["ring_max_duration"] ?? 600) / 60);
         return b `
       <div class="card">
-        ${this._head("🔔", localize(lang, "globals.card_ring"))}
+        ${this._head("mdi:bell", localize(lang, "globals.card_ring"))}
         <div class="role">
           <div class="name">${localize(lang, "globals.ring_max")}</div>
           <input
@@ -5573,7 +5617,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         const cals = this._entities.calendars ?? [];
         return b `
       <div class="card">
-        ${this._head("📅", localize(lang, "globals.card_calendar"))}
+        ${this._head("mdi:calendar", localize(lang, "globals.card_calendar"))}
         ${this._pickerRow("skip_calendars", localize(lang, "globals.skip_calendars"), cals, true)}
         ${this._pickerRow("holiday_calendars", localize(lang, "globals.holiday_calendars"), cals, true)}
       </div>
@@ -5583,7 +5627,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         const lang = this.hass?.language;
         return b `
       <div class="card">
-        ${this._head("☀️", localize(lang, "globals.card_briefing"))}
+        ${this._head("mdi:weather-sunny", localize(lang, "globals.card_briefing"))}
         <p class="note">${localize(lang, "globals.briefing_intro")}</p>
         ${this._pickerRow("weather", localize(lang, "globals.weather"), this._entities.weather ?? [], false)}
         ${this._pickerRow("briefing_calendars", localize(lang, "globals.briefing_calendars"), this._entities.calendars ?? [], true)}
@@ -5638,7 +5682,7 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         const r = this._benchResult;
         return b `
       <div class="card">
-        ${this._head("👁️", localize(lang, "mission.vision"))}
+        ${this._head("mdi:eye", localize(lang, "mission.vision"))}
         <p class="note">${localize(lang, "globals.vision_intro")}</p>
 
         <div class="role">
@@ -5684,10 +5728,10 @@ let AuroraGlobalsView = class AuroraGlobalsView extends i {
         <div class="detected">${active}</div>
         <div class="refs">
           <a href=${AI_TASK_DOCS} target="_blank" rel="noopener noreferrer">
-            ↗ ${localize(lang, "globals.vision_ref_aitask")}
+            <ha-icon icon="mdi:open-in-new"></ha-icon> ${localize(lang, "globals.vision_ref_aitask")}
           </a>
           <a href=${LLM_VISION_REPO} target="_blank" rel="noopener noreferrer">
-            ↗ ${localize(lang, "globals.vision_ref_llm")}
+            <ha-icon icon="mdi:open-in-new"></ha-icon> ${localize(lang, "globals.vision_ref_llm")}
           </a>
         </div>
       </div>
@@ -5793,6 +5837,9 @@ AuroraGlobalsView.styles = [
       }
       .refs a:hover {
         text-decoration: underline;
+      }
+      .refs a ha-icon {
+        --mdc-icon-size: 16px;
       }
       .bench {
         display: flex;
@@ -5929,7 +5976,7 @@ let AuroraPanel = class AuroraPanel extends i {
                 </svg>
               </button>`
             : A}
-          <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
+          <div class="brand"><ha-icon icon="mdi:weather-sunset-up"></ha-icon><span class="grad-text">Aurora</span></div>
         </div>
 
         <div class="tabs">
@@ -6030,6 +6077,10 @@ AuroraPanel.styles = [
         align-items: center;
         gap: 8px;
         min-width: 0;
+      }
+      .brand ha-icon {
+        --mdc-icon-size: 26px;
+        color: var(--aurora-accent);
       }
       /* Narrow: tighten the header so the brand + menu button stay compact. */
       @media (max-width: 480px) {

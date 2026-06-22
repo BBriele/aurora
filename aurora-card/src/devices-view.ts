@@ -25,19 +25,19 @@ interface GroupDef {
 
 // Roles grouped into themed cards (mirrors the Alarms page's card layout).
 const GROUPS: GroupDef[] = [
-  { key: "audio", icon: "🔊", roles: [{ key: "audio_sink", multiple: false }] },
+  { key: "audio", icon: "mdi:volume-high", roles: [{ key: "audio_sink", multiple: false }] },
   {
     key: "wake",
-    icon: "🌅",
+    icon: "mdi:weather-sunset-up",
     roles: [
       { key: "wake_light", multiple: false },
       { key: "display_surface", multiple: true },
     ],
   },
-  { key: "notify", icon: "🔔", roles: [{ key: "notify_channel", multiple: true }] },
+  { key: "notify", icon: "mdi:bell", roles: [{ key: "notify_channel", multiple: true }] },
   {
     key: "presence",
-    icon: "😴",
+    icon: "mdi:power-sleep",
     roles: [
       { key: "sleep_signal", multiple: true },
       { key: "presence_signal", multiple: true },
@@ -45,7 +45,7 @@ const GROUPS: GroupDef[] = [
   },
   {
     key: "voice",
-    icon: "🗣️",
+    icon: "mdi:account-voice",
     roles: [
       { key: "conversation", multiple: false },
       { key: "tts", multiple: false },
@@ -298,7 +298,7 @@ export class AuroraDevicesView extends LitElement {
     return html`
       <div class="card">
         <div class="cardhead">
-          <div class="ic">${group.icon}</div>
+          <div class="ic"><ha-icon icon=${group.icon}></ha-icon></div>
           <h3>${localize(this.hass?.language, "setup.group." + group.key)}</h3>
         </div>
         ${group.roles.map((r) => this._role(r.key, r.multiple))}
@@ -327,7 +327,7 @@ export class AuroraDevicesView extends LitElement {
     return html`
       <div class="card">
         <div class="cardhead">
-          <div class="ic">👁️</div>
+          <div class="ic"><ha-icon icon="mdi:eye"></ha-icon></div>
           <h3>${localize(lang, "mission.vision")}</h3>
         </div>
         <p class="desc inherit">${localize(lang, "devices.vision_inherits")}</p>
