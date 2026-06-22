@@ -118,10 +118,6 @@ export class AuroraPanel extends LitElement {
         gap: 8px;
         min-width: 0;
       }
-      .brand ha-icon {
-        --mdc-icon-size: 26px;
-        color: var(--aurora-accent);
-      }
       /* Narrow: tighten the header so the brand + menu button stay compact. */
       @media (max-width: 480px) {
         .bar {
@@ -216,7 +212,7 @@ export class AuroraPanel extends LitElement {
                 </svg>
               </button>`
             : nothing}
-          <div class="brand"><ha-icon icon="mdi:weather-sunset-up"></ha-icon><span class="grad-text">Aurora</span></div>
+          <div class="brand"><span>🌅</span><span class="grad-text">Aurora</span></div>
         </div>
 
         <div class="tabs">

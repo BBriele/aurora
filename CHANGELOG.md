@@ -4,6 +4,12 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.26.7 - 2026-06-22
+
+### Changed
+- Keep the sunrise emoji on the panel brand mark; only the functional icons
+  use MDI (the brand wordmark stays playful).
+
 ## 0.26.6 - 2026-06-22
 
 ### Changed
