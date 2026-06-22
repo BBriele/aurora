@@ -245,6 +245,9 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         self._unsub_snooze: CALLBACK_TYPE | None = None
         self._unsub_mission: CALLBACK_TYPE | None = None
         self._unsub_vision: CALLBACK_TYPE | None = None
+        # The alarm + camera the active vision-dismiss loop is checking.
+        self._vision_alarm: AuroraAlarm | None = None
+        self._vision_camera: str | None = None
         self._unsub_prewake_start: CALLBACK_TYPE | None = None
         self._unsub_prewake_eval: CALLBACK_TYPE | None = None
         self._fusion: SleepFusion | None = None
@@ -375,6 +378,8 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
         if self._unsub_vision is not None:
             self._unsub_vision()
             self._unsub_vision = None
+        self._vision_alarm = None
+        self._vision_camera = None
 
     @callback
     def _setup_mission_watch(self, alarm: AuroraAlarm) -> None:
@@ -434,23 +439,32 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             # view explains the silent ring-out instead of leaving it a mystery.
             self._record_activity(alarm, "vision_check", {"error": "no_camera"})
             return
-        self._arm_vision(alarm, camera_id, VISION_MISSION_FIRST_S)
+        self._vision_alarm = alarm
+        self._vision_camera = camera_id
+        self._arm_vision(VISION_MISSION_FIRST_S)
 
     @callback
-    def _arm_vision(self, alarm: AuroraAlarm, camera_id: str, delay: float) -> None:
-        """Schedule the next vision tick after ``delay`` seconds."""
-        self._unsub_vision = async_call_later(
-            self.hass,
-            delay,
-            lambda _now: self.config_entry.async_create_task(
-                self.hass, self._vision_tick(alarm, camera_id), "aurora_vision_tick"
-            ),
-        )
+    def _arm_vision(self, delay: float) -> None:
+        """Schedule the next vision tick after ``delay`` seconds.
 
-    async def _vision_tick(self, alarm: AuroraAlarm, camera_id: str) -> None:
+        ``_vision_tick`` is passed directly (a coroutine function): HA runs it on
+        the event loop as a tracked task. A plain lambda would be treated as a
+        non-callback job and dispatched to the executor thread, where creating
+        the task fails ("coroutine was never awaited").
+        """
+        self._unsub_vision = async_call_later(self.hass, delay, self._vision_tick)
+
+    async def _vision_tick(self, _now: datetime | None = None) -> None:
         """Snapshot the camera, run the AI check, log it, dismiss when awake."""
         self._unsub_vision = None
-        if self._state is not AuroraState.RINGING or self._active_alarm is None:
+        alarm = self._vision_alarm
+        camera_id = self._vision_camera
+        if (
+            alarm is None
+            or camera_id is None
+            or self._state is not AuroraState.RINGING
+            or self._active_alarm is None
+        ):
             return
         try:
             image = await camera.async_get_image(self.hass, camera_id, timeout=10)
@@ -461,7 +475,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             )
             self._record_activity(alarm, "vision_check", {"error": "snapshot_failed"})
             if self._state is AuroraState.RINGING:
-                self._arm_vision(alarm, camera_id, VISION_MISSION_INTERVAL_S)
+                self._arm_vision(VISION_MISSION_INTERVAL_S)
             return
         result = await self.async_vision_check(image_b64, alarm.id)
         # Granular per-attempt log: the verdict *and* the model's raw answer +
@@ -481,7 +495,7 @@ class AuroraCoordinator(DataUpdateCoordinator[AuroraCoordinatorData]):
             await self.async_dismiss(reason="mission")
             return
         if self._state is AuroraState.RINGING:
-            self._arm_vision(alarm, camera_id, VISION_MISSION_INTERVAL_S)
+            self._arm_vision(VISION_MISSION_INTERVAL_S)
 
     @callback
     def _get_alarm(self, alarm_id: str) -> AuroraAlarm | None:

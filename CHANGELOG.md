@@ -4,6 +4,16 @@ All notable changes to Aurora are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.28.1 - 2026-06-22
+
+### Fixed
+- **Vision-dismiss loop never ran.** The per-tick scheduler passed a plain
+  lambda to the delayed-callback helper, which Home Assistant dispatched on the
+  executor thread; creating the async check there failed silently ("coroutine
+  was never awaited") so the alarm rang on with no vision checks logged. The
+  tick is now scheduled as a coroutine on the event loop, so the camera
+  snapshot + AI check actually run and appear in the Activity view.
+
 ## 0.28.0 - 2026-06-22
 
 ### Added
